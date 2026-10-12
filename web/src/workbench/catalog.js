@@ -14,14 +14,14 @@ export const STATUS_LABELS = {
   disabled: '未启用',
 }
 
-// 门诊接口尚未接入：一期六步都可进入空态，徽标为开发中。
+// 2026-10-12 P1-H05-PATIENT-UI 建档已可保存和查询。其余五步仍是空态，徽标为开发中。
 // status 为 disabled 时不提供路由，避免跳进空白业务页。
 export const OUTPATIENT_MODULES = [
   {
     key: 'patient',
     name: '患者建档',
     blurb: '建档、查询主索引',
-    status: 'developing',
+    status: 'available',
     roles: ['REGISTRAR', 'DOCTOR', 'CASHIER', 'PHARMACIST', 'SYSTEM'],
     recommendFor: ['REGISTRAR'],
   },

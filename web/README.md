@@ -1,6 +1,6 @@
 # B-HIS Web 登录
 
-Vue 3 + Vue Router + Vite。登录页对接 H03 OpenAPI **0.3.2** 的 Auth；登录成功进入首页看板 `/app`（侧栏进入门诊六步，模块页为空态）：
+Vue 3 + Vue Router + Vite。登录页对接 H03 OpenAPI **0.3.2** 的 Auth；登录成功进入首页看板 `/app`。侧栏仍在。患者建档可保存和查询；挂号、开单、收费、发药、退药/退费仍是空态：
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
@@ -39,7 +39,27 @@ npm run dev
 
 首页主区是工作台：待办一行（待收费、待发药为 0，可进入对应空态；进销存未上传、未贯标提醒为二期，不能点；库存预警为 0 的弱占位）、经营概况（今天 / 昨天 / 本周 / 本月、日期按钮二期、刷新）、收费行和客流行、两张等分圆环（收入来源、支付方式，图例都是 0）。页上标明「演示 / 占位」。切换时间和刷新不会改数字，也不请求经营接口。
 
-`/app/outpatient` 仍是六张卡的总览，不是登录落地页。顺序不变：患者建档、挂号、开单、收费、发药、退药/退费。门诊接口还没接入，徽标是「开发中」；有权限时「进入」打开空态「接口就绪后开放」，没有假列表。无权限的卡保持原位、灰显。顶上有一条可关闭的闭环提示。
+`/app/outpatient` 仍是六张卡的总览，不是登录落地页。顺序不变：患者建档、挂号、开单、收费、发药、退药/退费。患者建档徽标是「可用」，进入 `/app/outpatient/patient`（档案管理里的「患者建档」同一条路由）。其余五步徽标仍是「开发中」，有权限时打开空态「接口就绪后开放」，没有假列表。无权限的卡保持原位、灰显。顶上有一条可关闭的闭环提示。
+
+## 患者建档
+
+页面在现有侧栏里。必填：姓名、性别、出生日期、费别。选填：身份证号、手机号、地址。没有发卡、充值、民族、婚姻。费别先写死「自费」和「其他（占位）」。
+
+地址选填。填写后随建档请求提交 `address`；留空则不传该字段。
+
+保存成功显示患者号、患者标识，并给出「去挂号」（带到 `/app/outpatient/register?patientId=`）。挂号页本身仍是空态。
+
+身份证号非空且已存在时拒绝创建，不合并。真实接口返回 `409 DUPLICATE_ID_NUMBER`（页面也认旧码 `DUPLICATE_PATIENT`），提示「该身份证号已存在，不能重复建档」，可「打开已有患者」。空身份证号允许再次保存。卡号冲突为 `409 DUPLICATE_CARD_NO`，提示「卡号已存在，不能重复建档」。本页不采集卡号。
+
+查询：姓名按连续文字，身份证号按完整值，都发给 `GET /api/v1/patients`。患者号不是契约查询参数，只在当次已加载结果里精确过滤。
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `POST` | `/api/v1/patients` | 201 `PatientDto`。请求 `name`、`sex`、`birthday`、`fareIdentity`，有证件时加 `idType=ID_CARD`、`idNumber`，有手机号时加 `phone`，有地址时加 `address` |
+| `GET` | `/api/v1/patients` | `{ items: PatientDto[] }`，查询参数 `name`、`idNumber` |
+| `GET` | `/api/v1/patients/{patientId}` | 一条 `PatientDto` |
+
+切换方式和登录相同：仓库里的 `web/.env` 默认 `VITE_USE_MOCK=true`。联调真接口时在 `web/.env.local` 写 `VITE_USE_MOCK=false`，`VITE_API_BASE_URL=/api/v1`，`VITE_API_PROXY_TARGET=http://127.0.0.1:8080`，然后重新 `npm run dev`。演示账号 `system` / `1`。Go API 需已启动。
 
 ## 本地运行
 
@@ -60,7 +80,7 @@ pnpm dev
 浏览器打开 http://localhost:5173 。提交时按钮禁用并显示「登录中…」；再次提交会清掉上一条错误。
 
 ```bash
-npm run check       # Mock、工作台入口、以及本机假 HTTP（ErrorBody / 204）。不访问 Go API
+npm run check       # Mock 登录、工作台入口、本机假 HTTP、建档校验与查询。不访问 Go API
 npm run check:api   # 仅当 VITE_USE_MOCK=false 时打真 API；否则跳过。CI 不跑
 npm run build       # 生产构建
 ```

@@ -1645,3 +1645,201 @@ a.todo-card:hover {
     transition: none;
   }
 }
+
+/* 2026-10-12 P1-H05-PATIENT-UI 建档页，沿用首页青蓝工作区。 */
+
+.patient-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.patient-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.patient-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #e4eaee;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.panel-head h2 {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.field-wide {
+  grid-column: 1 / -1;
+}
+
+.patient-page .field span {
+  font-weight: 700;
+}
+
+.req {
+  color: var(--danger);
+  text-decoration: none;
+}
+
+.patient-page input,
+.patient-page select,
+.patient-page textarea {
+  width: 100%;
+  height: 36px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  padding: 0 10px;
+  background: #fff;
+  font: inherit;
+  color: inherit;
+}
+
+.patient-page textarea {
+  height: auto;
+  min-height: 64px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.patient-page select:disabled,
+.patient-page textarea:disabled {
+  background: #f3f6f8;
+  color: #6d8290;
+  cursor: not-allowed;
+}
+
+.field-hint {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.button-compact {
+  height: 36px;
+  margin-top: 0;
+  padding: 0 16px;
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+}
+
+.text-btn {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--teal);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.text-btn:hover:enabled {
+  text-decoration: underline;
+}
+
+.text-btn-danger {
+  color: var(--danger);
+  text-align: left;
+}
+
+.ok-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid #b7e2cf;
+  border-left: 3px solid var(--ok);
+  border-radius: 4px;
+  background: var(--ok-soft);
+  color: #135c40;
+  font-size: 14px;
+}
+
+.ok-title {
+  font-weight: 700;
+}
+
+.ok-banner .button {
+  margin-top: 6px;
+}
+
+.mono {
+  font-variant-numeric: tabular-nums;
+  word-break: break-all;
+}
+
+.result-wrap {
+  overflow: auto;
+}
+
+.result-empty {
+  margin: 0;
+  padding: 18px 8px;
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.patient-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.patient-table th,
+.patient-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #e6eef2;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.patient-table th {
+  background: #f4fafb;
+  color: #3d5666;
+  font-weight: 700;
+}
+
+.patient-table tbody tr {
+  cursor: pointer;
+}
+
+.patient-table tbody tr:hover,
+.patient-table tbody tr.is-active {
+  background: var(--teal-soft);
+}
+
+@media (max-width: 960px) {
+  .patient-layout,
+  .field-grid {
+    grid-template-columns: 1fr;
+  }
+}

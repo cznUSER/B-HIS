@@ -10,6 +10,10 @@ const MESSAGE_BY_CODE = {
   TOKEN_INVALID: '登录凭证无效，请重新登录',
   FORBIDDEN: '没有权限执行该操作',
   VALIDATION_ERROR: '请输入用户名和密码',
+  DUPLICATE_PATIENT: '该身份证号已存在，不能重复建档',
+  DUPLICATE_ID_NUMBER: '该身份证号已存在，不能重复建档',
+  DUPLICATE_CARD_NO: '卡号已存在，不能重复建档',
+  NOT_FOUND: '未找到患者',
 }
 
 const CODE_BY_STATUS = {
