@@ -43,6 +43,9 @@ func classifyWriteError(err error) error {
 		return port.ErrDuplicateBusinessNo
 	case strings.Contains(msg, "ux_order_no"), strings.Contains(msg, "pk_order_sheet"):
 		return port.ErrDuplicateBusinessNo
+	case strings.Contains(msg, "ux_charge_square_no"), strings.Contains(msg, "pk_charge"),
+		strings.Contains(msg, "ux_payment_no"), strings.Contains(msg, "pk_payment"):
+		return port.ErrDuplicateBusinessNo
 	default:
 		return err
 	}

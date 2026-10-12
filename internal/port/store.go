@@ -33,6 +33,14 @@ var (
 	ErrOrderChargedNotAbatable = errors.New("order charged not abatable")
 	// ErrIllegalStateTransition is a refused status change (PROC/ABATE abate, etc.).
 	ErrIllegalStateTransition = errors.New("illegal state transition")
+	// ErrChargeExists is a second Charge for an order that already has one (default 1:1, no split).
+	ErrChargeExists = errors.New("charge exists for order")
+	// ErrChargeAlreadyPaid is a second pay of a charge that already has paid_at.
+	ErrChargeAlreadyPaid = errors.New("charge already paid")
+	// ErrChargeAlreadyAbated is a refund of an ABATE charge.
+	ErrChargeAlreadyAbated = errors.New("charge already abated")
+	// ErrChargeNotPaid is a refund before pay.
+	ErrChargeNotPaid = errors.New("charge not paid")
 )
 
 // UserStore loads identity records. Phase1 default is SQL Server; memory is the local demo.
@@ -124,4 +132,38 @@ type OrderStore interface {
 	// charged=true returns ErrOrderChargedNotAbatable. Other statuses return ErrIllegalStateTransition.
 	AbateOrder(ctx context.Context, orderID, operatorID string, at time.Time) (*domain.Order, error)
 	CatalogByItemNo(ctx context.Context, itemNo string) (*domain.CatalogItem, error)
+}
+
+// ChargeQuery is an AND of the provided filters. Empty strings are ignored.
+// FromDate and ToDate are inclusive Asia/Shanghai calendar days (YYYY-MM-DD)
+// matched against charge.created_at, not the register visit date. 2026-10-12
+type ChargeQuery struct {
+	PatientID  string
+	RegisterID string
+	OrderID    string
+	FromDate   string
+	ToDate     string
+	Limit      int
+}
+
+// ChargeStore is the square, its items, and its payments.
+// memory and sqlserver both implement it. Pay and refund are one transaction each.
+// Drug on-hand and dispense/return quantities are a charge-side stub (not 005 columns):
+// default drug on-hand is domain.DefaultDrugOnHandMilli so the demo catalog can pay,
+// and tests can lower it to reach INSUFFICIENT_STOCK. 2026-10-12
+type ChargeStore interface {
+	CreateCharge(ctx context.Context, c domain.Charge) error
+	GetCharge(ctx context.Context, chargeID string) (*domain.Charge, error)
+	SearchCharges(ctx context.Context, q ChargeQuery) ([]domain.Charge, error)
+	// PayCharge sets paid_at, inserts a CHARGE payment, and marks the order charged.
+	PayCharge(ctx context.Context, chargeID string, payment domain.Payment) (*domain.Charge, *domain.Payment, error)
+	// RefundCharge abates old, optionally inserts the remainder charge, and inserts a REFUND payment.
+	// newCharge nil means a full refund (no zero-amount square).
+	RefundCharge(ctx context.Context, old domain.Charge, newCharge *domain.Charge, payment domain.Payment) (*domain.Charge, *domain.Charge, *domain.Payment, error)
+	// DrugOnHandMilli is the stub on-hand for a drug item_no (quantity × 1000).
+	// Unknown item numbers use domain.DefaultDrugOnHandMilli.
+	DrugOnHandMilli(ctx context.Context, itemNo string) (int64, error)
+	// DispenseLedger is the stub dispensed/returned quantity for one charge item (× 1000).
+	// ok is false when nobody has recorded an explicit ledger row.
+	DispenseLedger(ctx context.Context, chargeItemID string) (dispensedMilli, returnedMilli int64, ok bool, err error)
 }

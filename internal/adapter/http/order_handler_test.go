@@ -40,6 +40,7 @@ func newOrderHTTP(t *testing.T) (*httptest.Server, *memory.Store, *auth.Issuer) 
 		Patients:    st,
 		Registers:   st,
 		Orders:      st,
+		Charges:     st,
 		Tokens:      issuer,
 		Log:         log,
 		TTL:         ttl,
@@ -72,7 +73,7 @@ func TestOrderHTTP(t *testing.T) {
 
 	t.Run("health version", func(t *testing.T) {
 		code, body := getAuth(t, ts.URL+"/health", "")
-		if code != 200 || !strings.Contains(string(body), `"version":"0.3.7-draft"`) {
+		if code != 200 || !strings.Contains(string(body), `"version":"0.3.8-draft"`) {
 			t.Fatalf("%d %s", code, body)
 		}
 	})
@@ -488,7 +489,7 @@ func TestOrderHTTP(t *testing.T) {
 			t.Fatalf("recipe %d %s", code, body)
 		}
 		code, body = getAuth(t, base+"/"+created.OrderID+"/charge-preview", tok)
-		if code != 501 || decodeErr(t, body).Error.Code != "NOT_IMPLEMENTED" {
+		if code != 200 || !strings.Contains(string(body), `"squareFee":20`) || !strings.Contains(string(body), `"favourableFee":0`) {
 			t.Fatalf("preview %d %s", code, body)
 		}
 		code, body, _ = postJSON(t, base+"/"+created.OrderID+"/dispense", `{}`, authHdr(tok))

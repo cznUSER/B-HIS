@@ -13,6 +13,9 @@ const (
 	ActionOrderCreate     = "order.create"
 	ActionOrderCommit     = "order.commit"
 	ActionOrderAbate      = "order.abate"
+	ActionChargeCreate    = "charge.create"
+	ActionChargePay       = "charge.pay"
+	ActionChargeRefund    = "charge.refund"
 
 	OutcomeSuccess = "SUCCESS"
 	OutcomeFail    = "FAIL"

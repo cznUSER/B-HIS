@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"sync"
 	"time"
 
 	_ "github.com/microsoft/go-mssqldb"
@@ -14,8 +15,12 @@ import (
 )
 
 // Store implements identity ports on SQL Server.
+// drugOnHand and dispense are process-local charge stubs (not 005 columns). 2026-10-12
 type Store struct {
-	db *sql.DB
+	db         *sql.DB
+	mu         sync.Mutex
+	drugOnHand map[string]int64
+	dispense   map[string]dispenseRec
 }
 
 func Open(dsn string) (*sql.DB, error) {
@@ -32,7 +37,13 @@ func Open(dsn string) (*sql.DB, error) {
 	return db, nil
 }
 
-func New(db *sql.DB) *Store { return &Store{db: db} }
+func New(db *sql.DB) *Store {
+	return &Store{
+		db:         db,
+		drugOnHand: make(map[string]int64),
+		dispense:   make(map[string]dispenseRec),
+	}
+}
 
 func (s *Store) FindByUsername(ctx context.Context, username string) (*domain.User, error) {
 	return s.find(ctx, `SELECT user_id, username, display_name, password_hash, status
