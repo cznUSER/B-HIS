@@ -337,7 +337,7 @@ func (s *Store) CatalogByItemNo(ctx context.Context, itemNo string) (*domain.Cat
 	err := s.db.QueryRowContext(ctx, `
 		SELECT catalog_item_id, item_no, item_name, item_type, spec, units, price, status
 		FROM dbo.catalog_item
-		WHERE item_no = @item_no AND is_deleted = 0 AND status = 'ACTIVE'`,
+		WHERE item_no = @item_no AND is_deleted = 0`,
 		sql.Named("item_no", itemNo),
 	).Scan(&c.CatalogItemID, &c.ItemNo, &c.ItemName, &c.ItemType, &spec, &c.Units, &price, &c.Status)
 	if errors.Is(err, sql.ErrNoRows) {

@@ -53,6 +53,24 @@ var (
 	ErrReturnExceeds = errors.New("return exceeds dispense")
 	// ErrNotDispensed is a return of a line that was not dispensed or is unknown.
 	ErrNotDispensed = errors.New("not dispensed")
+	// ErrDuplicateDeptCode is a live department.dept_code clash (ux_department_dept_code).
+	ErrDuplicateDeptCode = errors.New("duplicate dept code")
+	// ErrDuplicateDoctorCode is a live doctor.doctor_code clash.
+	ErrDuplicateDoctorCode = errors.New("duplicate doctor code")
+	// ErrDuplicateItemNo is a live catalog item_no or inventory item_no clash.
+	ErrDuplicateItemNo = errors.New("duplicate item no")
+	// ErrDuplicateUsername is a live app_user.username clash.
+	ErrDuplicateUsername = errors.New("duplicate username")
+	// ErrDuplicateDictCode is a live dict_item (dict_type, code) clash.
+	ErrDuplicateDictCode = errors.New("duplicate dict code")
+	// ErrAdjustNegative is an inventory adjust whose result would be below zero.
+	ErrAdjustNegative = errors.New("adjust result negative")
+	// ErrNotDrugSKU is an adjust of a missing inventory row (TREAT has none).
+	ErrNotDrugSKU = errors.New("not drug sku")
+	// ErrConflict is an optimistic row_version mismatch.
+	ErrConflict = errors.New("conflict")
+	// ErrDictTypeReadonly is a write to a system enum that is not a maintainable code table.
+	ErrDictTypeReadonly = errors.New("dict type readonly")
 )
 
 // UserStore loads identity records. Phase1 default is SQL Server; memory is the local demo.
@@ -116,6 +134,10 @@ type RegisterStore interface {
 	CheckInRegister(ctx context.Context, registerID, operatorID string, at time.Time) (*domain.Register, error)
 	DepartmentExists(ctx context.Context, departmentID string) (bool, error)
 	DoctorExists(ctx context.Context, doctorID string) (bool, error)
+	// GetDepartment and GetDoctor return inactive rows. Missing or soft-deleted rows are ErrNotFound.
+	// Callers that open a new register or order must reject status != ACTIVE. 2026-10-13
+	GetDepartment(ctx context.Context, departmentID string) (*domain.Department, error)
+	GetDoctor(ctx context.Context, doctorID string) (*domain.Doctor, error)
 }
 
 // OrderQuery is an AND of the provided filters. Empty strings are ignored.

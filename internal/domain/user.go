@@ -15,6 +15,7 @@ const (
 
 const (
 	StatusActive   = "ACTIVE"
+	StatusInactive = "INACTIVE"
 	StatusDisabled = "DISABLED"
 )
 
@@ -27,6 +28,9 @@ type User struct {
 	Roles        []Role
 	Status       string
 	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	CreatedBy    string
+	UpdatedBy    string
 }
 
 func (u User) Active() bool {

@@ -13,9 +13,10 @@ import (
 	"github.com/cznUSER/B-HIS/internal/logging"
 )
 
-// Handler serves Auth, Patients, Registers (including check-in), Orders, Charges, and Dispenses.
+// Handler serves Auth, Patients, Registers (including check-in), Orders, Charges, Dispenses,
+// and master data (departments, doctors, catalog, inventory adjust, dicts, users).
 // Complete, diagnoses, and deprecated /encounters are not registered.
-// recipe-check returns 501. POST /orders/{orderId}/dispense is the dispense alias. 2026-10-12
+// recipe-check returns 501. POST /orders/{orderId}/dispense is the dispense alias. 2026-10-13
 type Handler struct {
 	svc        *app.Service
 	log        *logging.Logger
@@ -57,6 +58,27 @@ func New(svc *app.Service, log *logging.Logger, origins []string, driver string,
 	mux.HandleFunc("GET /api/v1/dispenses/{dispenseId}", h.getDispense)
 	mux.HandleFunc("POST /api/v1/dispenses/{dispenseId}/return", h.returnDispense)
 	mux.HandleFunc("GET /api/v1/inventory/items", h.listInventory)
+	mux.HandleFunc("POST /api/v1/inventory/items/{skuId}/adjust", h.adjustInventory)
+	mux.HandleFunc("GET /api/v1/departments", h.listDepartments)
+	mux.HandleFunc("POST /api/v1/departments", h.createDepartment)
+	mux.HandleFunc("GET /api/v1/departments/{departmentId}", h.getDepartment)
+	mux.HandleFunc("PATCH /api/v1/departments/{departmentId}", h.patchDepartment)
+	mux.HandleFunc("GET /api/v1/doctors", h.listDoctors)
+	mux.HandleFunc("POST /api/v1/doctors", h.createDoctor)
+	mux.HandleFunc("GET /api/v1/doctors/{doctorId}", h.getDoctor)
+	mux.HandleFunc("PATCH /api/v1/doctors/{doctorId}", h.patchDoctor)
+	mux.HandleFunc("GET /api/v1/catalog-items", h.listCatalog)
+	mux.HandleFunc("POST /api/v1/catalog-items", h.createCatalog)
+	mux.HandleFunc("GET /api/v1/catalog-items/{catalogItemId}", h.getCatalog)
+	mux.HandleFunc("PATCH /api/v1/catalog-items/{catalogItemId}", h.patchCatalog)
+	mux.HandleFunc("GET /api/v1/dicts", h.listDicts)
+	mux.HandleFunc("GET /api/v1/dicts/{dictType}/items", h.listDictItems)
+	mux.HandleFunc("POST /api/v1/dicts/{dictType}/items", h.createDictItem)
+	mux.HandleFunc("PATCH /api/v1/dicts/{dictType}/items/{dictItemId}", h.patchDictItem)
+	mux.HandleFunc("GET /api/v1/users", h.listUsers)
+	mux.HandleFunc("POST /api/v1/users", h.createUser)
+	mux.HandleFunc("PATCH /api/v1/users/{userId}", h.patchUser)
+	mux.HandleFunc("POST /api/v1/users/{userId}/reset-password", h.resetUserPassword)
 	mux.HandleFunc("GET /health", h.health)
 	return withRequestID(recoverPanic(log, accessLog(log, cors(origins, mux))))
 }
@@ -109,11 +131,10 @@ func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, user)
 }
 
-// healthContractVersion matches OpenAPI info.version (P1-H03-MASTER).
-// healthImplementedVersion stays at dispense: master CRUD handlers are not registered. 2026-10-13
+// healthContractVersion and healthImplementedVersion match OpenAPI info.version. 2026-10-13
 const (
 	healthContractVersion    = "0.3.10-draft"
-	healthImplementedVersion = "0.3.9-draft"
+	healthImplementedVersion = "0.3.10-draft"
 )
 
 func (h *Handler) health(w http.ResponseWriter, r *http.Request) {

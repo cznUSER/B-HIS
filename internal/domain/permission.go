@@ -14,6 +14,7 @@ const (
 	PermDispenseCreate   = "dispense:create"
 	PermDispenseReturn   = "dispense:return"
 	PermInventoryRead    = "inventory:read"
+	PermInventoryAdjust  = "inventory:adjust"
 	PermAuditRead        = "audit:read"
 	PermAdminAll         = "admin:*"
 )

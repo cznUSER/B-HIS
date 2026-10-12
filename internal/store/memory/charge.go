@@ -237,6 +237,11 @@ func (s *Store) SetDrugOnHandMilli(itemNo string, milli int64) error {
 	it.QtyOnHandMilli = milli
 	it.IsDeleted = false
 	it.Status = domain.InventoryStatusActive
+	if it.RowVersion == "" {
+		it.RowVersion = "1"
+	} else {
+		it.RowVersion = bumpRowVersion(it.RowVersion)
+	}
 	s.inventory[itemNo] = it
 	return nil
 }

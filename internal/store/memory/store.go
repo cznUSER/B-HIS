@@ -29,6 +29,7 @@ type Store struct {
 	ledgers      []domain.InventoryLedger
 	dispenses    map[string]domain.Dispense
 	dispenseStub map[string]dispenseRec
+	dicts        map[string]domain.DictItem
 }
 
 func New() *Store {
@@ -47,20 +48,61 @@ func New() *Store {
 		inventory:    make(map[string]domain.InventoryItem),
 		dispenses:    make(map[string]domain.Dispense),
 		dispenseStub: make(map[string]dispenseRec),
+		dicts:        make(map[string]domain.DictItem),
 	}
-	s.Add(seed.DemoUser())
-	s.Add(seed.DisabledUser())
+	seedAt := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	demo := seed.DemoUser()
+	demo.CreatedAt = seedAt
+	demo.UpdatedAt = seedAt
+	demo.CreatedBy = "system"
+	demo.UpdatedBy = "system"
+	s.Add(demo)
+	disabled := seed.DisabledUser()
+	disabled.CreatedAt = seedAt
+	disabled.UpdatedAt = seedAt
+	disabled.CreatedBy = "system"
+	disabled.UpdatedBy = "system"
+	s.Add(disabled)
 	for _, d := range seed.Departments() {
+		d.CreatedAt = seedAt
+		d.UpdatedAt = seedAt
+		d.CreatedBy = "system"
+		d.UpdatedBy = "system"
 		s.departments[d.DepartmentID] = d
 	}
 	for _, d := range seed.Doctors() {
+		d.CreatedAt = seedAt
+		d.UpdatedAt = seedAt
+		d.CreatedBy = "system"
+		d.UpdatedBy = "system"
 		s.doctors[d.DoctorID] = d
 	}
 	for _, c := range seed.CatalogItems() {
+		c.CreatedAt = seedAt
+		c.UpdatedAt = seedAt
+		c.CreatedBy = "system"
+		c.UpdatedBy = "system"
 		s.catalog[c.ItemNo] = c
 	}
 	for _, it := range seed.InventoryItems() {
+		it.CreatedAt = seedAt
+		it.UpdatedAt = seedAt
+		it.CreatedBy = "system"
+		it.UpdatedBy = "system"
+		it.RowVersion = "1"
 		s.inventory[it.ItemNo] = it
+	}
+	s.dicts["dict-sort-normal"] = domain.DictItem{
+		DictItemID: "dict-sort-normal",
+		DictType:   "register_sort",
+		Code:       "sort-normal",
+		Name:       "普通号",
+		Status:     domain.StatusActive,
+		SortNo:     0,
+		CreatedAt:  seedAt,
+		CreatedBy:  "system",
+		UpdatedAt:  seedAt,
+		UpdatedBy:  "system",
 	}
 	return s
 }

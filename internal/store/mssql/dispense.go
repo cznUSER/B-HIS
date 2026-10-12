@@ -343,7 +343,8 @@ func (s *Store) SearchDispenses(ctx context.Context, q port.DispenseQuery) ([]do
 
 func (s *Store) ListInventory(ctx context.Context, itemNo string) ([]domain.InventoryItem, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT sku_id, item_no, item_name, CONVERT(varchar(40), qty_on_hand), units, status
+		SELECT sku_id, item_no, item_name, CONVERT(varchar(40), qty_on_hand), units, status,
+			CONVERT(varchar(30), CONVERT(bigint, row_version)), updated_at
 		FROM dbo.inventory_item
 		WHERE is_deleted = 0 AND (@item_no IS NULL OR item_no = @item_no)
 		ORDER BY item_no`,
@@ -357,7 +358,7 @@ func (s *Store) ListInventory(ctx context.Context, itemNo string) ([]domain.Inve
 	for rows.Next() {
 		var it domain.InventoryItem
 		var qty sql.NullString
-		if err := rows.Scan(&it.SkuID, &it.ItemNo, &it.ItemName, &qty, &it.Units, &it.Status); err != nil {
+		if err := rows.Scan(&it.SkuID, &it.ItemNo, &it.ItemName, &qty, &it.Units, &it.Status, &it.RowVersion, &it.UpdatedAt); err != nil {
 			return nil, err
 		}
 		milli, err := decimalToMilli(qty.String)

@@ -143,6 +143,26 @@ func (s *Store) DoctorExists(_ context.Context, doctorID string) (bool, error) {
 	return ok && !d.IsDeleted, nil
 }
 
+func (s *Store) GetDepartment(_ context.Context, departmentID string) (*domain.Department, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	d, ok := s.departments[departmentID]
+	if !ok || d.IsDeleted {
+		return nil, port.ErrNotFound
+	}
+	return &d, nil
+}
+
+func (s *Store) GetDoctor(_ context.Context, doctorID string) (*domain.Doctor, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	d, ok := s.doctors[doctorID]
+	if !ok || d.IsDeleted {
+		return nil, port.ErrNotFound
+	}
+	return &d, nil
+}
+
 // SetRegisterStatus overwrites status for fixtures that need a non-NORMAL bill
 // without check-in. It does not write back columns. 2026-10-12
 func (s *Store) SetRegisterStatus(registerID, status string) error {
