@@ -1,4 +1,5 @@
 // 2026-10-12 P1-H05-REGISTER-UI 挂号校验、退号规则，以及 /registers 真实接口形状。
+// 2026-10-12 P1-H05b-REGISTER-CHECKIN-UI 报到：Mock 成功/409，以及 check-in 请求形状。
 import { readFileSync } from 'node:fs'
 import http from 'node:http'
 import { ApiError } from '../src/api/errors.js'
@@ -7,9 +8,10 @@ import { mockCreatePatient, resetMockPatients } from '../src/api/mockPatients.js
 import { resetPatientClientCache } from '../src/api/patientApi.js'
 import { todayInShanghai } from '../src/api/patientContract.js'
 import { assertCreateRegisterRequest } from '../src/api/registerContract.js'
-import { cancelRegister, createRegister, listRegisters, presentRegisterError } from '../src/api/registerApi.js'
+import { cancelRegister, checkInRegister, createRegister, listRegisters, presentCheckInError, presentRegisterError } from '../src/api/registerApi.js'
 import {
   mockCancelRegister,
+  mockCheckInRegister,
   mockCreateRegister,
   mockListRegisters,
   resetMockRegisters,
@@ -18,6 +20,7 @@ import {
 import {
   cancelRejectMessage,
   canCancel,
+  canCheckIn,
   doctorsForDept,
   statusLabel,
 } from '../src/register/master.js'
@@ -53,6 +56,12 @@ assert(doctorsForDept('').length === 0, '未选科室没有医生')
 assert(canCancel('NORMAL') === true, '正常号可退')
 for (const status of ['USED', 'DIAGNOSING', 'DIAGNOSED', 'PAUSED', 'BACK']) {
   assert(canCancel(status) === false, `${status} 不可退`)
+}
+for (const status of ['NORMAL', 'USED']) {
+  assert(canCheckIn(status) === true, `${status} 可报到`)
+}
+for (const status of ['DIAGNOSING', 'DIAGNOSED', 'PAUSED', 'BACK', '']) {
+  assert(canCheckIn(status) === false, `${status || '空'} 不可报到`)
 }
 assert(statusLabel('NORMAL') === '正常号', '正常号文案')
 assert(statusLabel('BACK') === '退号', '退号文案')
@@ -152,11 +161,129 @@ assert(apiList.items.some((item) => item.registerId === viaApi.registerId && ite
 const apiBack = await cancelRegister(token, viaApi.registerId)
 assert(apiBack.status === 'BACK', 'api 退号')
 
+const checkInSource = mockCreateRegister(token, {
+  patientId: patient.patientId,
+  departmentId: 'dept-1',
+  doctorId: 'doc-1',
+  visitDate: today,
+})
+const checked = mockCheckInRegister(token, checkInSource.registerId)
+assert(checked.status === 'DIAGNOSING', '报到后就诊中')
+assert(statusLabel(checked.status) === '就诊中', '就诊中文案')
+const checkedAgain = await expectError(
+  () => mockCheckInRegister(token, checkInSource.registerId),
+  'ILLEGAL_STATE_TRANSITION',
+  409,
+)
+assert(checkedAgain.message === '当前状态不允许该操作', '重复报到')
+const stillDiagnosing = mockListRegisters(token, { patientId: patient.patientId, visitDate: today })
+assert(
+  stillDiagnosing.items.find((item) => item.registerId === checkInSource.registerId).status === 'DIAGNOSING',
+  '失败后仍是就诊中',
+)
+
+const usedRow = stageMockRegister(token, {
+  patientId: patient.patientId,
+  visitDate: today,
+  status: 'USED',
+  registerId: 'stage-checkin-used',
+})
+const fromUsed = mockCheckInRegister(token, usedRow.registerId)
+assert(fromUsed.status === 'DIAGNOSING', '已用号可报到')
+
+for (const status of ['DIAGNOSED', 'PAUSED', 'BACK']) {
+  const row = stageMockRegister(token, {
+    patientId: patient.patientId,
+    visitDate: today,
+    status,
+    registerId: `stage-checkin-${status}`,
+  })
+  const deniedCheckIn = await expectError(
+    () => mockCheckInRegister(token, row.registerId),
+    'ILLEGAL_STATE_TRANSITION',
+    409,
+  )
+  assert(deniedCheckIn.message === '当前状态不允许该操作', `报到拒绝 ${status}`)
+  const unchanged = mockListRegisters(token, { patientId: patient.patientId, visitDate: today })
+  assert(unchanged.items.find((item) => item.registerId === row.registerId).status === status, `${status} 报到失败不改状态`)
+}
+
+const conflictSource = mockCreateRegister(token, {
+  patientId: patient.patientId,
+  departmentId: 'dept-1',
+  doctorId: 'doc-1',
+  visitDate: today,
+})
+const conflicted = await expectError(
+  () => mockCheckInRegister(token, conflictSource.registerId, { simulateConflict: true }),
+  'ILLEGAL_STATE_TRANSITION',
+  409,
+)
+assert(conflicted.message === '当前状态不允许该操作', '模拟冲突文案')
+const conflictList = mockListRegisters(token, { patientId: patient.patientId, visitDate: today })
+assert(
+  conflictList.items.find((item) => item.registerId === conflictSource.registerId).status === 'NORMAL',
+  '模拟冲突不改状态',
+)
+const conflictViaApi = await expectError(
+  () => checkInRegister(token, conflictSource.registerId, { simulateConflict: true }),
+  'ILLEGAL_STATE_TRANSITION',
+  409,
+)
+assert(conflictViaApi.message === '当前状态不允许该操作', 'api mock 模拟冲突')
+const arrived = await checkInRegister(token, conflictSource.registerId)
+assert(arrived.status === 'DIAGNOSING', 'api mock 报到成功')
+
+const missingCheckIn = await expectError(() => mockCheckInRegister(token, 'missing-reg'), 'NOT_FOUND', 404)
+assert(missingCheckIn.message === '未找到挂号单', '报到找不到号')
+
+const blankConflict = presentCheckInError({
+  code: 'ILLEGAL_STATE_TRANSITION',
+  status: 409,
+  message: '',
+  details: null,
+  requestId: 'c1',
+})
+assert(blankConflict.message === '当前状态不允许该操作', '409 缺省文案')
+const serverConflict = presentCheckInError({
+  code: 'ILLEGAL_STATE_TRANSITION',
+  status: 409,
+  message: '该号已在就诊中',
+  details: null,
+  requestId: 'c2',
+})
+assert(serverConflict.message === '该号已在就诊中', '409 沿用服务端文案')
+const missingMapped = presentCheckInError({
+  code: 'NOT_FOUND',
+  status: 404,
+  message: '未找到患者',
+  details: null,
+  requestId: 'c3',
+})
+assert(missingMapped.message === '未找到挂号单', '404 改成挂号文案')
+const downMapped = presentCheckInError({
+  code: 'HTTP_ERROR',
+  status: 500,
+  message: '请求失败，请稍后重试',
+  details: null,
+  requestId: 'c4',
+})
+assert(downMapped.message === '报到失败，请稍后重试', '5xx 缺省文案')
+const downServer = presentCheckInError({
+  code: 'HTTP_ERROR',
+  status: 503,
+  message: '挂号服务暂不可用',
+  details: null,
+  requestId: 'c5',
+})
+assert(downServer.message === '挂号服务暂不可用', '5xx 沿用服务端文案')
+
 const view = readFileSync(new URL('../src/views/RegisterView.vue', import.meta.url), 'utf8')
 const template = view.split('<template>')[1]
-for (const text of ['请先选择或建档患者', '请选择科室', '请选择医生', '普通号', '去建档', '回建档页', '退号', '姓名', '性别', '出生日期', '患者号', '身份证']) {
+for (const text of ['请先选择或建档患者', '请选择科室', '请选择医生', '普通号', '去建档', '回建档页', '退号', '报到', '模拟报到冲突', '姓名', '性别', '出生日期', '患者号', '身份证']) {
   assert(template.includes(text), `missing copy: ${text}`)
 }
+assert(template.includes('v-if="canCheckIn(row.status)"'), '仅可报到状态显示按钮')
 assert(!template.includes('type="date"'), '无日期控件')
 assert(!template.includes('排班'), '无排班文案')
 assert(!template.includes('挂号费'), '费用不展示')
@@ -166,6 +293,7 @@ assert(view.includes('registerFee: 0'), '提交费用为 0')
 const apiSrc = readFileSync(new URL('../src/api/registerApi.js', import.meta.url), 'utf8')
 assert(apiSrc.includes("apiUrl('/registers')"), 'create path')
 assert(apiSrc.includes('/registers/${encodeURIComponent(id)}/cancel'), 'cancel path')
+assert(apiSrc.includes('/registers/${encodeURIComponent(id)}/check-in'), 'check-in path')
 assert(apiSrc.includes('useMock()'), 'mock switch')
 assert(!apiSrc.includes('/encounters'), '不再走 encounters')
 assert(!apiSrc.includes('deptCode'), '客户端不用 deptCode')
@@ -284,6 +412,51 @@ const server = http.createServer(async (req, res) => {
     })
     return
   }
+  if (req.method === 'POST' && url.pathname === '/api/v1/registers/reg-used/check-in') {
+    json(200, {
+      registerId: 'reg-used',
+      registerNo: 'GH9001',
+      patientId: 'created-1',
+      departmentId: 'dept-1',
+      doctorId: 'doc-1',
+      registerSort: 'sort-normal',
+      visitDate: today,
+      status: 'DIAGNOSING',
+      registerFee: 0,
+      registerCharged: false,
+      registeredAt: '2026-10-12T00:00:00Z',
+      backOperatorId: null,
+      backOperatedAt: null,
+    })
+    return
+  }
+  if (req.method === 'POST' && url.pathname === '/api/v1/registers/reg-back/check-in') {
+    json(409, {
+      success: false,
+      data: null,
+      error: { code: 'ILLEGAL_STATE_TRANSITION', message: '当前状态不允许该操作', details: {} },
+      requestId: 'req-checkin',
+    })
+    return
+  }
+  if (req.method === 'POST' && url.pathname === '/api/v1/registers/reg-missing/check-in') {
+    json(404, {
+      success: false,
+      data: null,
+      error: { code: 'NOT_FOUND', message: '', details: {} },
+      requestId: 'req-miss-checkin',
+    })
+    return
+  }
+  if (req.method === 'POST' && url.pathname === '/api/v1/registers/reg-down/check-in') {
+    json(500, {
+      success: false,
+      data: null,
+      error: { code: 'HTTP_ERROR', message: '', details: {} },
+      requestId: 'req-down',
+    })
+    return
+  }
   json(404, {
     success: false,
     data: null,
@@ -331,6 +504,20 @@ try {
   assert(denied.message === '当前号已使用或就诊中，不能退号', 'real used copy')
   const again = await expectError(() => cancelRegister('header.payload.sig', 'reg-back'), 'REGISTER_BACK_NOT_ALLOWED', 409)
   assert(again.message === '该号已退，不能再次退号', 'real back copy')
+
+  const checkedIn = await checkInRegister('header.payload.sig', 'reg-used', { simulateConflict: true })
+  assert(checkedIn.status === 'DIAGNOSING', 'real check-in')
+  const checkInCall = calls.find((item) => item.method === 'POST' && item.path === '/api/v1/registers/reg-used/check-in')
+  assert(checkInCall, 'check-in called')
+  assert(!checkInCall.body, 'check-in 无请求体')
+  assert(checkInCall.headers['idempotency-key'] == null, 'check-in 不带幂等键')
+  assert(String(checkInCall.headers.authorization || '').startsWith('Bearer '), 'check-in bearer')
+  const illegal = await expectError(() => checkInRegister('header.payload.sig', 'reg-back'), 'ILLEGAL_STATE_TRANSITION', 409)
+  assert(illegal.message === '当前状态不允许该操作', 'real 409 copy')
+  const missingReal = await expectError(() => checkInRegister('header.payload.sig', 'reg-missing'), 'NOT_FOUND', 404)
+  assert(missingReal.message === '未找到挂号单', 'real 404 copy')
+  const down = await expectError(() => checkInRegister('header.payload.sig', 'reg-down'), 'HTTP_ERROR', 500)
+  assert(down.message === '报到失败，请稍后重试', 'real 500 copy')
   await expectError(() => createRegister('', {
     patientId: 'created-1',
     departmentId: 'dept-1',

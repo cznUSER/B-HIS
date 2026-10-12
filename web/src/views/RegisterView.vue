@@ -1,10 +1,12 @@
 <script setup>
 // 2026-10-12 P1-H05-REGISTER-UI 挂号页。患者从建档 ?patientId= 带入，只选科室和医生。
 // 2026-10-12 可联调：POST/GET /registers，字段 departmentId。
+// 2026-10-12 P1-H05b-REGISTER-CHECKIN-UI 正常号、已用号显示报到。Mock 可模拟 409。
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ApiError } from '../api/errors.js'
-import { cancelRegister, createRegister, listRegisters } from '../api/registerApi.js'
+import { useMock } from '../api/config.js'
+import { cancelRegister, checkInRegister, createRegister, listRegisters } from '../api/registerApi.js'
 import { fetchPatient } from '../api/patientApi.js'
 import { sexLabel, todayInShanghai } from '../api/patientContract.js'
 import { session } from '../auth/session.js'
@@ -12,6 +14,7 @@ import {
   REGISTER_SORT,
   DEPARTMENTS,
   canCancel,
+  canCheckIn,
   cancelRejectMessage,
   registerSortName,
   deptName,
@@ -35,6 +38,9 @@ const departmentId = ref('')
 const doctorId = ref('')
 const saving = ref(false)
 const cancellingId = ref('')
+const checkingInId = ref('')
+const simulateCheckInConflict = ref(false)
+const mockMode = useMock()
 const notice = ref('')
 const noticeError = ref(false)
 
@@ -134,7 +140,7 @@ async function onSave() {
 }
 
 async function onCancel(row) {
-  if (!row || cancellingId.value) return
+  if (!row || cancellingId.value || checkingInId.value) return
   if (!canCancel(row.status)) {
     showNotice(cancelRejectMessage(row.status), true)
     return
@@ -151,6 +157,27 @@ async function onCancel(row) {
     cancellingId.value = ''
   }
 }
+
+async function onCheckIn(row) {
+  if (!row || checkingInId.value || cancellingId.value) return
+  if (!canCheckIn(row.status)) {
+    showNotice('当前状态不允许该操作', true)
+    return
+  }
+  checkingInId.value = row.registerId
+  showNotice('', false)
+  try {
+    const updated = await checkInRegister(session.accessToken, row.registerId, {
+      simulateConflict: mockMode && simulateCheckInConflict.value,
+    })
+    tickets.value = tickets.value.map((item) => (item.registerId === updated.registerId ? updated : item))
+    showNotice('已报到', false)
+  } catch (error) {
+    showNotice(error instanceof ApiError ? error.message : '报到失败，请稍后重试', true)
+  } finally {
+    checkingInId.value = ''
+  }
+}
 </script>
 
 <template>
@@ -165,7 +192,7 @@ async function onCancel(row) {
 
     <header class="dash-head">
       <h1 id="register-title">挂号</h1>
-      <p class="dash-flag">选择科室和医生。保存后为正常号，仅正常号可以退号。</p>
+      <p class="dash-flag">选择科室和医生。保存后为正常号。正常号和已用号可以报到，仅正常号可以退号。</p>
     </header>
 
     <div v-if="!patientId" class="empty-panel" data-testid="register-empty">
@@ -265,6 +292,10 @@ async function onCancel(row) {
         <div class="panel-head">
           <h2 id="register-list-title">当日挂号</h2>
         </div>
+        <label v-if="mockMode" class="checkin-demo">
+          <input v-model="simulateCheckInConflict" type="checkbox" data-testid="mock-checkin-conflict" />
+          <span>模拟报到冲突（下次报到返回 409，号状态不变）</span>
+        </label>
         <p v-if="listNote" class="field-hint">{{ listNote }}</p>
         <p v-if="tickets.length === 0" class="result-empty">当日暂无挂号。</p>
         <div v-else class="result-wrap">
@@ -293,10 +324,20 @@ async function onCancel(row) {
                 </td>
                 <td class="ticket-actions">
                   <button
+                    v-if="canCheckIn(row.status)"
+                    class="button button-compact"
+                    type="button"
+                    :data-testid="`checkin-${row.status}`"
+                    :disabled="Boolean(checkingInId) || Boolean(cancellingId)"
+                    @click="onCheckIn(row)"
+                  >
+                    {{ checkingInId === row.registerId ? '报到中…' : '报到' }}
+                  </button>
+                  <button
                     class="button button-ghost button-compact"
                     type="button"
                     :data-testid="`cancel-${row.status}`"
-                    :disabled="!canCancel(row.status) || cancellingId === row.registerId"
+                    :disabled="!canCancel(row.status) || Boolean(cancellingId) || Boolean(checkingInId)"
                     :title="canCancel(row.status) ? '退号' : cancelRejectMessage(row.status)"
                     @click="onCancel(row)"
                   >

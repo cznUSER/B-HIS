@@ -71,6 +71,10 @@ Mock 与真实接口共用同一套页面。`web/.env` 默认 `VITE_USE_MOCK=tru
 
 保存后列表出现该单，状态为「正常号」。退号按钮只在正常号上可点，成功后变为「退号」，并提示「已退号」。已用、就诊中、就诊完成、挂起若被退号，提示「当前号已使用或就诊中，不能退号」（`409 REGISTER_NOT_CANCELLABLE`）；已退提示「该号已退，不能再次退号」（`409 REGISTER_BACK_NOT_ALLOWED`）。状态不变。
 
+「报到」只出现在正常号和已用号上。成功后状态变为「就诊中」，提示「已报到」，该行不再显示报到。契约是 `POST /registers/{registerId}/check-in`（NORMAL 或 USED → DIAGNOSING）。非法状态为 `409`，页面优先显示服务端 `error.message`；没有文案时用「当前状态不允许该操作」（`ILLEGAL_STATE_TRANSITION`）。找不到号为「未找到挂号单」。5xx 且没有服务端文案时为「报到失败，请稍后重试」。
+
+Mock（默认）不访问网络。列表上方有「模拟报到冲突」：勾选后再点报到，返回 409，号仍是原来的状态。不勾选则报到成功。关掉 Mock（`VITE_USE_MOCK=false`）后同一按钮改打真实 `POST /api/v1/registers/{registerId}/check-in`，不再显示模拟勾选。H04b 未合并时真实接口可能还没有这条路由。
+
 提交字段对齐 OpenAPI 0.3.6，使用 `departmentId`，不用 `deptCode`：
 
 | 方法 | 路径 | 说明 |
@@ -78,6 +82,7 @@ Mock 与真实接口共用同一套页面。`web/.env` 默认 `VITE_USE_MOCK=tru
 | `POST` | `/api/v1/registers` | 201 `RegisterDto`，初始 `status=NORMAL`。请求 `patientId`、`departmentId`、`doctorId`、`visitDate`，号别 `registerSort=sort-normal`，`registerFee=0` |
 | `GET` | `/api/v1/registers?patientId=&visitDate=` | `{ items: RegisterDto[] }` |
 | `POST` | `/api/v1/registers/{registerId}/cancel` | 正常号改为 `BACK` |
+| `POST` | `/api/v1/registers/{registerId}/check-in` | 正常号或已用号改为 `DIAGNOSING`（就诊中）。Mock 默认；真实接口待 H04b |
 
 演示账号 `system` / `1`。
 

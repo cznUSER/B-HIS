@@ -1,11 +1,13 @@
 // 2026-10-12 P1-H05-REGISTER-UI 本地挂号 Mock，形状与 POST/GET /registers 相同。
+// 2026-10-12 P1-H05b-REGISTER-CHECKIN-UI 报到：NORMAL 或 USED → DIAGNOSING。
 // 仅在 VITE_USE_MOCK 打开时使用。保存后 status=NORMAL；退号只接受正常号。
+// simulateConflict 模拟 409，不改状态，方便页面演示失败。
 
 import { apiError } from './errors.js'
 import { mockMe } from './mockAuth.js'
 import { mockGetPatient } from './mockPatients.js'
 import { assertCreateRegisterRequest, assertRegisterDto } from './registerContract.js'
-import { cancelRejectMessage, canCancel } from '../register/master.js'
+import { cancelRejectMessage, canCancel, canCheckIn } from '../register/master.js'
 import { todayInShanghai } from './patientContract.js'
 
 const STORAGE_KEY = 'bhis.registers.v1'
@@ -63,6 +65,12 @@ function copyRegister(row) {
 function rejectCancel(status) {
   const code = status === 'BACK' ? 'REGISTER_BACK_NOT_ALLOWED' : 'REGISTER_NOT_CANCELLABLE'
   throw apiError(409, code, cancelRejectMessage(status), {
+    requestId: `mock-${crypto.randomUUID()}`,
+  })
+}
+
+function rejectCheckIn() {
+  throw apiError(409, 'ILLEGAL_STATE_TRANSITION', '当前状态不允许该操作', {
     requestId: `mock-${crypto.randomUUID()}`,
   })
 }
@@ -179,6 +187,28 @@ export function mockCancelRegister(accessToken, registerId, idempotencyKey) {
   })
   state.registers.splice(index, 1, next)
   if (key) state.idempotency[key] = { registerId: id, register: next }
+  writeState(state)
+  return copyRegister(next)
+}
+
+export function mockCheckInRegister(accessToken, registerId, options) {
+  requireSession(accessToken)
+  const id = typeof registerId === 'string' ? registerId.trim() : ''
+  if (!id) throw apiError(404, 'NOT_FOUND', '未找到挂号单')
+  const state = readState()
+  const index = state.registers.findIndex((item) => item.registerId === id)
+  if (index < 0) throw apiError(404, 'NOT_FOUND', '未找到挂号单')
+  const current = state.registers[index]
+  const simulateConflict = Boolean(options && options.simulateConflict)
+  if (simulateConflict || !canCheckIn(current.status)) {
+    rejectCheckIn()
+  }
+
+  const next = copyRegister({
+    ...current,
+    status: 'DIAGNOSING',
+  })
+  state.registers.splice(index, 1, next)
   writeState(state)
   return copyRegister(next)
 }
