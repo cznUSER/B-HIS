@@ -21,12 +21,14 @@ const (
 	CodeDoctorNotFound         = "DOCTOR_NOT_FOUND"
 	CodeRegisterNotCancellable = "REGISTER_NOT_CANCELLABLE"
 	CodeRegisterBackNotAllowed = "REGISTER_BACK_NOT_ALLOWED"
+	CodeIllegalStateTransition = "ILLEGAL_STATE_TRANSITION"
 
 	msgPatientNotFound        = "患者不存在"
 	msgDepartmentNotFound     = "科室不存在"
 	msgDoctorNotFound         = "医生不存在"
 	msgRegisterNotCancellable = "当前状态不可退号"
 	msgRegisterBackNotAllowed = "已退号，不能再次退号"
+	msgIllegalStateTransition = "当前状态不允许该操作"
 
 	idemScopeRegisterCreate = "register.create"
 	registerSearchLimit     = 100
@@ -278,6 +280,45 @@ func (s *Service) CancelRegister(ctx context.Context, claims *auth.Claims, regis
 	}
 	dto := toRegisterDTO(*updated)
 	s.auditRegister(ctx, start, user, domain.ActionRegisterCancel, dto.RegisterID, domain.OutcomeSuccess, "", requestID, ip)
+	return &dto, nil
+}
+
+// CheckInRegister moves NORMAL or USED to DIAGNOSING.
+// Any other status is 409 ILLEGAL_STATE_TRANSITION and does not change the row.
+// POST requires encounter:check-in or admin:* (REGISTRAR, DOCTOR, SYSTEM). 2026-10-12
+func (s *Service) CheckInRegister(ctx context.Context, claims *auth.Claims, registerID, requestID, ip string) (*RegisterDTO, error) {
+	start := time.Now()
+	user, err := s.actor(ctx, claims)
+	if err != nil {
+		return nil, err
+	}
+	if !hasPerm(user, domain.PermEncounterCheckIn) {
+		e := forbidden()
+		s.auditRegister(ctx, start, user, domain.ActionRegisterCheckIn, strings.TrimSpace(registerID), domain.OutcomeFail, e.Code, requestID, ip)
+		return nil, e
+	}
+	registerID = strings.TrimSpace(registerID)
+	if registerID == "" {
+		return nil, notFound()
+	}
+	if s.Registers == nil {
+		return nil, errors.New("register store is not configured")
+	}
+	updated, err := s.Registers.CheckInRegister(ctx, registerID, user.ID, s.now().UTC())
+	if err != nil {
+		switch {
+		case errors.Is(err, port.ErrNotFound):
+			return nil, notFound()
+		case errors.Is(err, port.ErrRegisterNotCheckIn):
+			e := &Error{Status: 409, Code: CodeIllegalStateTransition, Message: msgIllegalStateTransition}
+			s.auditRegister(ctx, start, user, domain.ActionRegisterCheckIn, registerID, domain.OutcomeFail, e.Code, requestID, ip)
+			return nil, e
+		default:
+			return nil, err
+		}
+	}
+	dto := toRegisterDTO(*updated)
+	s.auditRegister(ctx, start, user, domain.ActionRegisterCheckIn, dto.RegisterID, domain.OutcomeSuccess, "", requestID, ip)
 	return &dto, nil
 }
 

@@ -2,7 +2,7 @@
 
 医院信息系统（H Phase1）。Go 登录 API 在仓库根目录；Vue 登录界面在 `web/`。
 
-门诊一期当前实现 **登录鉴权**、**患者建档**（`POST/GET /api/v1/patients`）、**挂号**（`POST/GET /api/v1/registers` 与退号）和 `GET /health`（健康检查仍报已实现 **0.3.6-draft**）。`api/openapi.yaml` 契约为 **0.3.7-draft**（开单 `/orders` 仅契约，本进程不注册 handler）。接诊、完成就诊、诊断，以及 deprecated `/encounters` 仍未注册。
+门诊一期当前实现 **登录鉴权**、**患者建档**（`POST/GET /api/v1/patients`）、**挂号**（`POST/GET /api/v1/registers`、退号与接诊）和 `GET /health`（健康检查仍报已实现 **0.3.6-draft**）。`api/openapi.yaml` 契约为 **0.3.7-draft**（开单 `/orders` 仅契约，本进程不注册 handler）。完成就诊、诊断，以及 deprecated `/encounters` 仍未注册。
 
 H03 `0.3.0-draft` 没有 Auth。Auth 路径保持不变，患者建档规则仍是 0.3.5（必填 name/sex/birthday/fareIdentity）。成功体按 OpenAPI：`LoginResponse` / `UserDto` / `PatientDto`，不包 `success/data`。失败体按《接口契约》§1.2：`success: false`、`data: null`、`error.code`、`requestId`。
 
@@ -16,7 +16,7 @@ npm run dev
 
 也可用 pnpm：`pnpm install` 然后 `pnpm dev`。浏览器打开终端里提示的本地地址（默认 http://localhost:5173）。
 
-登录成功进入首页看板 `/app`（待办、经营概况、两张分布图都是演示占位，数字为 0）。左侧「门诊业务」是建档、挂号、开单、收费、发药、退药/退费；「档案管理」里的患者建档走同一条建档路由。患者建档页可以新建和查询。挂号页可选科室和医生；没有患者时提示先建档。默认仍是 Mock；`web/.env.local` 里把 `VITE_USE_MOCK` 设为 `false` 后，建档走 `POST/GET /api/v1/patients`，挂号走 `POST/GET /api/v1/registers` 与 `POST /api/v1/registers/{id}/cancel`（字段 `departmentId`）。开单及之后的模块页仍是空态。六张入口卡只在 `/app/outpatient`，不是登录后的默认页。
+登录成功进入首页看板 `/app`（待办、经营概况、两张分布图都是演示占位，数字为 0）。左侧「门诊业务」是建档、挂号、开单、收费、发药、退药/退费；「档案管理」里的患者建档走同一条建档路由。患者建档页可以新建和查询。挂号页可选科室和医生；没有患者时提示先建档。默认仍是 Mock；`web/.env.local` 里把 `VITE_USE_MOCK` 设为 `false` 后，建档走 `POST/GET /api/v1/patients`，挂号走 `POST/GET /api/v1/registers` 与 `POST /api/v1/registers/{id}/cancel`（字段 `departmentId`）。开单页在 Mock 下按有效 `registerId` 暂存和提交，对齐 OpenAPI 0.3.7，先不请求 `/orders`（等 H04 开单接口可联调）。收费、发药、退药/退费仍是空态。六张入口卡只在 `/app/outpatient`，不是登录后的默认页。
 
 默认是 **Mock**（`VITE_USE_MOCK=true`），不访问后端。Mock 与真实 API 使用同一套演示账号 `system` / `1`。员工默认密码也是 `1`。
 
@@ -204,7 +204,7 @@ curl -sS -D - http://127.0.0.1:8080/api/v1/patients \
 
 ## 挂号
 
-需 Bearer。挂号和退号角色为 **SYSTEM / REGISTRAR**（权限 `encounter:create`、`encounter:cancel`，SYSTEM 走 `admin:*`）。查询和详情对所有已登录且未停用的角色开放。角色以用户表为准，与 `GET /auth/me` 相同。
+需 Bearer。挂号和退号角色为 **SYSTEM / REGISTRAR**（权限 `encounter:create`、`encounter:cancel`，SYSTEM 走 `admin:*`）。接诊角色为 **SYSTEM / REGISTRAR / DOCTOR**（权限 `encounter:check-in`）。查询和详情对所有已登录且未停用的角色开放。角色以用户表为准，与 `GET /auth/me` 相同。
 
 `POST /api/v1/registers` 返回 `201` `RegisterDto`，初始 `status=NORMAL`。必填 `patientId`、`departmentId`、`doctorId`、`visitDate`。缺字段为 `400 VALIDATION_ERROR`。`registerSort` 可选；`registerFee` 默认 `0`；`registerCharged` 默认 `false`。患者不存在 `404 PATIENT_NOT_FOUND`；科室不存在 `404 DEPARTMENT_NOT_FOUND`；医生不存在 `404 DOCTOR_NOT_FOUND`。`registerId` 与 `registerNo` 由服务生成。`registeredAt` 为创建时间。
 
@@ -212,11 +212,13 @@ curl -sS -D - http://127.0.0.1:8080/api/v1/patients \
 
 `GET /api/v1/registers` 的查询参数 `patientId`、`registerNo`、`visitDate` 均可选，精确匹配，条件之间为 AND。不带任何条件时返回 `{"items":[]}`，与患者查询相同。未知 `registerId` 为 `404 NOT_FOUND`。
 
+`POST /api/v1/registers/{registerId}/check-in`：`NORMAL` 或 `USED` → `DIAGNOSING`。`BACK` / `DIAGNOSING` / `DIAGNOSED` / `PAUSED` 为 `409 ILLEGAL_STATE_TRANSITION`，状态与退号留痕不变。不要求请求体。未知 `registerId` 为 `404 NOT_FOUND`。
+
 `POST /api/v1/registers/{registerId}/cancel`：仅 `NORMAL` → `BACK`，并写入 `backOperatorId` / `backOperatedAt`（当前用户）。`USED` / `DIAGNOSING` / `DIAGNOSED` / `PAUSED` 为 `409 REGISTER_NOT_CANCELLABLE`，状态不变。已是 `BACK` 再退为 `409 REGISTER_BACK_NOT_ALLOWED`，退号留痕不覆盖。
 
-`Idempotency-Key` 只对挂号创建在进程内生效。同键同体返回第一次的 `201`；同键不同体为 `409 IDEMPOTENCY_KEY_CONFLICT`。官方 `003_register` 没有幂等表，键不落库。
+`Idempotency-Key` 只对挂号创建在进程内生效。同键同体返回第一次的 `201`；同键不同体为 `409 IDEMPOTENCY_KEY_CONFLICT`。官方 `003_register` 没有幂等表，键不落库。接诊不使用该请求头。
 
-成功挂号写审计 `register.create`，成功退号写 `register.cancel`，`resource_type=Register`。退号拒绝写同一动作的 `FAIL`。
+成功挂号写审计 `register.create`，成功接诊写 `register.check-in`，成功退号写 `register.cancel`，`resource_type=Register`。接诊或退号拒绝写同一动作的 `FAIL`。
 
 ```bash
 curl -sS -D - http://127.0.0.1:8080/api/v1/registers \
@@ -247,7 +249,7 @@ BHIS_DB_DSN=sqlserver://<user>:<password>@<host>:1433?database=BHIS&encrypt=disa
 
 JSON Lines：`./logs/h-api-YYYYMMDD.log`（日期按 Asia/Shanghai）。字段含 `timestamp`、`level`、`request_id`、`actor_id`、`action`、`outcome`、`error_code`、`duration_ms`。
 
-登录审计动作：`LOGIN_SUCCESS`、`LOGIN_FAILURE`、`LOGOUT`。建档审计动作：`patient.create`（`resource_type=Patient`）。挂号审计动作：`register.create`、`register.cancel`（`resource_type=Register`）。不明文记密码、证件号或 DSN。
+登录审计动作：`LOGIN_SUCCESS`、`LOGIN_FAILURE`、`LOGOUT`。建档审计动作：`patient.create`（`resource_type=Patient`）。挂号审计动作：`register.create`、`register.check-in`、`register.cancel`（`resource_type=Register`）。不明文记密码、证件号或 DSN。
 
 `logs/` 不进 Git。
 

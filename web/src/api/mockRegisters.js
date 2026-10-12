@@ -212,3 +212,15 @@ export function mockCheckInRegister(accessToken, registerId, options) {
   writeState(state)
   return copyRegister(next)
 }
+
+export function mockAllStoredRegisters(accessToken) {
+  requireSession(accessToken)
+  return readState().registers.map((item) => copyRegister(item))
+}
+
+export function mockGetStoredRegister(accessToken, registerId) {
+  requireSession(accessToken)
+  const id = typeof registerId === 'string' ? registerId.trim() : ''
+  const found = readState().registers.find((item) => item.registerId === id)
+  return found ? copyRegister(found) : null
+}

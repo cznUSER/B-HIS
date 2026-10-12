@@ -1,6 +1,6 @@
 # B-HIS Web 登录
 
-Vue 3 + Vue Router + Vite。登录页对接 H03 OpenAPI **0.3.2** 的 Auth；登录成功进入首页看板 `/app`。侧栏仍在。患者建档可保存和查询。挂号在 `VITE_USE_MOCK=false` 时走 `POST/GET /api/v1/registers` 与退号。开单、收费、发药、退药/退费仍是空态：
+Vue 3 + Vue Router + Vite。登录页对接 H03 OpenAPI **0.3.2** 的 Auth；登录成功进入首页看板 `/app`。侧栏仍在。患者建档可保存和查询。挂号在 `VITE_USE_MOCK=false` 时走 `POST/GET /api/v1/registers` 与退号。开单目前只在 Mock 下可用，不请求 `/orders`。收费、发药、退药/退费仍是空态：
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
@@ -39,7 +39,7 @@ npm run dev
 
 首页主区是工作台：待办一行（待收费、待发药为 0，可进入对应空态；进销存未上传、未贯标提醒为二期，不能点；库存预警为 0 的弱占位）、经营概况（今天 / 昨天 / 本周 / 本月、日期按钮二期、刷新）、收费行和客流行、两张等分圆环（收入来源、支付方式，图例都是 0）。页上标明「演示 / 占位」。切换时间和刷新不会改数字，也不请求经营接口。
 
-`/app/outpatient` 仍是六张卡的总览，不是登录落地页。顺序不变：患者建档、挂号、开单、收费、发药、退药/退费。患者建档和挂号徽标是「可用」。建档进入 `/app/outpatient/patient`（档案管理里的「患者建档」同一条路由）。挂号进入 `/app/outpatient/register`，没有 `patientId` 时提示先建档。开单、收费、发药、退药/退费仍是「开发中」，有权限时打开空态「接口就绪后开放」。无权限的卡保持原位、灰显。顶上有一条可关闭的闭环提示。
+`/app/outpatient` 仍是六张卡的总览，不是登录落地页。顺序不变：患者建档、挂号、开单、收费、发药、退药/退费。患者建档和挂号徽标是「可用」。建档进入 `/app/outpatient/patient`（档案管理里的「患者建档」同一条路由）。挂号进入 `/app/outpatient/register`，没有 `patientId` 时提示先建档。开单徽标是「可用」，进入 `/app/outpatient/order`。收费、发药、退药/退费仍是「开发中」，有权限时打开空态「接口就绪后开放」。无权限的卡保持原位、灰显。顶上有一条可关闭的闭环提示。
 
 ## 患者建档
 
@@ -71,9 +71,9 @@ Mock 与真实接口共用同一套页面。`web/.env` 默认 `VITE_USE_MOCK=tru
 
 保存后列表出现该单，状态为「正常号」。退号按钮只在正常号上可点，成功后变为「退号」，并提示「已退号」。已用、就诊中、就诊完成、挂起若被退号，提示「当前号已使用或就诊中，不能退号」（`409 REGISTER_NOT_CANCELLABLE`）；已退提示「该号已退，不能再次退号」（`409 REGISTER_BACK_NOT_ALLOWED`）。状态不变。
 
-「报到」只出现在正常号和已用号上。成功后状态变为「就诊中」，提示「已报到」，该行不再显示报到。契约是 `POST /registers/{registerId}/check-in`（NORMAL 或 USED → DIAGNOSING）。非法状态为 `409`，页面优先显示服务端 `error.message`；没有文案时用「当前状态不允许该操作」（`ILLEGAL_STATE_TRANSITION`）。找不到号为「未找到挂号单」。5xx 且没有服务端文案时为「报到失败，请稍后重试」。
+「报到」只出现在正常号和已用号上。成功后状态变为「就诊中」，提示「已报到」，该行不再显示报到。真实接口是 `POST /api/v1/registers/{registerId}/check-in`（H04b 已合并）：`NORMAL` 或 `USED` → `DIAGNOSING`，不需要请求体。其它状态为 `409 ILLEGAL_STATE_TRANSITION`，服务端文案「当前状态不允许该操作」；页面优先显示该文案，没有 message 时也用这一句。找不到号时显示服务端「资源不存在」。5xx 且没有服务端文案时为「报到失败，请稍后重试」。
 
-Mock（默认）不访问网络。列表上方有「模拟报到冲突」：勾选后再点报到，返回 409，号仍是原来的状态。不勾选则报到成功。关掉 Mock（`VITE_USE_MOCK=false`）后同一按钮改打真实 `POST /api/v1/registers/{registerId}/check-in`，不再显示模拟勾选。H04b 未合并时真实接口可能还没有这条路由。
+`web/.env` 默认 `VITE_USE_MOCK=true`，报到不访问网络，方便离线演示。列表上方有「模拟报到冲突」：勾选后再点报到，返回 409，号仍是原来的状态。不勾选则 Mock 报到成功。在 `web/.env.local` 写 `VITE_USE_MOCK=false` 并重启 `npm run dev` 后，同一按钮改打真实 `POST /api/v1/registers/{registerId}/check-in`，不再显示模拟勾选。`simulateConflict` 不会发给服务端。
 
 提交字段对齐 OpenAPI 0.3.6，使用 `departmentId`，不用 `deptCode`：
 
@@ -82,7 +82,28 @@ Mock（默认）不访问网络。列表上方有「模拟报到冲突」：勾�
 | `POST` | `/api/v1/registers` | 201 `RegisterDto`，初始 `status=NORMAL`。请求 `patientId`、`departmentId`、`doctorId`、`visitDate`，号别 `registerSort=sort-normal`，`registerFee=0` |
 | `GET` | `/api/v1/registers?patientId=&visitDate=` | `{ items: RegisterDto[] }` |
 | `POST` | `/api/v1/registers/{registerId}/cancel` | 正常号改为 `BACK` |
-| `POST` | `/api/v1/registers/{registerId}/check-in` | 正常号或已用号改为 `DIAGNOSING`（就诊中）。Mock 默认；真实接口待 H04b |
+| `POST` | `/api/v1/registers/{registerId}/check-in` | 正常号或已用号改为 `DIAGNOSING`。`VITE_USE_MOCK=false` 时走已合并的 H04b；非法状态 `409 ILLEGAL_STATE_TRANSITION` |
+
+演示账号 `system` / `1`。
+
+## 开单
+
+页面在现有侧栏里，路由 `/app/outpatient/order`。必须先有未退号的挂号：地址栏 `?registerId=`，或在空态里选择已有挂号。没有有效挂号时显示「请先挂号」，并链到挂号页。Mock 会拒绝无挂号或已退号，错误码 `ENCOUNTER_REQUIRED`。
+
+患者、挂号科室、挂号医生从挂号带出，只读。开单医生默认是挂号医生，可以改。诊断简述选填，页面建议填写。处方号保存时由系统生成。处方类别固定普通。没有长期医嘱、检验检查或毒麻拦截。
+
+明细来自 `004_order` 种子：`DRUG-A` 演示阿莫西林胶囊、`DRUG-B` 演示布洛芬片、`TREAT-1` 演示诊查费（类型 `TREAT`）。暂存可以只有处方头；提交至少一行，且数量大于 0。金额按数量乘单价计算。用法（口服、外用）和频次（一日三次、一日两次）可以不填。库存不足只提示，不阻止暂存或提交。
+
+「暂存」为 `SAVE`，不能收费。「提交」调用 commit，状态变为 `COMMIT` 后只读，可供收费；未收费可以作废。已收费不能改，也不能作废。同一挂号可以再开一张。
+
+字段对齐 OpenAPI **0.3.7-draft**：主字段是 `registerId`（`encounterId` 只是同义别名）。状态只有 `SAVE`、`COMMIT`、`PROC`、`ABATE`。本页在 `VITE_USE_MOCK` 打开时走本地 Mock，**不请求** `/api/v1/orders`。关掉 Mock 后页面仍是「请先挂号」，并说明开单接口尚未联调。等 H04 开单接口合并并且可以联调后，再接这些路径：
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `POST` | `/api/v1/orders` | 创建暂存，`status=SAVE` |
+| `PATCH` | `/api/v1/orders/{orderId}` | 仅 `SAVE` 可改；`PUT` 同义 |
+| `POST` | `/api/v1/orders/{orderId}/commit` | `SAVE` → `COMMIT` |
+| `POST` | `/api/v1/orders/{orderId}/abate` | 仅未收费的暂存或已提交可作废 |
 
 演示账号 `system` / `1`。
 
@@ -105,7 +126,7 @@ pnpm dev
 浏览器打开 http://localhost:5173 。提交时按钮禁用并显示「登录中…」；再次提交会清掉上一条错误。
 
 ```bash
-npm run check       # Mock 登录、工作台入口、本机假 HTTP、建档校验与查询。不访问 Go API
+npm run check       # Mock 登录、工作台、建档、挂号、开单。不访问 Go API
 npm run check:api   # 仅当 VITE_USE_MOCK=false 时打真 API；否则跳过。CI 不跑
 npm run build       # 生产构建
 ```

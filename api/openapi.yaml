@@ -279,7 +279,10 @@ paths:
   /registers/{registerId}/check-in:
     post:
       tags: [Registers]
-      summary: 接诊 → DIAGNOSING（可延后实现）
+      summary: 接诊 → DIAGNOSING
+      description: |
+        仅 status=NORMAL 或 USED → DIAGNOSING。
+        BACK / DIAGNOSING / DIAGNOSED / PAUSED → 409 ILLEGAL_STATE_TRANSITION，状态与退号留痕不变。
       operationId: checkInRegister
       parameters:
         - $ref: '#/components/parameters/RegisterId'

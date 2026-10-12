@@ -179,6 +179,65 @@ func (s *Store) CancelRegister(ctx context.Context, registerID, operatorID strin
 	return reg, nil
 }
 
+// CheckInRegister locks the row, then writes DIAGNOSING only from NORMAL or USED.
+// Back columns are left as they are. 2026-10-12
+func (s *Store) CheckInRegister(ctx context.Context, registerID, operatorID string, at time.Time) (*domain.Register, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var status string
+	err = tx.QueryRowContext(ctx, `
+		SELECT status FROM dbo.register_bill WITH (UPDLOCK, ROWLOCK)
+		WHERE register_id = @register_id AND is_deleted = 0`,
+		sql.Named("register_id", registerID),
+	).Scan(&status)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, port.ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	switch status {
+	case domain.RegisterStatusNormal, domain.RegisterStatusUsed:
+	default:
+		return nil, port.ErrRegisterNotCheckIn
+	}
+	at = at.UTC()
+	res, err := tx.ExecContext(ctx, `
+		UPDATE dbo.register_bill
+		SET status = 'DIAGNOSING',
+		    updated_at = @updated_at,
+		    updated_by = @updated_by
+		WHERE register_id = @register_id AND is_deleted = 0 AND status IN ('NORMAL', 'USED')`,
+		sql.Named("updated_at", at),
+		sql.Named("updated_by", nullIfEmpty(operatorID)),
+		sql.Named("register_id", registerID),
+	)
+	if err != nil {
+		return nil, err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return nil, err
+	}
+	if n != 1 {
+		return nil, port.ErrRegisterNotCheckIn
+	}
+	reg, err := scanRegister(tx.QueryRowContext(ctx, `SELECT `+registerCols+`
+		FROM dbo.register_bill WHERE register_id = @register_id AND is_deleted = 0`,
+		sql.Named("register_id", registerID)))
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return reg, nil
+}
+
 func (s *Store) DepartmentExists(ctx context.Context, departmentID string) (bool, error) {
 	return s.masterExists(ctx, `SELECT COUNT(1) FROM dbo.department WHERE department_id = @id AND is_deleted = 0`, departmentID)
 }

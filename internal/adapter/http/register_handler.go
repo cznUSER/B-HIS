@@ -60,6 +60,20 @@ func (h *Handler) getRegister(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, dto)
 }
 
+func (h *Handler) checkInRegister(w http.ResponseWriter, r *http.Request) {
+	claims, err := h.bearerClaims(r)
+	if err != nil {
+		writeAppError(w, r, err)
+		return
+	}
+	dto, err := h.svc.CheckInRegister(r.Context(), claims, r.PathValue("registerId"), requestID(r.Context()), clientIP(r))
+	if err != nil {
+		writeAppError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, dto)
+}
+
 func (h *Handler) cancelRegister(w http.ResponseWriter, r *http.Request) {
 	claims, err := h.bearerClaims(r)
 	if err != nil {

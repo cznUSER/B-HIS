@@ -1,10 +1,9 @@
 // 2026-10-12 P1-H05-REGISTER-UI
 // POST /api/v1/registers | GET /api/v1/registers | POST /api/v1/registers/{registerId}/cancel
 // 2026-10-12 P1-H05b-REGISTER-CHECKIN-UI POST /api/v1/registers/{registerId}/check-in
-// 与建档相同：VITE_USE_MOCK=false 时走真实接口（.env.local）。科室字段是 departmentId。
-// 报到契约：NORMAL 或 USED → DIAGNOSING。OpenAPI 未单列错误码，非法状态按 409
-// ILLEGAL_STATE_TRANSITION 处理；有服务端 message 时用服务端文案。
-// simulateConflict 只在 Mock 生效，真实请求忽略。check-in 未声明 Idempotency-Key。
+// 2026-10-12 对齐已合并的 H04b：VITE_USE_MOCK=false 时打真实接诊。无请求体、无 Idempotency-Key。
+// NORMAL 或 USED → DIAGNOSING。其它状态 409 ILLEGAL_STATE_TRANSITION，服务端文案「当前状态不允许该操作」。
+// 无服务端 message 时页面仍用这句。simulateConflict 只在 Mock 生效，真实请求忽略。
 
 import { apiUrl, useMock } from './config.js'
 import { apiError, messageForCode, readErrorResponse } from './errors.js'
