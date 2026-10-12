@@ -16,6 +16,8 @@ npm run dev
 
 也可用 pnpm：`pnpm install` 然后 `pnpm dev`。浏览器打开终端里提示的本地地址（默认 http://localhost:5173）。
 
+登录成功进入门诊工作台 `/app`：患者建档、挂号、开单、收费、发药、退药/退费。门诊接口尚未接入，模块页只有空态，不展示假数据。
+
 默认是 **Mock**（`VITE_USE_MOCK=true`），不访问后端。Mock 与真实 API 使用同一套演示账号 `system` / `1`。员工默认密码也是 `1`。
 
 切换到 H04 真实 API 的步骤见 [web/README.md](web/README.md)「本机真 API 联调」。联调时先按下一节启动 Go API（默认 `127.0.0.1:8080`）。
