@@ -1,6 +1,6 @@
 # B-HIS Web 登录
 
-Vue 3 + Vue Router + Vite。范围只有登录页和登录后的占位首页，对接 H03 OpenAPI **0.3.2** 的 Auth：
+Vue 3 + Vue Router + Vite。登录页对接 H03 OpenAPI **0.3.2** 的 Auth；登录成功进入门诊工作台 `/app`（六步入口，模块页为空态）：
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
@@ -19,7 +19,23 @@ Vue 3 + Vue Router + Vite。范围只有登录页和登录后的占位首页，�
 | 429 | `AUTH_RATE_LIMITED` | 登录尝试过于频繁，请稍后再试 |
 | 401 | `UNAUTHORIZED` / `TOKEN_EXPIRED` / `TOKEN_INVALID` | 按码提示重新登录 |
 
-口令只放在登录请求体里，不写入控制台。令牌保存在内存和 `sessionStorage`（键 `bhis.session.v1`），刷新后仍停留在首页；退出登录时清除，并调用 `POST /auth/logout`。
+口令只放在登录请求体里，不写入控制台。令牌保存在内存和 `sessionStorage`（键 `bhis.session.v1`），刷新后仍停留在工作台 `/app`；退出登录时清除，并调用 `POST /auth/logout`。
+
+## 门诊工作台
+
+本地预览：
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+浏览器打开 http://localhost:5173 。未登录访问 `/` 或 `/app` 会到登录页；登录成功进入 `/app`。
+
+顶栏从左到右：产品名 B-HIS（回到工作台）、环境标签（Mock 为「演示」，真实 API 为「开发」）、灰显的患者搜索（二期，不能搜）、通知铃铛（固定 0，二期）、当前用户的显示名和角色。用户菜单里「个人设置」为二期占位，「退出登录」会清会话并回到登录页。显示名和角色来自登录结果或 `GET /auth/me`，页面不写死账号。
+
+主区标题「门诊业务」，副标题为建档到退药/退费。六张卡顺序固定：患者建档、挂号、开单、收费、发药、退药/退费。门诊接口还没接入，徽标是「开发中」；有权限时「进入」打开空态「接口就绪后开放」，没有假列表。无权限的卡保持原位、灰显，「进入」禁用，原因是「无权限」。顶上有一条可关闭的闭环提示。没有住院、病历、报表、采购入口，也没有示例统计。
 
 ## 本地运行
 
@@ -40,7 +56,7 @@ pnpm dev
 浏览器打开 http://localhost:5173 。提交时按钮禁用并显示「登录中…」；再次提交会清掉上一条错误。
 
 ```bash
-npm run check       # Mock，以及本机假 HTTP（ErrorBody / 204）。不访问 Go API
+npm run check       # Mock、工作台入口、以及本机假 HTTP（ErrorBody / 204）。不访问 Go API
 npm run check:api   # 仅当 VITE_USE_MOCK=false 时打真 API；否则跳过。CI 不跑
 npm run build       # 生产构建
 ```
@@ -126,10 +142,10 @@ VITE_API_PROXY_TARGET=http://127.0.0.1:8080
 
 | 步骤 | 期望 |
 |------|------|
-| 成功 | `system` / `1`。进入首页，文案「已登录」，姓名「系统管理员」，角色 `SYSTEM` |
+| 成功 | `system` / `1`。进入 `/app` 门诊工作台，标题「门诊业务」。顶栏显示名「系统管理员」，角色「系统」（来自 `UserDto`，不是页面写死的账号） |
 | 失败 | 故意错口令。展示服务端 `error.message`「用户名或密码错误」，以及 `INVALID_CREDENTIALS`。未知用户同一个码，页面不说明用户是否存在 |
 | 停用 | `disabled` 且口令正确。`ACCOUNT_DISABLED`，「账号已停用」。该用户口令错误仍是 `INVALID_CREDENTIALS` |
-| 退出 | 首页「退出登录」。`POST /api/v1/auth/logout` 成功为 **204 空体**。回到登录页；刷新停在登录页。同一 token 再访问为 401 `TOKEN_INVALID` |
+| 退出 | 工作台用户菜单「退出登录」。`POST /api/v1/auth/logout` 成功为 **204 空体**。回到登录页；刷新停在登录页。同一 token 再访问为 401 `TOKEN_INVALID` |
 | 连不上 | API 没起来，或直连时页面源不在 CORS 白名单。提示「无法连接登录服务」。先看 `/health`，或改用方式 B |
 
 失败包络与 Go API 一致：`success: false`、`data: null`、`error.code` / `error.message`、`requestId`。登录成功体是不包 `success` 的 `LoginResponse`。界面在服务端带了 `message` 时用服务端文案，并显示错误码。

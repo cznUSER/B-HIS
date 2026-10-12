@@ -4,6 +4,7 @@
 // 2026-10-12 P1-H05-LOGIN-BG 登录页全屏背景
 // 2026-10-12 真实 API 页显示本机演示账号
 // 2026-10-12 演示账号 system / 1；员工默认密码为 1
+// 2026-10-12 P1-H05-HOME 登录成功进入门诊工作台
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { login } from '../api/authApi.js'
@@ -31,7 +32,7 @@ async function onSubmit() {
     const result = await login(username.value.trim(), password.value)
     applyLogin(result)
     password.value = ''
-    await router.replace({ name: 'home' })
+    await router.replace({ name: 'workbench' })
   } catch (error) {
     if (error instanceof ApiError) {
       errorMessage.value = error.message
@@ -78,7 +79,7 @@ async function onSubmit() {
               v-model="username"
               name="username"
               autocomplete="username"
-              placeholder="请输入用户名"
+              placeholder="system"
               required
               :disabled="loading"
             />
@@ -90,7 +91,7 @@ async function onSubmit() {
               name="password"
               type="password"
               autocomplete="current-password"
-              placeholder="请输入密码"
+              placeholder="1"
               required
               :disabled="loading"
             />
