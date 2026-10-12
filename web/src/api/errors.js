@@ -11,7 +11,8 @@ const MESSAGE_BY_CODE = {
   FORBIDDEN: '没有权限执行该操作',
   VALIDATION_ERROR: '请输入用户名和密码',
   DUPLICATE_PATIENT: '该身份证号已存在，不能重复建档',
-  DUPLICATE_CARD_NO: '证件或卡号已存在，无法建档',
+  DUPLICATE_ID_NUMBER: '该身份证号已存在，不能重复建档',
+  DUPLICATE_CARD_NO: '卡号已存在，不能重复建档',
   NOT_FOUND: '未找到患者',
 }
 

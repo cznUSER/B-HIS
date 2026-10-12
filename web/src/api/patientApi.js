@@ -1,6 +1,6 @@
 // 2026-10-12 P1-H05-PATIENT-UI
 // POST /api/v1/patients | GET /api/v1/patients | GET /api/v1/patients/{patientId}
-// 与登录相同：VITE_USE_MOCK 决定走本地还是真实接口。地址不写入请求体。
+// 与登录相同：VITE_USE_MOCK 决定走本地还是真实接口。真接口默认经 Vite 代理到 127.0.0.1:8080。
 
 import { apiUrl, useMock } from './config.js'
 import { apiError, readErrorResponse } from './errors.js'
@@ -11,13 +11,7 @@ import {
   assertPatientSearchQuery,
   patientMatchesQuery,
 } from './patientContract.js'
-import {
-  mockCreatePatient,
-  mockGetPatient,
-  mockLocalAddress,
-  mockRememberAddress,
-  mockSearchPatients,
-} from './mockPatients.js'
+import { mockCreatePatient, mockGetPatient, mockSearchPatients } from './mockPatients.js'
 
 const JSON_ACCEPT = 'application/json'
 const seen = new Map()
@@ -59,24 +53,19 @@ export function resetPatientClientCache() {
 }
 
 export function presentPatientError(error) {
-  if (error.code === 'DUPLICATE_PATIENT') {
-    return apiError(error.status || 409, 'DUPLICATE_PATIENT', '该身份证号已存在，不能重复建档', {
+  if (error.code === 'DUPLICATE_PATIENT' || error.code === 'DUPLICATE_ID_NUMBER') {
+    return apiError(error.status || 409, error.code, '该身份证号已存在，不能重复建档', {
       details: error.details,
       requestId: error.requestId,
     })
   }
   if (error.code === 'DUPLICATE_CARD_NO') {
-    return apiError(error.status || 409, 'DUPLICATE_CARD_NO', '证件或卡号已存在，无法建档', {
+    return apiError(error.status || 409, 'DUPLICATE_CARD_NO', '卡号已存在，不能重复建档', {
       details: error.details,
       requestId: error.requestId,
     })
   }
   return error
-}
-
-export function localPatientAddress(patientId) {
-  if (!useMock()) return ''
-  return mockLocalAddress(patientId)
 }
 
 function searchParams(query) {
@@ -88,12 +77,10 @@ function searchParams(query) {
 
 export async function createPatient(accessToken, input) {
   const request = assertCreatePatientRequest(input)
-  const address = input && typeof input.address === 'string' ? input.address.trim() : ''
   const idempotencyKey = crypto.randomUUID()
   if (useMock()) {
     await delay(280)
     const patient = mockCreatePatient(accessToken, request, idempotencyKey)
-    if (address) mockRememberAddress(patient.patientId, address)
     remember([patient])
     return patient
   }

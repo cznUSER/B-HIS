@@ -2,7 +2,7 @@
 // 2026-10-12 P1-H05-PATIENT-UI 患者建档与查询。侧栏仍由 AppShell 提供。
 import { computed, reactive, ref } from 'vue'
 import { ApiError } from '../api/errors.js'
-import { createPatient, fetchPatient, localPatientAddress, searchPatients } from '../api/patientApi.js'
+import { createPatient, fetchPatient, searchPatients } from '../api/patientApi.js'
 import {
   FARE_OPTIONS,
   SEX_OPTIONS,
@@ -60,7 +60,7 @@ function clearError() {
   existingPatientId.value = ''
 }
 
-function applyPatient(patient, address) {
+function applyPatient(patient) {
   current.value = patient
   activeId.value = patient.patientId
   form.name = patient.name || ''
@@ -69,7 +69,7 @@ function applyPatient(patient, address) {
   form.fareIdentity = patient.fareIdentity || ''
   form.idNumber = patient.idNumber || ''
   form.phone = patient.phone || ''
-  form.address = typeof address === 'string' ? address : localPatientAddress(patient.patientId)
+  form.address = patient.address || ''
   mode.value = 'view'
 }
 
@@ -87,11 +87,9 @@ async function onCreate() {
   clearError()
   justCreated.value = false
   saving.value = true
-  const typedAddress = form.address
   try {
     const patient = await createPatient(session.accessToken, { ...form })
-    const kept = localPatientAddress(patient.patientId) || typedAddress
-    applyPatient(patient, kept)
+    applyPatient(patient)
     justCreated.value = true
   } catch (error) {
     if (error instanceof ApiError) {
@@ -100,7 +98,9 @@ async function onCreate() {
       errorStatus.value = error.status || 0
       const details = error.details
       if (details && typeof details.patientId === 'string') existingPatientId.value = details.patientId
-      if (!existingPatientId.value && error.code === 'DUPLICATE_PATIENT' && form.idNumber.trim()) {
+      const duplicateId =
+        error.code === 'DUPLICATE_PATIENT' || error.code === 'DUPLICATE_ID_NUMBER'
+      if (!existingPatientId.value && duplicateId && form.idNumber.trim()) {
         try {
           const found = await searchPatients(session.accessToken, { idNumber: form.idNumber.trim() })
           if (found.items.length > 0) existingPatientId.value = found.items[0].patientId
@@ -213,7 +213,7 @@ async function openPatient(patientId) {
           <label class="field field-wide">
             <span>地址</span>
             <textarea v-model="form.address" name="patient-address" rows="2" :disabled="locked"></textarea>
-            <span class="field-hint">选填。不写入建档接口；演示模式记在本次会话。</span>
+            <span class="field-hint">选填，可留空。</span>
           </label>
         </div>
 

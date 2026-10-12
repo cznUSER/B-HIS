@@ -1,6 +1,5 @@
 // 2026-10-12 P1-H05-PATIENT-UI 本地患者 Mock。
-// 响应形状对齐 PatientDto。地址只留在本次会话，不放进建档 JSON。
-// 证件重复拒绝，不合并。
+// 响应形状对齐 PatientDto（含 address）。证件重复拒绝，不合并。
 
 import { apiError } from './errors.js'
 import { mockMe } from './mockAuth.js'
@@ -17,7 +16,6 @@ const STORAGE_KEY = 'bhis.patients.v1'
 const memory = {
   seq: 0,
   patients: [],
-  addresses: {},
   idempotency: {},
 }
 
@@ -34,16 +32,15 @@ function readState() {
   if (!store) return memory
   try {
     const raw = store.getItem(STORAGE_KEY)
-    if (!raw) return { seq: 0, patients: [], addresses: {}, idempotency: {} }
+    if (!raw) return { seq: 0, patients: [], idempotency: {} }
     const parsed = JSON.parse(raw)
     return {
       seq: typeof parsed.seq === 'number' ? parsed.seq : 0,
       patients: Array.isArray(parsed.patients) ? parsed.patients : [],
-      addresses: parsed.addresses && typeof parsed.addresses === 'object' ? parsed.addresses : {},
       idempotency: parsed.idempotency && typeof parsed.idempotency === 'object' ? parsed.idempotency : {},
     }
   } catch {
-    return { seq: 0, patients: [], addresses: {}, idempotency: {} }
+    return { seq: 0, patients: [], idempotency: {} }
   }
 }
 
@@ -52,7 +49,6 @@ function writeState(state) {
   if (!store) {
     memory.seq = state.seq
     memory.patients = state.patients
-    memory.addresses = state.addresses
     memory.idempotency = state.idempotency
     return
   }
@@ -70,17 +66,9 @@ function copyPatient(patient) {
 export function resetMockPatients() {
   memory.seq = 0
   memory.patients = []
-  memory.addresses = {}
   memory.idempotency = {}
   const store = storage()
   if (store) store.removeItem(STORAGE_KEY)
-}
-
-export function mockLocalAddress(patientId) {
-  if (!patientId) return ''
-  const state = readState()
-  const value = state.addresses[patientId]
-  return typeof value === 'string' ? value : ''
 }
 
 export function mockCreatePatient(accessToken, input, idempotencyKey) {
@@ -101,8 +89,8 @@ export function mockCreatePatient(accessToken, input, idempotencyKey) {
   if (request.idNumber) {
     const existing = state.patients.find((item) => item.idNumber === request.idNumber)
     if (existing) {
-      throw apiError(409, 'DUPLICATE_PATIENT', '该身份证号已存在，不能重复建档', {
-        details: { patientId: existing.patientId },
+      throw apiError(409, 'DUPLICATE_ID_NUMBER', '该身份证号已存在，不能重复建档', {
+        details: { patientId: existing.patientId, fields: ['idNumber'] },
         requestId: `mock-${crypto.randomUUID()}`,
       })
     }
@@ -110,8 +98,8 @@ export function mockCreatePatient(accessToken, input, idempotencyKey) {
   if (request.cardNo) {
     const existing = state.patients.find((item) => item.cardNo === request.cardNo)
     if (existing) {
-      throw apiError(409, 'DUPLICATE_CARD_NO', '证件或卡号已存在，无法建档', {
-        details: { patientId: existing.patientId },
+      throw apiError(409, 'DUPLICATE_CARD_NO', '卡号已存在，不能重复建档', {
+        details: { patientId: existing.patientId, fields: ['cardNo'] },
         requestId: `mock-${crypto.randomUUID()}`,
       })
     }
@@ -130,6 +118,7 @@ export function mockCreatePatient(accessToken, input, idempotencyKey) {
     birthday: request.birthday,
     idNumber: request.idNumber || '',
     phone: request.phone || '',
+    address: request.address || '',
     fareIdentity: request.fareIdentity,
     cardStatus: 'NOT_SENT',
     status: 'ACTIVE',
@@ -139,15 +128,6 @@ export function mockCreatePatient(accessToken, input, idempotencyKey) {
   if (key) state.idempotency[key] = { fingerprint: JSON.stringify(request), patient }
   writeState(state)
   return copyPatient(patient)
-}
-
-export function mockRememberAddress(patientId, address) {
-  const text = typeof address === 'string' ? address.trim() : ''
-  if (!patientId) return
-  const state = readState()
-  if (!text) delete state.addresses[patientId]
-  else state.addresses[patientId] = text
-  writeState(state)
 }
 
 export function mockSearchPatients(accessToken, input) {

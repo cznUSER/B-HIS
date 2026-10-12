@@ -3,13 +3,8 @@ import { readFileSync } from 'node:fs'
 import http from 'node:http'
 import { ApiError } from '../src/api/errors.js'
 import { mockLogin, resetMockAuth } from '../src/api/mockAuth.js'
-import {
-  mockCreatePatient,
-  mockLocalAddress,
-  mockRememberAddress,
-  mockSearchPatients,
-  resetMockPatients,
-} from '../src/api/mockPatients.js'
+import { mockCreatePatient, mockSearchPatients, resetMockPatients } from '../src/api/mockPatients.js'
+import { presentPatientError } from '../src/api/patientApi.js'
 import { createPatient, fetchPatient, resetPatientClientCache, searchPatients } from '../src/api/patientApi.js'
 import { FARE_OPTIONS, assertCreatePatientRequest, todayInShanghai } from '../src/api/patientContract.js'
 
@@ -75,9 +70,10 @@ const body = assertCreatePatientRequest(sample())
 assert(body.idType === 'ID_CARD', 'idType')
 assert(body.idNumber === '110101199001151234', 'idNumber')
 assert(body.fareIdentity === 'SELF', 'fareIdentity')
-assert(!Object.prototype.hasOwnProperty.call(body, 'address'), 'address stays off the request')
+assert(body.address === '太原市示范路 1 号', 'address is sent when filled')
 assert(!Object.prototype.hasOwnProperty.call(body, 'cardNo'), 'card number stays off when empty')
-assert(JSON.stringify(body).includes('太原') === false, 'address text leaked')
+const noAddress = assertCreatePatientRequest(sample({ address: '  ' }))
+assert(!Object.prototype.hasOwnProperty.call(noAddress, 'address'), 'blank address omitted')
 
 const noId = assertCreatePatientRequest(sample({ idNumber: '', phone: '' }))
 assert(!Object.prototype.hasOwnProperty.call(noId, 'idNumber'), 'empty id omitted')
@@ -89,11 +85,9 @@ assert(created.patientId, 'patientId')
 assert(created.patientNo && created.patientNo.startsWith('P'), 'patientNo')
 assert(created.hospPkNo && created.hospPkNo.startsWith('H'), 'hospPkNo')
 assert(created.cardStatus === 'NOT_SENT', 'card not issued')
-assert(!Object.prototype.hasOwnProperty.call(created, 'address'), 'dto has no address')
-mockRememberAddress(created.patientId, '太原市示范路 1 号')
-assert(mockLocalAddress(created.patientId) === '太原市示范路 1 号', 'local address')
+assert(created.address === '太原市示范路 1 号', 'dto keeps address')
 
-const duplicate = await expectError(() => mockCreatePatient(token, sample({ name: '张小三' })), 'DUPLICATE_PATIENT', 409)
+const duplicate = await expectError(() => mockCreatePatient(token, sample({ name: '张小三' })), 'DUPLICATE_ID_NUMBER', 409)
 assert(duplicate.message === '该身份证号已存在，不能重复建档', 'duplicate copy')
 assert(duplicate.details.patientId === created.patientId, 'existing id')
 
@@ -122,12 +116,11 @@ const cardDup = await expectError(
   'DUPLICATE_CARD_NO',
   409,
 )
-assert(cardDup.message === '证件或卡号已存在，无法建档', 'card copy')
+assert(cardDup.message === '卡号已存在，不能重复建档', 'card copy')
 assert(FARE_OPTIONS.some((item) => item.value === 'SELF' && item.label === '自费'), 'self pay label')
 
-const viaApi = await createPatient(token, sample({ idNumber: '', name: '王五', address: '仅本地' }))
-assert(!JSON.stringify(viaApi).includes('仅本地'), 'api dto drops address')
-assert(mockLocalAddress(viaApi.patientId) === '仅本地', 'api mock keeps address locally')
+const viaApi = await createPatient(token, sample({ idNumber: '', name: '王五', address: '太原市并州路' }))
+assert(viaApi.address === '太原市并州路', 'api mock returns address')
 const found = await searchPatients(token, { name: '王' })
 assert(found.items.some((item) => item.patientId === viaApi.patientId), 'api fuzzy search')
 const loaded = await fetchPatient(token, viaApi.patientId)
@@ -140,7 +133,10 @@ for (const text of ['姓名', '性别', '出生日期', '费别', '身份证号'
 }
 const apiSrc = readFileSync(new URL('../src/api/patientApi.js', import.meta.url), 'utf8')
 assert(apiSrc.includes('该身份证号已存在，不能重复建档'), 'duplicate copy is fixed')
-assert(apiSrc.includes('证件或卡号已存在，无法建档'), 'card copy is fixed')
+assert(apiSrc.includes('DUPLICATE_ID_NUMBER'), 'real duplicate code')
+assert(apiSrc.includes('卡号已存在，不能重复建档'), 'card copy is fixed')
+const aliased = presentPatientError({ code: 'DUPLICATE_PATIENT', status: 409, message: 'duplicate', details: null, requestId: 'r' })
+assert(aliased.code === 'DUPLICATE_PATIENT' && aliased.message === '该身份证号已存在，不能重复建档', 'legacy code')
 for (const text of ['发卡', '充值', '民族', '婚姻', '合并', '卡号']) {
   assert(!template.includes(text), `forbidden copy: ${text}`)
 }
@@ -177,9 +173,9 @@ const server = http.createServer(async (req, res) => {
         success: false,
         data: null,
         error: {
-          code: 'DUPLICATE_PATIENT',
+          code: 'DUPLICATE_ID_NUMBER',
           message: 'duplicate',
-          details: { patientId: 'exist-1' },
+          details: { fields: ['idNumber'] },
         },
         requestId: 'req-dup',
       })
@@ -194,6 +190,7 @@ const server = http.createServer(async (req, res) => {
       birthday: payload.birthday,
       idNumber: payload.idNumber || '',
       phone: payload.phone || '',
+      address: payload.address || '',
       fareIdentity: payload.fareIdentity,
       cardStatus: 'NOT_SENT',
       status: 'ACTIVE',
@@ -254,12 +251,13 @@ process.env.VITE_API_BASE_URL = `http://127.0.0.1:${port}/api/v1`
 resetPatientClientCache()
 
 try {
-  const real = await createPatient('header.payload.sig', sample({ idNumber: '', name: '赵六', address: '不要出现' }))
+  const real = await createPatient('header.payload.sig', sample({ idNumber: '', name: '赵六', address: '太原市并州路' }))
   assert(real.patientNo === 'P0001', 'real patientNo')
   assert(real.patientId === 'created-1', 'real patientId')
+  assert(real.address === '太原市并州路', 'real address')
   const post = calls.find((item) => item.method === 'POST')
   const posted = JSON.parse(post.body)
-  assert(!Object.prototype.hasOwnProperty.call(posted, 'address'), 'post omits address')
+  assert(posted.address === '太原市并州路', 'post sends address')
   assert(!Object.prototype.hasOwnProperty.call(posted, 'cardNo'), 'post omits card')
   assert(posted.fareIdentity === 'SELF', 'post fare')
   assert(posted.name === '赵六', 'post name')
@@ -267,11 +265,11 @@ try {
 
   const dup = await expectError(
     () => createPatient('header.payload.sig', sample()),
-    'DUPLICATE_PATIENT',
+    'DUPLICATE_ID_NUMBER',
     409,
   )
   assert(dup.message === '该身份证号已存在，不能重复建档', 'real duplicate copy')
-  assert(dup.details.patientId === 'exist-1', 'real existing id')
+  assert(Array.isArray(dup.details.fields) && dup.details.fields.includes('idNumber'), 'duplicate field')
   assert(dup.requestId === 'req-dup', 'request id kept')
 
   calls.length = 0
