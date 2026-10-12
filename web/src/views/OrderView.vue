@@ -1,6 +1,7 @@
 <script setup>
 // 2026-10-12 P1-H05-ORDER-UI 门诊开单。主字段 registerId。
 // 2026-10-12 VITE_USE_MOCK=false 时暂存/改草稿/提交/作废走 /api/v1/orders；无挂号仍是空态。
+// 2026-10-13 P1-H05-MASTER-UI 开单医生和目录下拉跳过已停用项。
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ApiError } from '../api/errors.js'
@@ -17,13 +18,14 @@ import {
   FREQUENCY_TEXTS,
   USAGE_TEXTS,
   money,
+  openCatalog,
   orderStatusLabel,
   registerIsOrderable,
   round2,
   stockWarnings,
 } from '../api/orderContract.js'
 import { session } from '../auth/session.js'
-import { DOCTORS } from '../register/master.js'
+import { selectableDoctors } from '../register/master.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -54,8 +56,9 @@ let loadSeq = 0
 
 const busy = computed(() => saving.value || committing.value || abating.value)
 const orderableRegisters = computed(() => registers.value.filter((item) => registerIsOrderable(item)))
-const drugOptions = computed(() => CATALOG.filter((item) => item.itemType === 'DRUG'))
-const treatOptions = computed(() => CATALOG.filter((item) => item.itemType === 'TREAT'))
+const orderDoctors = computed(() => selectableDoctors())
+const drugOptions = computed(() => openCatalog().filter((item) => item.itemType === 'DRUG'))
+const treatOptions = computed(() => openCatalog().filter((item) => item.itemType === 'TREAT'))
 const locked = computed(() => ['COMMIT', 'ABATE', 'PROC'].includes(status.value) || charged.value)
 const canAbate = computed(() => Boolean(orderId.value) && !charged.value && (status.value === 'SAVE' || status.value === 'COMMIT'))
 const warnings = computed(() => stockWarnings(lines.value.filter((line) => line.itemNo && Number(line.amount) > 0)))
@@ -416,7 +419,7 @@ watch(() => queryRegisterId(), (id) => {
               <span>开单医生 <abbr class="req" title="必填">*</abbr></span>
               <select v-model="form.doctorId" data-testid="order-doctor">
                 <option value="">请选择</option>
-                <option v-for="item in DOCTORS" :key="item.doctorId" :value="item.doctorId">{{ item.name }}</option>
+                <option v-for="item in orderDoctors" :key="item.doctorId" :value="item.doctorId">{{ item.name }}</option>
               </select>
               <span class="field-hint">默认是挂号医生，可以改。</span>
             </label>

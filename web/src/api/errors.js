@@ -41,6 +41,18 @@ const MESSAGE_BY_CODE = {
   RETURN_REASON_REQUIRED: '请填写退药原因',
   IDEMPOTENT_REJECT: '重复提交已处理，未再次扣减/回滚',
   NOT_IMPLEMENTED: '发药接口尚未接入',
+  DEPT_CODE_DUPLICATE: '科室代码已存在',
+  DEPARTMENT_INACTIVE: '科室已停用，不能选择',
+  DOCTOR_CODE_DUPLICATE: '医生代码已存在',
+  DOCTOR_INACTIVE: '医生已停用，不能选择',
+  ITEM_NO_DUPLICATE: '项目编码已存在',
+  CATALOG_INACTIVE: '项目已停用',
+  INVALID_PRICE: '单价不合法',
+  ADJUST_RESULT_NEGATIVE: '调整后数量不能为负',
+  NOT_DRUG_SKU: '治疗项目无库存',
+  USERNAME_DUPLICATE: '登录名已存在',
+  DICT_READONLY: '该字典为系统枚举，不能维护',
+  DICT_CODE_DUPLICATE: '代码已存在',
 }
 
 const CODE_BY_STATUS = {

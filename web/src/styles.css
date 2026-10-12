@@ -2506,3 +2506,195 @@ a.todo-card:hover {
 .dispense-detail h3 {
   font-size: 15px;
 }
+
+/* 2026-10-13 P1-H05-MASTER-UI 基础数据页，沿用门诊表单和表格。 */
+
+.master-page h1 {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.master-lead {
+  margin: 4px 0 12px;
+}
+
+.master-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+
+.master-tab {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.master-tab.is-active {
+  border-color: var(--teal);
+  background: var(--teal);
+  color: #fff;
+}
+
+.master-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.master-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 96px;
+  padding: 14px 16px;
+  border: 1px solid #e4eaee;
+  border-radius: 4px;
+  background: #fff;
+  color: inherit;
+  text-decoration: none;
+}
+
+.master-card:hover {
+  border-color: var(--teal);
+}
+
+.master-card strong {
+  font-size: 22px;
+  color: var(--teal);
+}
+
+.master-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+}
+
+.master-filters .field {
+  flex: 1 1 160px;
+}
+
+.master-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #d7e6ea;
+  border-radius: 4px;
+  background: #f7fbfb;
+}
+
+.master-page input[type='checkbox'] {
+  width: auto;
+  height: auto;
+}
+
+.master-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.status-pill {
+  font-weight: 700;
+}
+
+.status-pill[data-status='ACTIVE'] {
+  color: var(--ok);
+}
+
+.status-pill[data-status='INACTIVE'],
+.status-pill[data-status='DISABLED'] {
+  color: var(--muted);
+}
+
+.enum-chip {
+  display: inline-block;
+  margin: 0 8px 4px 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--teal-soft);
+  font-size: 12px;
+}
+
+.role-picks {
+  margin: 0;
+  padding: 8px 12px 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.role-picks legend {
+  padding: 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.role-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 14px 0 0;
+  font-size: 14px;
+}
+
+.master-ledger {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.master-ledger h3,
+.master-modal-card h3 {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.master-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(16, 42, 56, 0.35);
+}
+
+.master-modal-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(100%, 440px);
+  padding: 16px;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.field-hint.is-danger {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.register-table tbody tr.is-active {
+  background: var(--teal-soft);
+}
+
+@media (max-width: 960px) {
+  .master-cards {
+    grid-template-columns: 1fr;
+  }
+}

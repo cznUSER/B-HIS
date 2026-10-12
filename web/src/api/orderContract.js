@@ -3,6 +3,7 @@
 // 目录与 004_order 种子一致。库存不足只提示，不写入拒绝。
 
 import { apiError } from './errors.js'
+import { catalogSelectable } from '../master/store.js'
 
 export const CATALOG = [
   {
@@ -49,6 +50,10 @@ export function round2(value) {
 
 export function money(value) {
   return round2(value).toFixed(2)
+}
+
+export function openCatalog() {
+  return CATALOG.filter((item) => catalogSelectable(item.itemNo))
 }
 
 export function findCatalogItem(itemNo) {

@@ -1,4 +1,7 @@
 // 2026-10-12 P1-H05-HOME-DASH 登录后侧栏。六步都在「门诊业务」；档案建档走同一路由。
+// 2026-10-13 P1-H05-MASTER-UI 「基础字典」改为可进入的「基础数据」。
+
+import { canMaintainMaster } from '../master/access.js'
 
 export const NAV = [
   { key: 'home', label: '首页', to: { name: 'home' } },
@@ -27,23 +30,30 @@ export const NAV = [
     key: 'settings',
     label: '系统设置',
     children: [
+      { key: 'settings-master', label: '基础数据', to: { name: 'master' }, access: 'master' },
       { key: 'settings-users', label: '用户与权限', phase: '二期' },
-      { key: 'settings-dict', label: '基础字典', phase: '二期' },
     ],
   },
 ]
 
-export function resolveNavChild(child, modules) {
+export function resolveNavChild(child, modules, user) {
   if (!child || child.phase) {
-    return { enabled: false, reason: child && child.phase ? child.phase : '二期', to: null }
+    return { enabled: false, hidden: false, reason: child && child.phase ? child.phase : '二期', to: null }
   }
-  if (child.to) return { enabled: true, reason: '', to: child.to }
+  if (child.access === 'master') {
+    if (!canMaintainMaster(user)) {
+      return { enabled: false, hidden: true, reason: '无权限', to: null }
+    }
+    return { enabled: true, hidden: false, reason: '', to: child.to }
+  }
+  if (child.to) return { enabled: true, hidden: false, reason: '', to: child.to }
   const mod = (Array.isArray(modules) ? modules : []).find((item) => item.key === child.module)
   if (!mod || !mod.allowed) {
-    return { enabled: false, reason: mod && mod.reason ? mod.reason : '无权限', to: null }
+    return { enabled: false, hidden: false, reason: mod && mod.reason ? mod.reason : '无权限', to: null }
   }
   return {
     enabled: true,
+    hidden: false,
     reason: '',
     to: { name: 'outpatient-module', params: { module: child.module } },
   }

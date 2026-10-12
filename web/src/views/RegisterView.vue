@@ -2,6 +2,7 @@
 // 2026-10-12 P1-H05-REGISTER-UI 挂号页。患者从建档 ?patientId= 带入，只选科室和医生。
 // 2026-10-12 可联调：POST/GET /registers，字段 departmentId。
 // 2026-10-12 P1-H05b-REGISTER-CHECKIN-UI 正常号、已用号显示报到。Mock 可模拟 409。
+// 2026-10-13 P1-H05-MASTER-UI 科室和医生下拉只列启用项。
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ApiError } from '../api/errors.js'
@@ -12,7 +13,6 @@ import { sexLabel, todayInShanghai } from '../api/patientContract.js'
 import { session } from '../auth/session.js'
 import {
   REGISTER_SORT,
-  DEPARTMENTS,
   canCancel,
   canCheckIn,
   cancelRejectMessage,
@@ -20,6 +20,7 @@ import {
   deptName,
   doctorName,
   doctorsForDept,
+  selectableDepartments,
   maskIdNumber,
   statusLabel,
 } from '../register/master.js'
@@ -45,6 +46,7 @@ const notice = ref('')
 const noticeError = ref(false)
 
 const patientId = computed(() => readQuery(route.query.patientId))
+const departments = computed(() => selectableDepartments())
 const doctors = computed(() => doctorsForDept(departmentId.value))
 const patientEditTo = computed(() => ({
   name: 'outpatient-module',
@@ -251,7 +253,7 @@ async function onCheckIn(row) {
             <span>科室 <abbr class="req" title="必填">*</abbr></span>
             <select v-model="departmentId" data-testid="dept-select">
               <option value="">请选择科室</option>
-              <option v-for="item in DEPARTMENTS" :key="item.departmentId" :value="item.departmentId">{{ item.name }}</option>
+              <option v-for="item in departments" :key="item.departmentId" :value="item.departmentId">{{ item.name }}</option>
             </select>
           </label>
           <label class="field">
