@@ -21,6 +21,15 @@ const MESSAGE_BY_CODE = {
   REGISTER_BACK_NOT_ALLOWED: '该号已退，不能再次退号',
   // 2026-10-12 P1-H05b-REGISTER-CHECKIN-UI 报到非法状态，对齐契约示例文案。
   ILLEGAL_STATE_TRANSITION: '当前状态不允许该操作',
+  ENCOUNTER_REQUIRED: '未挂号/无有效就诊，不能收费',
+  INSUFFICIENT_STOCK: '库存不足，无法收费',
+  INVALID_AMOUNT: '数量或金额不合法',
+  CHARGE_AMOUNT_MISMATCH: '实收与应收不一致',
+  ITEM_NOT_CAN_BACK: '该明细不可退',
+  REFUND_REQUIRES_RETURN: '已发药，请先退药再退费',
+  REFUND_EXCEEDS_REFUNDABLE: '退数量超过可退数量',
+  ALREADY_ABATED: '该收费单已作废，不能再退',
+  ALREADY_CHARGED: '该处方已收费',
 }
 
 const CODE_BY_STATUS = {

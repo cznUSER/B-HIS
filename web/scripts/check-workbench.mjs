@@ -32,7 +32,7 @@ for (const key of keys) {
   assert(modulePath(key) === `/app/outpatient/${key}`, `path ${key}`)
 }
 
-const usable = new Set(['patient', 'register', 'order'])
+const usable = new Set(['patient', 'register', 'order', 'charge'])
 for (const item of OUTPATIENT_MODULES) {
   if (usable.has(item.key)) assert(item.status === 'available', `${item.key} is usable`)
   else assert(item.status === 'developing', `${item.key} status`)

@@ -2156,3 +2156,245 @@ a.todo-card:hover {
   border-color: #b7d4dc;
   background: var(--teal-soft);
 }
+/* 2026-10-12 P1-H05-CHARGE-UI 门诊收费 Mock 壳。 */
+
+.charge-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.charge-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.9fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.charge-page .field span,
+.charge-page legend {
+  font-weight: 700;
+}
+
+.charge-page input,
+.charge-page select {
+  width: 100%;
+  height: 36px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  padding: 0 10px;
+  background: #fff;
+  font: inherit;
+  color: inherit;
+}
+
+.charge-page input:read-only,
+.charge-page input:disabled {
+  background: #f3f6f8;
+  color: #6d8290;
+}
+
+.charge-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+}
+
+.charge-search .field {
+  flex: 1 1 180px;
+}
+
+.demo-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.demo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.demo-chip span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.demo-chip.is-active {
+  border-color: var(--teal);
+  background: var(--teal-soft);
+}
+
+.charge-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 0 4px;
+}
+
+.charge-empty h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.charge-empty p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.charge-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.charge-meta div {
+  min-width: 0;
+}
+
+.charge-meta dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.charge-meta dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.charge-pay {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.money-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.pay-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.pay-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.pay-option input {
+  width: auto;
+  height: auto;
+}
+
+.pay-option.is-reserved {
+  color: #8aa0ab;
+  font-weight: 400;
+}
+
+.pay-option.is-reserved span {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #eef2f4;
+  font-size: 12px;
+}
+
+.charge-page .patient-table td {
+  white-space: normal;
+}
+
+.charge-page .patient-table tbody tr {
+  cursor: default;
+}
+
+.charge-page tr.is-short td {
+  color: var(--danger);
+}
+
+.is-short-text {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.charge-status {
+  display: inline-block;
+  margin-right: 4px;
+  font-weight: 700;
+}
+
+.charge-status.is-normal {
+  color: var(--ok);
+}
+
+.charge-status.is-abate {
+  color: var(--muted);
+}
+
+.check-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  font-size: 13px;
+}
+
+.check-line input,
+.qty-input {
+  width: auto;
+}
+
+.qty-input {
+  width: 64px;
+  height: 32px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  padding: 0 6px;
+}
+
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(16, 42, 56, 0.35);
+}
+
+.refund-drawer {
+  width: min(520px, 100%);
+  height: 100%;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+@media (max-width: 960px) {
+  .charge-layout,
+  .charge-meta,
+  .money-grid {
+    grid-template-columns: 1fr;
+  }
+}

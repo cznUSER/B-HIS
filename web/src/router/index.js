@@ -3,6 +3,7 @@
 // 2026-10-12 P1-H05-HOME-DASH 默认页改为首页看板，六步仍走 /app/outpatient/*
 // 2026-10-12 P1-H05-PATIENT-UI 建档页替换空态，其余模块仍走空态
 // 2026-10-12 P1-H05-REGISTER-UI 挂号页替换空态
+// 2026-10-12 P1-H05-CHARGE-UI 收费页对接 /charges；Mock 仅在 VITE_USE_MOCK=true
 import { createRouter, createWebHistory } from 'vue-router'
 import { isAuthenticated } from '../auth/session.js'
 import AppShell from '../components/AppShell.vue'
