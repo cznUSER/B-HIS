@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:demo": "vite build --mode demo",
     "preview": "vite preview",
     "check": "node scripts/check-mock.mjs && node scripts/check-client-http.mjs",
     "check:api": "node scripts/check-real-api.mjs"

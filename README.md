@@ -43,6 +43,7 @@ go run ./cmd/api -config config.example.yaml
 | `BHIS_LOG_LEVEL` | `debug` / `info` / `warn` / `error` |
 | `BHIS_CORS_ORIGINS` | 逗号分隔。默认放行 Vite：`http://localhost:5173`、`http://127.0.0.1:5173` |
 | `BHIS_CONFIG` | 可选 YAML 路径 |
+| `BHIS_OPEN_BROWSER` | `0` / `false` / `no` 时，host 启动后不打开浏览器 |
 
 进程环境变量优先于 YAML。若变量尚未设置，会再读当前目录下 gitignore 的 `.env.local`，然后 `.env`。
 
@@ -54,7 +55,41 @@ go run ./cmd/host -config config.example.yaml health
 go run ./cmd/host -config config.example.yaml logs
 ```
 
-Host 只是启停 / 健康 / 日志目录的薄封装。验收可以只跑 `cmd/api`。托盘窗不在这个构建里。
+Host 在这个构建里是 **Windows 本机演示启动器**（还不是托盘窗）。无参数会启动内存库 API、同源托管登录页，并打开浏览器。验收用的无头进程仍是 `cmd/api`。
+
+## Windows 双击启动
+
+一个 exe 同时提供登录页和 API，运行时不需要 Vite。默认内存库。浏览器打开 http://127.0.0.1:8080/login 。真实 API 演示账号是 `admin` / `Admin@123`（不是 Mock 的 `admin123`，也不是 SQL Server 口令）。
+
+在仓库根目录重新构建网页并打出 exe：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\build-windows.ps1
+```
+
+产物：`bin\b-his-host.exe`。双击它，或在该目录打开命令行直接运行。窗口要留着；关掉窗口或按 Ctrl+C 即停止。登录页和 `/api/v1` 在同一个进程。
+
+Linux 上交叉编译同样用 `scripts/build-windows.sh`（需要 Node 与 Go），得到同一个 `bin/b-his-host.exe`。
+
+常用启动方式：
+
+```text
+bin\b-his-host.exe
+bin\b-his-host.exe -no-browser
+bin\b-his-host.exe -config config.local.yaml start
+bin\b-his-host.exe health
+bin\b-his-host.exe logs
+```
+
+| 项 | 说明 |
+|----|------|
+| 不必带配置文件 | 没有 YAML、也没有 `BHIS_JWT_SECRET` 时，用 `config.example.yaml` 里的 JWT 占位符，数据库为 memory。日志会警告这是占位符。 |
+| 配置放哪 | 当前目录或 exe 同目录的 `config.local.yaml`、`config.yaml`，其次才是 `config.example.yaml`。也可以 `-config` 或 `BHIS_CONFIG`。 |
+| SQL Server | 仍是可选项。在 exe 旁边放 gitignore 的 `config.local.yaml`，或设置 `BHIS_DB_DRIVER=sqlserver` 和 `BHIS_DB_DSN`。不要把 DSN 或口令提交到 Git。 |
+| 不打开浏览器 | `-no-browser`，或 `BHIS_OPEN_BROWSER=0`。 |
+| 开发时的 Mock | `cd web` 后 `npm run dev` 不变，仍是 Mock（`admin` / `admin123`）。exe 用的是 `npm run build:demo`（关闭 Mock，请求同源 `/api/v1`）。 |
+
+启动失败时，双击打开的窗口会停住并提示按 Enter，避免报错一闪而过。端口默认 `127.0.0.1:8080`；被占用时改 `BHIS_API_ADDR` 或配置里的 `Host.ApiAddr`。日志仍在工作目录的 `./logs`（双击时工作目录一般就是 exe 所在文件夹）。
 
 ## 内存演示账号
 
@@ -176,6 +211,8 @@ go build -o bin/h-api ./cmd/api
 go build -o bin/h-host ./cmd/host
 ```
 
+Windows 演示包（先构建 `web` 的 demo 静态文件，再打进 exe）见上一节 `scripts/build-windows.ps1`。只执行 `go build -o bin/b-his-host.exe ./cmd/host` 时，用的是仓库里已提交的 `internal/webui/assets`。改了 `web/src` 之后要重新跑脚本，否则 exe 仍是旧页面。
+
 ## 布局
 
-`cmd/api`、`cmd/host`、`internal/domain`、`internal/app`、`internal/port`、`internal/adapter/http`、`internal/store/memory`、`internal/store/mssql`、`internal/logging`、`api/openapi.yaml`、`migrations/sqlserver/core`、`docs/contracts`、`web/`。
+`cmd/api`、`cmd/host`、`internal/domain`、`internal/app`、`internal/port`、`internal/adapter/http`、`internal/store/memory`、`internal/store/mssql`、`internal/logging`、`internal/webui`（已构建的登录页）、`api/openapi.yaml`、`migrations/sqlserver/core`、`docs/contracts`、`web/`、`scripts/build-windows.ps1`。

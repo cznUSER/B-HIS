@@ -1,5 +1,6 @@
 // 2026-10-12 P1-H05 登录界面
 // 2026-10-12 P1-H05 真 API 联调：浏览器走 Vite 注入的 VITE_*；node 脚本可读 process.env。
+// 2026-10-12 demo 构建固定走真实 API，供 Windows exe 同源托管
 
 function trimSlash(value) {
   return value.replace(/\/+$/, '')
@@ -32,6 +33,7 @@ function configured(name, fallback) {
 }
 
 export function useMock() {
+  if (import.meta.env && import.meta.env.MODE === 'demo') return false
   const flag = configured('VITE_USE_MOCK', 'true').toLowerCase()
   return flag !== 'false' && flag !== '0' && flag !== 'no'
 }

@@ -49,6 +49,19 @@ type CORSConfig struct {
 	AllowedOrigins []string `yaml:"AllowedOrigins"`
 }
 
+// DemoJWTPlaceholder is the non-credential local-demo value from config.example.yaml.
+// Shared environments must set BHIS_JWT_SECRET. The host may use this so a
+// double-clicked demo starts without a config file beside the exe.
+const DemoJWTPlaceholder = "replace-me-placeholder"
+
+// ErrJWTRequired is returned when no JWT secret was configured.
+var ErrJWTRequired = errors.New("Auth.JWTSecret is required (BHIS_JWT_SECRET or config file; do not commit real secrets)")
+
+// IsMissingJWT reports a Load failure caused only by a missing JWT secret.
+func IsMissingJWT(err error) bool {
+	return errors.Is(err, ErrJWTRequired)
+}
+
 // Defaults are safe for a local memory demo except JWTSecret, which must be supplied.
 func Defaults() Config {
 	return Config{
@@ -195,7 +208,7 @@ func (c *Config) normalize() error {
 		return fmt.Errorf("Host.ApiAddr is required")
 	}
 	if strings.TrimSpace(c.Auth.JWTSecret) == "" {
-		return fmt.Errorf("Auth.JWTSecret is required (BHIS_JWT_SECRET or config file; do not commit real secrets)")
+		return ErrJWTRequired
 	}
 	if _, err := c.TokenTTL(); err != nil {
 		return err

@@ -141,3 +141,13 @@ npm run check:api
 ```
 
 脚本从环境以及 `web/.env.local`、`web/.env` 读取 `VITE_USE_MOCK`、`VITE_API_BASE_URL`、`VITE_API_PROXY_TARGET`（已有环境变量优先）。它打印状态码和错误码，不打印 token 或口令。`VITE_USE_MOCK` 不是 `false` / `0` / `no` 时直接跳过并退出 0。**CI 只跑 `npm run check`，不要求本机有 API。** 相对路径的 `VITE_API_BASE_URL` 会拼到 `VITE_API_PROXY_TARGET`（缺省 `http://127.0.0.1:8080`）上，因为脚本跑在 Node 里，不经过 Vite。
+
+## Windows 演示 exe
+
+`npm run dev` 保持 Mock。给双击 exe 用的是另一条构建，关闭 Mock，接口走同源 `/api/v1`，登录页带仓库里的全屏背景：
+
+```bash
+npm run build:demo
+```
+
+仓库根目录的 `scripts/build-windows.ps1` 会执行这条命令，把 `web/dist` 拷进 `internal/webui/assets`，再打出 `bin/b-his-host.exe`。账号与启动说明见仓库根目录 [README.md](../README.md) 的「Windows 双击启动」。真实 API 演示账号是 `admin` / `Admin@123`。
