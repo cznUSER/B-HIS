@@ -1,17 +1,37 @@
+# runtime logs (拍板#6 / 工程约定 §2.0.3)
+logs/
+*.log
+
+# local secrets and machine config — never commit
+.env
+.env.*
+.env.local
+.env.*.local
+config.local.yaml
+config.local.*
+*.local.yaml
+*.local
+config.yaml
+
 # Node / Vite（web/）
 node_modules/
 dist/
 dist-ssr/
 .vite/
-*.local
-.env.local
-.env.*.local
 npm-debug.log*
 pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# OS / editor
-.DS_Store
+# Go build output
+bin/
+*.exe
+*.test
+coverage.out
+
+# IDE / OS
+.idea/
+.vscode/
 Thumbs.db
+.DS_Store
 *.swp
