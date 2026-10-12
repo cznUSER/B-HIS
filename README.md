@@ -18,7 +18,7 @@ npm run dev
 
 默认是 **Mock**（`VITE_USE_MOCK=true`），不访问后端。Mock 演示账号 `admin` / `admin123`。
 
-切换到 H04 真实 API、接口路径和错误码说明见 [web/README.md](web/README.md)。联调时先按下一节启动 Go API（默认 `127.0.0.1:8080`）。真实 API 的内存演示账号是 `admin` / `Admin@123`，和 Mock 口令不同。
+切换到 H04 真实 API 的步骤见 [web/README.md](web/README.md)「本机真 API 联调」。联调时先按下一节启动 Go API（默认 `127.0.0.1:8080`）。真实 API 的内存演示账号是 `admin` / `Admin@123`，和 Mock 口令不同。
 
 ## Go 登录 API（默认内存库，不需要 SQL Server）
 

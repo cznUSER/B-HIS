@@ -48,6 +48,18 @@ func TestMountKeepsAPIAndServesSPA(t *testing.T) {
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("favicon status %d", rec.Code)
 	}
+
+	bg := httptest.NewRecorder()
+	h.ServeHTTP(bg, httptest.NewRequest(http.MethodGet, "/bhis-login-bg.jpg", nil))
+	if bg.Code != http.StatusOK {
+		t.Fatalf("background status %d", bg.Code)
+	}
+	if ct := bg.Header().Get("Content-Type"); !strings.Contains(ct, "image/jpeg") {
+		t.Fatalf("background content-type %q", ct)
+	}
+	if bg.Body.Len() < 1024 {
+		t.Fatalf("background too small: %d", bg.Body.Len())
+	}
 }
 
 func TestDemoBundleTalksToAPI(t *testing.T) {
@@ -77,6 +89,32 @@ func TestDemoBundleTalksToAPI(t *testing.T) {
 	if !strings.Contains(text, "Admin@123") {
 		t.Fatal("demo bundle missing documented API demo account hint")
 	}
+	css, err := fs.ReadFile(sub, findCSS(t, sub))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(css), "bhis-login-bg.jpg") {
+		t.Fatal("demo css missing login background")
+	}
+}
+
+func findCSS(t *testing.T, sub fs.FS) string {
+	t.Helper()
+	var name string
+	err := fs.WalkDir(sub, ".", func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !strings.HasSuffix(p, ".css") {
+			return err
+		}
+		name = p
+		return fs.SkipAll
+	})
+	if err != nil && err != fs.SkipAll {
+		t.Fatal(err)
+	}
+	if name == "" {
+		t.Fatal("demo bundle missing css")
+	}
+	return name
 }
 
 func TestEmbeddedIndexReadable(t *testing.T) {
