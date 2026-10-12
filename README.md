@@ -185,7 +185,7 @@ CI 和这台云端构建保持 **memory**。要在 Windows 开发机连 SQL Serv
 
 1. 不要把主机、账号、口令写进 Git、拍板文档或 `config.example.yaml`。
 2. 在 `E:\B-HIS` 自建 gitignore 文件 `.env.local` 或 `config.local.yaml`。
-3. 库名 **BHIS**。先执行 `migrations/sqlserver/core/001_identity.up.sql`（见 `migrations/README.md`）。`sqlcmd` 的口令用环境变量 `SQLCMDPASSWORD`，不要写进脚本。
+3. 库名 **BHIS**。先执行 `migrations/sqlserver/core/001_identity.up.sql`（见 `migrations/README.md`）。Windows 优先用 `scripts/apply-migration.ps1`（已带 `sqlcmd -I`）。`sqlcmd` 的口令用环境变量 `SQLCMDPASSWORD`，不要写进脚本。
 4. 启动前设置：
 
 ```text
