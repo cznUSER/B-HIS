@@ -14,6 +14,11 @@ const MESSAGE_BY_CODE = {
   DUPLICATE_ID_NUMBER: '该身份证号已存在，不能重复建档',
   DUPLICATE_CARD_NO: '卡号已存在，不能重复建档',
   NOT_FOUND: '未找到患者',
+  PATIENT_NOT_FOUND: '患者不存在',
+  DEPARTMENT_NOT_FOUND: '科室不存在',
+  DOCTOR_NOT_FOUND: '医生不存在',
+  REGISTER_NOT_CANCELLABLE: '当前号已使用或就诊中，不能退号',
+  REGISTER_BACK_NOT_ALLOWED: '该号已退，不能再次退号',
 }
 
 const CODE_BY_STATUS = {

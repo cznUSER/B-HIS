@@ -16,7 +16,7 @@ npm run dev
 
 也可用 pnpm：`pnpm install` 然后 `pnpm dev`。浏览器打开终端里提示的本地地址（默认 http://localhost:5173）。
 
-登录成功进入首页看板 `/app`（待办、经营概况、两张分布图都是演示占位，数字为 0）。左侧「门诊业务」是建档、挂号、开单、收费、发药、退药/退费；「档案管理」里的患者建档走同一条建档路由。患者建档页可以新建和查询。默认仍是 Mock；`web/.env.local` 里把 `VITE_USE_MOCK` 设为 `false` 后，建档请求走本机 `POST/GET /api/v1/patients`。挂号及之后的模块页仍是空态，不展示假业务数据。六张入口卡只在 `/app/outpatient`，不是登录后的默认页。
+登录成功进入首页看板 `/app`（待办、经营概况、两张分布图都是演示占位，数字为 0）。左侧「门诊业务」是建档、挂号、开单、收费、发药、退药/退费；「档案管理」里的患者建档走同一条建档路由。患者建档页可以新建和查询。挂号页可选科室和医生；没有患者时提示先建档。默认仍是 Mock；`web/.env.local` 里把 `VITE_USE_MOCK` 设为 `false` 后，建档走 `POST/GET /api/v1/patients`，挂号走 `POST/GET /api/v1/registers` 与 `POST /api/v1/registers/{id}/cancel`（字段 `departmentId`）。开单及之后的模块页仍是空态。六张入口卡只在 `/app/outpatient`，不是登录后的默认页。
 
 默认是 **Mock**（`VITE_USE_MOCK=true`），不访问后端。Mock 与真实 API 使用同一套演示账号 `system` / `1`。员工默认密码也是 `1`。
 

@@ -1693,7 +1693,8 @@ a.todo-card:hover {
   grid-column: 1 / -1;
 }
 
-.patient-page .field span {
+.patient-page .field span,
+.register-page .field span {
   font-weight: 700;
 }
 
@@ -1704,7 +1705,9 @@ a.todo-card:hover {
 
 .patient-page input,
 .patient-page select,
-.patient-page textarea {
+.patient-page textarea,
+.register-page input,
+.register-page select {
   width: 100%;
   height: 36px;
   border: 1px solid var(--line-strong);
@@ -1723,7 +1726,9 @@ a.todo-card:hover {
 }
 
 .patient-page select:disabled,
-.patient-page textarea:disabled {
+.patient-page textarea:disabled,
+.register-page select:disabled,
+.register-page input:disabled {
   background: #f3f6f8;
   color: #6d8290;
   cursor: not-allowed;
@@ -1815,14 +1820,17 @@ a.todo-card:hover {
 }
 
 .patient-table th,
-.patient-table td {
+.patient-table td,
+.register-table th,
+.register-table td {
   padding: 8px 10px;
   border-bottom: 1px solid #e6eef2;
   text-align: left;
   white-space: nowrap;
 }
 
-.patient-table th {
+.patient-table th,
+.register-table th {
   background: #f4fafb;
   color: #3d5666;
   font-weight: 700;
@@ -1841,5 +1849,109 @@ a.todo-card:hover {
   .patient-layout,
   .field-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* 2026-10-12 P1-H05-REGISTER-UI 挂号页。号别与就诊日期只读，不提供排班日历。 */
+
+.register-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.register-page .empty-panel {
+  align-items: flex-start;
+  padding: 28px 20px;
+  text-align: left;
+}
+
+.register-page .empty-lead {
+  margin-top: 0;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px 16px;
+  margin: 0;
+}
+
+.summary-grid div {
+  min-width: 0;
+}
+
+.summary-grid dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.summary-grid dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+  font-weight: 700;
+  word-break: break-all;
+}
+
+.banner-ok {
+  border-color: #b7e2cf;
+  border-left-color: var(--ok);
+  background: var(--ok-soft);
+  color: #135c40;
+}
+
+.register-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.register-table tbody tr {
+  cursor: default;
+}
+
+.ticket-status {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #eef1f3;
+  color: #3d5666;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ticket-status[data-status='NORMAL'] {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.ticket-status[data-status='BACK'] {
+  background: #eef1f3;
+  color: #6d7c86;
+}
+
+.register-table td.ticket-actions {
+  white-space: normal;
+  min-width: 12em;
+}
+
+.ticket-actions .button {
+  margin-top: 0;
+}
+
+.ticket-reject {
+  margin: 6px 0 0;
+  color: #8a5a12;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: normal;
+}
+
+@media (max-width: 960px) {
+  .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
