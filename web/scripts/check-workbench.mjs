@@ -32,7 +32,7 @@ for (const key of keys) {
   assert(modulePath(key) === `/app/outpatient/${key}`, `path ${key}`)
 }
 
-const usable = new Set(['patient', 'register'])
+const usable = new Set(['patient', 'register', 'order'])
 for (const item of OUTPATIENT_MODULES) {
   if (usable.has(item.key)) assert(item.status === 'available', `${item.key} is usable`)
   else assert(item.status === 'developing', `${item.key} status`)
@@ -43,6 +43,7 @@ const system = decorateModules(['SYSTEM'])
 assert(system.every((item) => item.allowed), 'system can open all')
 assert(system.find((item) => item.key === 'patient').statusLabel === '可用', 'patient badge')
 assert(system.find((item) => item.key === 'register').statusLabel === '可用', 'register badge')
+assert(system.find((item) => item.key === 'order').statusLabel === '可用', 'order badge')
 assert(
   system.filter((item) => !usable.has(item.key)).every((item) => item.statusLabel === '开发中'),
   'other modules stay developing',

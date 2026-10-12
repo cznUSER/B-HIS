@@ -1648,7 +1648,8 @@ a.todo-card:hover {
 
 /* 2026-10-12 P1-H05-PATIENT-UI 建档页，沿用首页青蓝工作区。 */
 
-.patient-page {
+.patient-page,
+.order-page {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1694,7 +1695,8 @@ a.todo-card:hover {
 }
 
 .patient-page .field span,
-.register-page .field span {
+.register-page .field span,
+.order-page .field span {
   font-weight: 700;
 }
 
@@ -1707,7 +1709,9 @@ a.todo-card:hover {
 .patient-page select,
 .patient-page textarea,
 .register-page input,
-.register-page select {
+.register-page select,
+.order-page input,
+.order-page select {
   width: 100%;
   height: 36px;
   border: 1px solid var(--line-strong);
@@ -1728,7 +1732,9 @@ a.todo-card:hover {
 .patient-page select:disabled,
 .patient-page textarea:disabled,
 .register-page select:disabled,
-.register-page input:disabled {
+.register-page input:disabled,
+.order-page input:disabled,
+.order-page select:disabled {
   background: #f3f6f8;
   color: #6d8290;
   cursor: not-allowed;
@@ -1847,6 +1853,7 @@ a.todo-card:hover {
 
 @media (max-width: 960px) {
   .patient-layout,
+  .order-layout,
   .field-grid {
     grid-template-columns: 1fr;
   }
@@ -1954,4 +1961,163 @@ a.todo-card:hover {
   .summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+/* 2026-10-12 P1-H05-ORDER-UI 开单页。Mock，不请求处方接口。 */
+
+.order-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 12px;
+  align-items: start;
+}
+
+.order-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.order-empty h2 {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.order-empty-banner {
+  width: min(460px, 100%);
+  margin-top: 12px;
+  text-align: left;
+}
+
+.order-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  width: min(460px, 100%);
+  margin-top: 18px;
+  text-align: left;
+}
+
+.line-scroll {
+  overflow: auto;
+}
+
+.line-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.line-table th,
+.line-table td {
+  padding: 8px 6px;
+  border-bottom: 1px solid #e6eef2;
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.line-table th {
+  background: #f4fafb;
+  color: #3d5666;
+  font-weight: 700;
+}
+
+.line-table .col-item {
+  min-width: 180px;
+}
+
+.line-table .col-narrow {
+  min-width: 84px;
+}
+
+.line-table input,
+.line-table select {
+  min-width: 72px;
+}
+
+.stock-row td {
+  padding-top: 0;
+  color: #8a5a12;
+  font-size: 12px;
+  white-space: normal;
+}
+
+.order-total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 16px;
+}
+
+.order-total strong {
+  font-variant-numeric: tabular-nums;
+  font-size: 20px;
+}
+
+.charge-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: #eef1f3;
+  color: #3d5666;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.charge-chip[data-charge='可收费'] {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.charge-chip[data-charge='已收费'] {
+  background: #fff3e4;
+  color: #8a5a12;
+}
+
+.stock-list {
+  margin: 0;
+  padding-left: 18px;
+  color: #8a5a12;
+  font-size: 13px;
+}
+
+.order-side .order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.order-list-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #e6eef2;
+  border-radius: 4px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.order-list-item.is-active,
+.order-list-item:hover {
+  border-color: #b7d4dc;
+  background: var(--teal-soft);
 }
