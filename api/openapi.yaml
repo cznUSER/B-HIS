@@ -1,13 +1,16 @@
 openapi: 3.0.3
 info:
   title: H Phase1 Outpatient Loop API
-  version: 0.3.2-draft
+  version: 0.3.5-draft
   description: |
-    P1-H03-CORE 契约草案 v0.3.2（登录鉴权 + 对齐 H02 + 用户拍板）。
+    P1-H03-CORE 契约草案 v0.3.5（患者建档 address + 建档必填对齐 H02 清单）。
     挂号六态、CureBill、Square Abate+新单、CanBack、卡状态已对齐。
     实现基线：Go API（可桌面 Host 托管）+ SQL Server；Store 可切换。
     库存方案 A（真实扣减）；Inventory 查询启用。
     Auth：JWT HS256 access token（默认 TTL 8h）；login/logout/me 供 H04+H05 登录页落地。
+    v0.3.5/P1-H03-PATIENT：CreatePatientRequest.required=[name,sex,birthday,fareIdentity]；
+    address 选填可空；idNumber/cardNo 非空查重 → 409 DUPLICATE_*；拒绝不合并（拍板#20）；
+    迁移 sqlserver/core/002_patient；PK 实现侧 varchar(64)。Auth 路径保持不变。
 servers:
   - url: /api/v1
 tags:
@@ -146,6 +149,10 @@ paths:
           schema: { type: string }
         - name: hospPkNo
           in: query
+          schema: { type: string }
+        - name: address
+          in: query
+          description: 地址模糊（可选）
           schema: { type: string }
       responses:
         '200':
@@ -657,20 +664,21 @@ components:
         requestId: { type: string }
     CreatePatientRequest:
       type: object
-      required: [name, birthday]
+      required: [name, sex, birthday, fareIdentity]
       properties:
-        name: { type: string }
-        sex: { type: string, enum: [M, F, U] }
-        birthday: { type: string, format: date, description: '>1900-01-01 且 ≤今天' }
+        name: { type: string, description: '姓名必填（H02 P-01 / 建档清单）' }
+        sex: { type: string, enum: [M, F, U], description: '一期必填' }
+        birthday: { type: string, format: date, description: '>1900-01-01 且 ≤今天（DB CHECK >1900-01-01；≤今天由应用校验）' }
         idType: { type: string }
-        idNumber: { type: string }
-        cardNo: { type: string }
+        idNumber: { type: string, description: '选填；非空则查重，冲突 409 DUPLICATE_ID_NUMBER / DUPLICATE_PATIENT；拒绝不合并' }
+        cardNo: { type: string, description: '选填；非空则查重，冲突 409 DUPLICATE_CARD_NO；拒绝不合并' }
         phone: { type: string }
-        fareIdentity: { type: string }
+        address: { type: string, nullable: true, description: '选填可空（H02 建档清单）' }
+        fareIdentity: { type: string, description: '费别一期必填' }
     PatientDto:
       type: object
       properties:
-        patientId: { type: string, format: uuid }
+        patientId: { type: string, format: uuid, description: '契约侧 uuid 格式字符串；实现库存 varchar(64)' }
         hospPkNo: { type: string }
         patientNo: { type: string }
         cardNo: { type: string }
@@ -679,6 +687,7 @@ components:
         birthday: { type: string, format: date }
         idNumber: { type: string }
         phone: { type: string }
+        address: { type: string, nullable: true }
         fareIdentity: { type: string }
         cardStatus:
           type: string

@@ -6,6 +6,8 @@ Phase1 只维护 SQL Server 脚本。目标库名 **BHIS**。
 |------|------|
 | `sqlserver/core/001_identity.up.sql` | 创建数据库 BHIS（若无）、身份表、角色、演示账号 `system` 与 `disabled` 的 bcrypt 哈希。明文不写入脚本；员工默认密码见根 README |
 | `sqlserver/core/001_identity.down.sql` | 删除身份表，不删除数据库 |
+| `sqlserver/core/002_patient.up.sql` | 患者/MPI 表 `dbo.patient`（依赖 BHIS；varchar(64) 主键；证件号、卡号、院内主键过滤唯一索引）。不建库 |
+| `sqlserver/core/002_patient.down.sql` | 删除患者表，不删除数据库 |
 
 脚本给 `sqlcmd` 用（含 `GO`）。密码不要写进命令行历史或仓库：让 `sqlcmd` 从环境变量 `SQLCMDPASSWORD` 读取。
 
