@@ -1,8 +1,8 @@
 <script setup>
-// 2026-10-12 P1-H05-ORDER-UI 门诊开单 Mock。主字段 registerId；真实 /orders 尚未联调。
+// 2026-10-12 P1-H05-ORDER-UI 门诊开单。主字段 registerId。
+// 2026-10-12 VITE_USE_MOCK=false 时暂存/改草稿/提交/作废走 /api/v1/orders；无挂号仍是空态。
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useMock } from '../api/config.js'
 import { ApiError } from '../api/errors.js'
 import {
   abateOrder,
@@ -27,13 +27,13 @@ import { DOCTORS } from '../register/master.js'
 
 const route = useRoute()
 const router = useRouter()
-const mockMode = useMock()
 
 const registers = ref([])
 const pickedId = ref('')
 const register = ref(null)
 const invalidMessage = ref('')
 const loadingRegister = ref(false)
+const loadingRegisters = ref(false)
 const orders = ref([])
 const orderId = ref('')
 const orderNo = ref('')
@@ -182,12 +182,14 @@ async function refreshOrders() {
 }
 
 async function loadRegisters() {
-  if (!mockMode) return
+  loadingRegisters.value = true
   try {
     const listed = await listOrderRegisters(session.accessToken)
     registers.value = listed.items
   } catch {
     registers.value = []
+  } finally {
+    loadingRegisters.value = false
   }
 }
 
@@ -195,7 +197,7 @@ async function loadRegister(id) {
   const seq = ++loadSeq
   register.value = null
   invalidMessage.value = ''
-  if (!mockMode || !id) {
+  if (!id) {
     loadingRegister.value = false
     return
   }
@@ -347,21 +349,15 @@ watch(() => queryRegisterId(), (id) => {
       <p class="dash-flag">门诊处方。须先有未退号的挂号；诊断建议填写，不强制。</p>
     </header>
 
-    <div v-if="!mockMode" class="empty-panel order-empty" data-testid="order-empty">
-      <h2>请先挂号</h2>
-      <p class="muted">没有有效挂号时不能开单。</p>
-      <p class="banner order-empty-banner" role="status">开单接口尚未联调，此页不请求处方服务。</p>
-      <RouterLink class="button button-compact empty-back" :to="registerTo">去挂号</RouterLink>
-    </div>
-
-    <div v-else-if="loadingRegister" class="result-empty" role="status">正在读取挂号…</div>
+    <div v-if="loadingRegister" class="result-empty" role="status">正在读取挂号…</div>
 
     <div v-else-if="!register" class="empty-panel order-empty" data-testid="order-empty">
       <h2>请先挂号</h2>
       <p class="muted">没有有效挂号时不能开单。</p>
       <p v-if="invalidMessage" class="banner order-empty-banner" role="alert">{{ invalidMessage }}</p>
       <RouterLink class="button button-compact empty-back" :to="registerTo">去挂号</RouterLink>
-      <form v-if="orderableRegisters.length" class="order-picker" @submit.prevent="usePicked">
+      <p v-if="loadingRegisters" class="result-empty" role="status">正在读取当日挂号…</p>
+      <form v-else-if="orderableRegisters.length" class="order-picker" @submit.prevent="usePicked">
         <label class="field">
           <span>选择已有挂号</span>
           <select v-model="pickedId" data-testid="register-picker">

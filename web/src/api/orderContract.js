@@ -1,5 +1,5 @@
 // 2026-10-12 P1-H05-ORDER-UI
-// 对齐 OpenAPI 0.3.7：主字段 registerId（encounterId 仅别名），状态 SAVE|COMMIT|PROC|ABATE。
+// 2026-10-12 真接口仍用同一套请求形状：主字段 registerId，状态 SAVE|COMMIT|PROC|ABATE。
 // 目录与 004_order 种子一致。库存不足只提示，不写入拒绝。
 
 import { apiError } from './errors.js'
@@ -175,7 +175,7 @@ export function assertPatchOrderRequest(input) {
   if (Object.prototype.hasOwnProperty.call(source, 'diagnoseName')) {
     const diagnoseName = asText(source.diagnoseName)
     if (diagnoseName.length > 80) throw apiError(400, 'VALIDATION_ERROR', '诊断简述过长')
-    request.diagnoseName = diagnoseName || null
+    request.diagnoseName = diagnoseName
   }
   if (Object.prototype.hasOwnProperty.call(source, 'items')) request.items = normalizeItems(source.items)
   const registerId = asText(source.registerId)
@@ -255,4 +255,12 @@ export function assertOrderDto(raw) {
     abatedAt: asText(order.abatedAt) || null,
     abatedBy: asText(order.abatedBy) || null,
   }
+}
+
+export function assertOrderList(raw) {
+  const body = raw && typeof raw === 'object' ? raw : null
+  if (!body || !Array.isArray(body.items)) {
+    throw apiError(500, 'HTTP_ERROR', '处方列表无法读取')
+  }
+  return { items: body.items.map((item) => assertOrderDto(item)) }
 }
