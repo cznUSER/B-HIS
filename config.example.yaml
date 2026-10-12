@@ -1,0 +1,28 @@
+# Copy to config.local.yaml or .env.local on the machine that runs the API.
+# Those files are gitignored. Do not put a real password in this example.
+Host:
+  ApiAddr: "127.0.0.1:8080"
+Auth:
+  # Replace via BHIS_JWT_SECRET. This value is a placeholder, not a credential.
+  JWTSecret: "replace-me-placeholder"
+  AccessTokenTTL: "8h"
+  RateLimit:
+    MaxFailures: 8
+    Window: "15m"
+Logging:
+  Dir: "./logs"
+  Level: info
+Database:
+  # memory: default, no SQL Server required.
+  # sqlserver: set BHIS_DB_DRIVER=sqlserver and BHIS_DB_DSN in the environment
+  # or in gitignored config.local.yaml. Database name: BHIS.
+  Driver: memory
+  # Placeholder shape only (do not commit a filled-in DSN):
+  # sqlserver://<user>:<password>@<host>:1433?database=BHIS&encrypt=disable
+  DSN: ""
+CORS:
+  AllowedOrigins:
+    - "http://localhost:5173"
+    - "http://127.0.0.1:5173"
+    - "http://localhost:4173"
+    - "http://127.0.0.1:4173"

@@ -1,0 +1,903 @@
+openapi: 3.0.3
+info:
+  title: H Phase1 Outpatient Loop API
+  version: 0.3.2-draft
+  description: |
+    P1-H03-CORE 契约草案 v0.3.2（登录鉴权 + 对齐 H02 + 用户拍板）。
+    挂号六态、CureBill、Square Abate+新单、CanBack、卡状态已对齐。
+    实现基线：Go API（可桌面 Host 托管）+ SQL Server；Store 可切换。
+    库存方案 A（真实扣减）；Inventory 查询启用。
+    Auth：JWT HS256 access token（默认 TTL 8h）；login/logout/me 供 H04+H05 登录页落地。
+servers:
+  - url: /api/v1
+tags:
+  - name: Auth
+  - name: Patients
+  - name: Encounters
+  - name: Orders
+  - name: Charges
+  - name: Dispenses
+  - name: Diagnoses
+  - name: Inventory
+security:
+  - bearerAuth: []
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: 登录（匿名）；返回 JWT Bearer accessToken
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: INVALID_CREDENTIALS
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '403':
+          description: ACCOUNT_DISABLED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '429':
+          description: AUTH_RATE_LIMITED（可选）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: 登出；服务端使 token 失效（jti 黑名单或会话表）
+      operationId: logout
+      responses:
+        '204':
+          description: No Content
+        '200':
+          description: OK（允许返回 success 包络）
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+        '401':
+          description: UNAUTHORIZED / TOKEN_INVALID / TOKEN_EXPIRED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: 当前登录用户与角色
+      operationId: me
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDto'
+        '401':
+          description: UNAUTHORIZED / TOKEN_EXPIRED / TOKEN_INVALID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '403':
+          description: ACCOUNT_DISABLED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+  /patients:
+    post:
+      tags: [Patients]
+      summary: 建档（证件/卡号冲突拒绝不合并）
+      operationId: createPatient
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePatientRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    get:
+      tags: [Patients]
+      summary: 患者查询
+      operationId: searchPatients
+      parameters:
+        - name: cardNo
+          in: query
+          schema: { type: string }
+        - name: idNumber
+          in: query
+          schema: { type: string }
+        - name: name
+          in: query
+          schema: { type: string }
+        - name: hospPkNo
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PatientDto'
+  /patients/{patientId}:
+    get:
+      tags: [Patients]
+      summary: 患者详情
+      operationId: getPatient
+      parameters:
+        - $ref: '#/components/parameters/PatientId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientDto'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /encounters:
+    post:
+      tags: [Encounters]
+      summary: 挂号（初始 status=NORMAL）
+      operationId: createEncounter
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEncounterRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EncounterDto'
+  /encounters/{encounterId}/check-in:
+    post:
+      tags: [Encounters]
+      summary: 接诊 → DIAGNOSING
+      operationId: checkInEncounter
+      parameters:
+        - $ref: '#/components/parameters/EncounterId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EncounterDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /encounters/{encounterId}/complete:
+    post:
+      tags: [Encounters]
+      summary: 就诊完成 → DIAGNOSED
+      operationId: completeEncounter
+      parameters:
+        - $ref: '#/components/parameters/EncounterId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EncounterDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /encounters/{encounterId}/cancel:
+    post:
+      tags: [Encounters]
+      summary: 退号 → BACK（已 BACK 或已用/就诊中等默认拒绝）
+      operationId: cancelEncounter
+      parameters:
+        - $ref: '#/components/parameters/EncounterId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EncounterDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /encounters/{encounterId}/diagnoses:
+    post:
+      tags: [Diagnoses]
+      summary: 创建/保存诊断（可选最小实体）
+      operationId: createDiagnose
+      parameters:
+        - $ref: '#/components/parameters/EncounterId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDiagnoseRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiagnoseDto'
+  /diagnoses/{diagnoseId}/commit:
+    post:
+      tags: [Diagnoses]
+      summary: 提交诊断
+      operationId: commitDiagnose
+      parameters:
+        - name: diagnoseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiagnoseDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /diagnoses/{diagnoseId}/abate:
+    post:
+      tags: [Diagnoses]
+      summary: 作废诊断
+      operationId: abateDiagnose
+      parameters:
+        - name: diagnoseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiagnoseDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /orders:
+    post:
+      tags: [Orders]
+      summary: 创建开单（NEW/SAVE；默认要求有效挂号）
+      operationId: createOrder
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /orders/{orderId}:
+    get:
+      tags: [Orders]
+      summary: 医嘱/处方详情
+      operationId: getOrder
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDto'
+    patch:
+      tags: [Orders]
+      summary: 更新草稿明细（仅 SAVE）
+      operationId: patchOrder
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /orders/{orderId}/submit:
+    post:
+      tags: [Orders]
+      summary: 提交开单 → COMMIT
+      operationId: submitOrder
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /orders/{orderId}/recipe-check:
+    post:
+      tags: [Orders]
+      summary: 处方审核 → RECIPE_CHECK（可选）
+      operationId: recipeCheckOrder
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /orders/{orderId}/charge-preview:
+    get:
+      tags: [Orders]
+      summary: 费用预览（自已提交处方）
+      operationId: previewCharge
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChargeDto'
+  /orders/{orderId}/dispense:
+    post:
+      tags: [Dispenses]
+      summary: 发药（须已收费；方案A含库存扣减；→ PROC）
+      operationId: dispenseOrder
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DispenseRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DispenseDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /charges:
+    post:
+      tags: [Charges]
+      summary: 自已提交处方载入/创建待收 Square
+      operationId: createChargeFromOrder
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderId]
+              properties:
+                orderId: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChargeDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /charges/{chargeId}:
+    get:
+      tags: [Charges]
+      summary: 结算单详情
+      operationId: getCharge
+      parameters:
+        - $ref: '#/components/parameters/ChargeId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChargeDto'
+  /charges/{chargeId}/pay:
+    post:
+      tags: [Charges]
+      summary: 收费确认（Square NORMAL）
+      operationId: payCharge
+      parameters:
+        - $ref: '#/components/parameters/ChargeId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PayRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /charges/{chargeId}/refund:
+    post:
+      tags: [Charges]
+      summary: 退费（Abate 原 Square + 同事务新 Square；CanBack；部分数量）
+      operationId: refundCharge
+      parameters:
+        - $ref: '#/components/parameters/ChargeId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefundResultDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /dispenses/{dispenseId}/return:
+    post:
+      tags: [Dispenses]
+      summary: 退药（原因必填；→ RECIPE_UNCHECK）
+      operationId: returnDispense
+      parameters:
+        - name: dispenseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReturnDispenseRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DispenseDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /inventory/items:
+    get:
+      tags: [Inventory]
+      summary: 库存查询（方案A 已拍板启用）
+      operationId: listInventory
+      parameters:
+        - name: skuCode
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/InventoryItemDto'
+        '501':
+          description: StatusOnly mode
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Phase1 默认 JWT access token（HS256）。
+        Header: Authorization: Bearer <accessToken>
+        TTL 默认 8h，可配置。refresh 延后。
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema: { type: string, format: uuid }
+    PatientId:
+      name: patientId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    EncounterId:
+      name: encounterId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    ChargeId:
+      name: chargeId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+    Conflict:
+      description: |
+        Conflict / illegal state / business rule.
+        常见 code: DUPLICATE_PATIENT, REGISTER_BACK_NOT_ALLOWED, ENCOUNTER_REQUIRED,
+        ILLEGAL_STATE_TRANSITION, INSUFFICIENT_STOCK, ITEM_NOT_CAN_BACK,
+        REFUND_REQUIRES_RETURN, NOT_CHARGED, ALREADY_ABATED, ALREADY_DISPENSED
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
+  schemas:
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string, minLength: 1 }
+        password: { type: string, minLength: 1, format: password }
+    UserDto:
+      type: object
+      required: [id, username, displayName, roles]
+      properties:
+        id: { type: string, description: 用户主键 }
+        username: { type: string }
+        displayName: { type: string }
+        roles:
+          type: array
+          items: { type: string }
+          description: 角色代码，如 SYSTEM / REGISTRAR / DOCTOR / CASHIER / PHARMACIST
+    LoginResponse:
+      type: object
+      required: [accessToken, tokenType, expiresIn, user]
+      properties:
+        accessToken: { type: string, description: JWT（HS256） }
+        tokenType: { type: string, enum: [Bearer], example: Bearer }
+        expiresIn: { type: integer, description: 秒；默认 28800（8h）可配置, example: 28800 }
+        user:
+          $ref: '#/components/schemas/UserDto'
+    ErrorBody:
+      type: object
+      properties:
+        success: { type: boolean, example: false }
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: { type: object, additionalProperties: true }
+        requestId: { type: string }
+    CreatePatientRequest:
+      type: object
+      required: [name, birthday]
+      properties:
+        name: { type: string }
+        sex: { type: string, enum: [M, F, U] }
+        birthday: { type: string, format: date, description: '>1900-01-01 且 ≤今天' }
+        idType: { type: string }
+        idNumber: { type: string }
+        cardNo: { type: string }
+        phone: { type: string }
+        fareIdentity: { type: string }
+    PatientDto:
+      type: object
+      properties:
+        patientId: { type: string, format: uuid }
+        hospPkNo: { type: string }
+        patientNo: { type: string }
+        cardNo: { type: string }
+        name: { type: string }
+        sex: { type: string }
+        birthday: { type: string, format: date }
+        idNumber: { type: string }
+        phone: { type: string }
+        fareIdentity: { type: string }
+        cardStatus:
+          type: string
+          enum: [NOT_SENT, NORMAL, LOST, CANCELLED]
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+        createdAt: { type: string, format: date-time }
+    CreateEncounterRequest:
+      type: object
+      required: [patientId, deptCode, visitDate]
+      properties:
+        patientId: { type: string, format: uuid }
+        deptCode: { type: string }
+        doctorId: { type: string }
+        clinicSort: { type: string, description: '号别；号源简化时可空' }
+        visitDate: { type: string, format: date }
+        registerFee: { type: number }
+    EncounterDto:
+      type: object
+      properties:
+        encounterId: { type: string, format: uuid }
+        encounterNo: { type: string }
+        patientId: { type: string, format: uuid }
+        deptCode: { type: string }
+        doctorId: { type: string }
+        clinicSort: { type: string }
+        visitDate: { type: string, format: date }
+        status:
+          type: string
+          enum: [NORMAL, USED, BACK, DIAGNOSING, DIAGNOSED, PAUSED]
+          description: 对齐 TRegisterStatus
+        registerFee: { type: number }
+        registerCharged: { type: boolean }
+        registeredAt: { type: string, format: date-time }
+        backOperatorId: { type: string }
+        backOperatedAt: { type: string, format: date-time }
+    CreateDiagnoseRequest:
+      type: object
+      properties:
+        content: { type: string }
+    DiagnoseDto:
+      type: object
+      properties:
+        diagnoseId: { type: string, format: uuid }
+        encounterId: { type: string, format: uuid }
+        status: { type: string, enum: [NEW, SAVE, COMMIT, ABATE] }
+        content: { type: string }
+    OrderItemInput:
+      type: object
+      required: [lineNo, itemNo, itemType, itemName, amount, price]
+      properties:
+        lineNo: { type: integer }
+        itemNo: { type: string }
+        itemType: { type: string, enum: [DRUG, SERVICE] }
+        itemName: { type: string }
+        amount: { type: number, description: 数量 }
+        price: { type: number, description: 单价 }
+        unit: { type: string }
+        doctorId: { type: string }
+        procDepartmentId: { type: string }
+    CreateOrderRequest:
+      type: object
+      required: [encounterId, items]
+      properties:
+        encounterId: { type: string, format: uuid }
+        recipeSort: { type: string }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItemInput'
+    OrderItemDto:
+      allOf:
+        - $ref: '#/components/schemas/OrderItemInput'
+        - type: object
+          properties:
+            orderItemId: { type: string, format: uuid }
+            totalFee: { type: number }
+    OrderDto:
+      type: object
+      properties:
+        orderId: { type: string, format: uuid }
+        orderNo: { type: string }
+        encounterId: { type: string, format: uuid }
+        status:
+          type: string
+          enum: [NEW, SAVE, COMMIT, PROC, ABATE, UNDO, RECIPE_CHECK, RECIPE_UNCHECK]
+          description: 对齐 TCureBillStatus 子集
+        recipeSort: { type: string }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItemDto'
+        submittedAt: { type: string, format: date-time }
+    ChargeItemDto:
+      type: object
+      properties:
+        chargeItemId: { type: string, format: uuid }
+        orderItemId: { type: string, format: uuid }
+        itemNo: { type: string }
+        amount: { type: number }
+        price: { type: number }
+        totalFee: { type: number }
+        canBack: { type: boolean }
+        refundedQty: { type: number }
+    ChargeDto:
+      type: object
+      properties:
+        chargeId: { type: string, format: uuid }
+        squareNo: { type: string }
+        orderId: { type: string, format: uuid }
+        patientId: { type: string, format: uuid }
+        totalFee: { type: number }
+        squareFee: { type: number }
+        favourableFee: { type: number }
+        status:
+          type: string
+          enum: [NORMAL, ABATE]
+          description: 对齐 TSquareStatus
+        successorSquareId: { type: string, format: uuid, nullable: true }
+        abatedFromId: { type: string, format: uuid, nullable: true }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChargeItemDto'
+    PayRequest:
+      type: object
+      required: [payType, amount]
+      properties:
+        paymentNo: { type: string }
+        payType:
+          type: string
+          enum: [CASH, OTHER_E, WECHAT, ALIPAY, OTHER]
+          description: Phase1 主用 CASH；可选一种电子；WX/ZFB 全链路延后
+        amount: { type: number }
+    RefundRequest:
+      type: object
+      required: [payType, items]
+      properties:
+        reason: { type: string }
+        payType: { type: string }
+        items:
+          type: array
+          items:
+            type: object
+            required: [chargeItemId, refundQty]
+            properties:
+              chargeItemId: { type: string, format: uuid }
+              refundQty: { type: number, description: 部分数量退；须 ≤可退且 canBack }
+    RefundResultDto:
+      type: object
+      properties:
+        abatedSquare:
+          $ref: '#/components/schemas/ChargeDto'
+        newSquare:
+          allOf:
+            - $ref: '#/components/schemas/ChargeDto'
+          nullable: true
+          description: 未退部分新 Square；全退时可为 null 或金额0
+        refundPayment:
+          $ref: '#/components/schemas/PaymentDto'
+    PaymentDto:
+      type: object
+      properties:
+        paymentId: { type: string, format: uuid }
+        paymentNo: { type: string }
+        chargeId: { type: string, format: uuid }
+        direction: { type: string, enum: [CHARGE, REFUND] }
+        payType: { type: string }
+        amount: { type: number }
+        status: { type: string, enum: [PENDING, SUCCEEDED, FAILED] }
+        succeededAt: { type: string, format: date-time }
+    DispenseRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [orderItemId, qty]
+            properties:
+              orderItemId: { type: string, format: uuid }
+              qty: { type: number }
+    ReturnDispenseRequest:
+      type: object
+      required: [reason, items]
+      properties:
+        reason: { type: string, description: 退药原因必填 }
+        items:
+          type: array
+          items:
+            type: object
+            required: [dispenseItemId, qty]
+            properties:
+              dispenseItemId: { type: string, format: uuid }
+              qty: { type: number }
+    DispenseItemDto:
+      type: object
+      properties:
+        dispenseItemId: { type: string, format: uuid }
+        orderItemId: { type: string, format: uuid }
+        qty: { type: number }
+    DispenseDto:
+      type: object
+      properties:
+        dispenseId: { type: string, format: uuid }
+        dispenseNo: { type: string }
+        orderId: { type: string, format: uuid }
+        charged: { type: boolean }
+        status: { type: string }
+        orderStatus:
+          type: string
+          description: 权威处方状态 PROC / RECIPE_UNCHECK 等
+        returnReason: { type: string }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DispenseItemDto'
+        dispensedAt: { type: string, format: date-time }
+    InventoryItemDto:
+      type: object
+      properties:
+        skuId: { type: string, format: uuid }
+        skuCode: { type: string }
+        name: { type: string }
+        qtyOnHand: { type: number }
