@@ -1,27 +1,20 @@
 openapi: 3.0.3
 info:
   title: H Phase1 Outpatient Loop API
-  version: 0.3.8-draft
+  version: 0.3.9-draft
   description: |
-    P1-H03-CHARGE 契约草案 v0.3.8（收费 Charge/Payment；对齐拍板#13/#22 + H08 交接）。
+    P1-H03-DISPENSE 契约定稿草案 v0.3.9（发药/退药 + 简易库存；对齐拍板#2/#13/#23 + H02《发药字段清单》+ H09《发药简易库存口径》）。
     挂号六态、开单四态、Square Abate+新单、CanBack、卡状态已对齐。
     实现基线：Go API（可桌面 Host 托管）+ SQL Server；Store 可切换。
-    库存方案 A（真实扣减）；Inventory 查询启用；**收费侧**拦库存（开单只提示）。
+    库存方案 A（真实扣减）；**收费只拦不预扣**；**发药事务扣减**、退药回加；Inventory 查询启用。
     Auth：JWT HS256 access token（默认 TTL 8h）；login/logout/me 供 H04+H05 登录页落地。
-    拍板#13/#22：已发药须先退药（REFUND_REQUIRES_RETURN）；收费须有效挂号（ENCOUNTER_REQUIRED；
-    registerId≡encounterId）；支付演示现金一次付清+电子字段预留不联调；实收=应收（不允许多收找零）；
-    F=0 主路径硬断言 K-01～K-05；默认不拆方 1:1；全退 newSquare=null；毒麻 feature flag 默认 off。
-    v0.3.4/H08：refund 含 favourableAlloc；策略枚举 PROPORTIONAL|DISCOUNT_ON_REMAIN|DISCOUNT_FIRST
-    （H08 草稿待用户确认，非已拍板）；错误码含 INVALID_AMOUNT；交叉引用 deliverables/h08/。
-    v0.3.5/P1-H03-PATIENT：CreatePatientRequest.required=[name,sex,birthday,fareIdentity]；
-    address 选填可空；idNumber/cardNo 非空查重 → 409 DUPLICATE_*；拒绝不合并（拍板#20）。
-    v0.3.6/P1-H03-REGISTER：主路径 /registers（Encounter≡RegisterBill；encounterId≡registerId）；
-    迁移 sqlserver/core/003_register（+ seed）；拍板#19。
-    v0.3.7/P1-H03-ORDER：主字段 registerId；save+commit+abate；004_order（+ seed DRUG-A/B/TREAT-1）。
-    v0.3.8/P1-H03-CHARGE：charge-preview、POST /charges、pay、refund、GET /charges；
-    ChargeDto 主字段 registerId（encounterId≡别名）；successorChargeId；RefundResponse.newSquare 全退 null；
-    PayRequest.amount 必须=squareFee；迁移 sqlserver/core/005_charge（+ 空 seed）；拍板#22。
-    旧 /encounters* 保留为 deprecated alias。
+    拍板#23：仅已收费 DRUG 可发；部分发；行态 NONE|PARTIAL|FULL；退药≤已发未退；退药后才能退费；
+    毒麻不拦；无批次/采购/换算。数量公式：availableQty=chargedQty−dispensedQty（净发=已发−已退）。
+    v0.3.9/P1-H03-DISPENSE：POST /dispenses、POST /dispenses/{id}/return、GET /dispenses、GET /inventory/items；
+    迁移 006_inventory（+ seed DRUG-A/B）+ 007_dispense；错误码收口 H02 UI 建议码。
+    v0.3.8/P1-H03-CHARGE：charge-preview、POST /charges、pay、refund、GET /charges；005_charge；拍板#22。
+    v0.3.7/P1-H03-ORDER：004_order；拍板#21。v0.3.6 挂号；v0.3.5 患者。
+    旧 /encounters* 保留为 deprecated alias；POST /orders/{id}/dispense 为发药便捷别名。
 servers:
   - url: /api/v1
 tags:
@@ -44,8 +37,16 @@ tags:
       拍板#22：强制有效挂号；现金一次付清；F=0 主路径；默认不拆 1:1；全退 newSquare=null；
       实收=应收；收费拦库存；已发药须先退药。迁移 005_charge。
   - name: Dispenses
+    description: |
+      门诊发药/退药（dispense + dispense_item）。拍板#23 + H02 发药字段清单 + H09 简易库存口径。
+      主路径 POST /dispenses（须 Charge NORMAL+paid）；仅 DRUG；部分发；行态 NONE|PARTIAL|FULL。
+      退药 POST /dispenses/{id}/return（reason+returnQty 必填）；退药后才能退费（REFUND_REQUIRES_RETURN）。
+      迁移 007_dispense；库存扣减在发药事务（006_inventory）；收费不预扣。
   - name: Diagnoses
   - name: Inventory
+    description: |
+      方案 A 简易数量账（inventory_item / inventory_ledger）。GET /inventory/items。
+      item_no 对齐 catalog DRUG-A/B（≡ skuCode）；TREAT 不入库存。迁移 006_inventory。
 security:
   - bearerAuth: []
 paths:
@@ -741,8 +742,12 @@ paths:
   /orders/{orderId}/dispense:
     post:
       tags: [Dispenses]
-      summary: 发药（须已收费；方案A含库存扣减；→ PROC）
+      summary: 发药便捷别名（≡ POST /dispenses；须已收费；事务扣库存）
+      description: |
+        **便捷别名**：与 `POST /dispenses` 同语义；path.orderId 等价 body.orderId。
+        建议客户端改用主路径 `/dispenses`。拍板#23 / H02 / H09。
       operationId: dispenseOrder
+      deprecated: true
       parameters:
         - $ref: '#/components/parameters/OrderId'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -911,16 +916,114 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '409':
           $ref: '#/components/responses/Conflict'
+  /dispenses:
+    get:
+      tags: [Dispenses]
+      summary: 发药单列表（已发查询）
+      description: |
+        拍板#23h / H02 §4。筛选：patientId、registerId、chargeId、orderId、visitDate 或 from+to。
+        至少提供一种过滤（实现可放宽今日默认）。
+      operationId: listDispenses
+      parameters:
+        - name: patientId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: registerId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: chargeId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: orderId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: visitDate
+          in: query
+          schema: { type: string, format: date }
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DispenseDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    post:
+      tags: [Dispenses]
+      summary: 确认发药（须已收费 NORMAL+paid；仅 DRUG；事务扣库存）
+      description: |
+        拍板#23 + H02§3 + H09。前置：覆盖 orderId 的 Charge status=NORMAL 且 paidAt≠null；
+        否则 409 NOT_CHARGED。仅处理 DRUG 行；TREAT 忽略/拒。
+        body.items[].dispenseQty：0 < qty ≤ availableQty（availableQty=chargedQty−dispensedQty 净发）。
+        超额 → DISPENSE_EXCEEDS_AVAILABLE；空明细 → EMPTY_DISPENSE_ITEMS；
+        已满发再发 → ALREADY_DISPENSED（≡ H02 ALREADY_FULLY_DISPENSED）；不得二次扣减。
+        **同事务**：CheckStorages → 扣 qty_on_hand → 写 ledger(DISPENSE,负) → 建 dispense；
+        库存不足 → INSUFFICIENT_STOCK（库存不变）。收费侧只拦不预扣（H09§3）。
+        成功：有任一净发>0 → Order.status→PROC；行态 NONE→PARTIAL/FULL。
+        部分发后剩余可再次 POST 至满发。幂等：Idempotency-Key 同键同体可重放。
+      operationId: createDispense
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DispenseRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DispenseDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /dispenses/{dispenseId}:
+    get:
+      tags: [Dispenses]
+      summary: 发药单详情
+      operationId: getDispense
+      parameters:
+        - $ref: '#/components/parameters/DispenseId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DispenseDto'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /dispenses/{dispenseId}/return:
     post:
       tags: [Dispenses]
-      summary: 退药（原因必填；→ RECIPE_UNCHECK）
+      summary: 退药（reason + returnQty 必填；事务回加库存）
+      description: |
+        拍板#23f + H02§5 + H09。reason **必填**（空 → RETURN_REASON_REQUIRED / VALIDATION_ERROR）。
+        items[].returnQty：0 < qty ≤ 本行可退（qty_dispensed−qty_returned）；超额 → RETURN_EXCEEDS_DISPENSE。
+        未发却退 → NOT_DISPENSED。
+        **同事务**：回加 qty_on_hand → ledger(RETURN,正) → 更新 qty_returned / 头 status。
+        退药成功后对该明细退费不再 REFUND_REQUIRES_RETURN；未退完净发>0 的明细退费仍拒。
+        Order：一期 DB 四态不扩 RECIPE_UNCHECK；权威退费前置以**行净发数量**判定（全退净发=0 即可退费）。
+        毒麻本版不拦（#23g）。
       operationId: returnDispense
       parameters:
-        - name: dispenseId
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/DispenseId'
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
@@ -935,16 +1038,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DispenseDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '409':
           $ref: '#/components/responses/Conflict'
   /inventory/items:
     get:
       tags: [Inventory]
-      summary: 库存查询（方案A 已拍板启用）
+      summary: 库存查询（方案A；item_no≡skuCode 对齐 DRUG-A/B）
+      description: |
+        方案 A 已拍板。返回 qtyOnHand / units / status。TREAT 不在表内。
+        发药/收费前可用于 stockHint；StatusOnly 实验降级可 501（非默认）。
       operationId: listInventory
       parameters:
         - name: skuCode
           in: query
+          description: 即 item_no（如 DRUG-A）
+          schema: { type: string }
+        - name: itemNo
+          in: query
+          description: ≡ skuCode
           schema: { type: string }
       responses:
         '200':
@@ -959,7 +1072,7 @@ paths:
                     items:
                       $ref: '#/components/schemas/InventoryItemDto'
         '501':
-          description: StatusOnly mode
+          description: StatusOnly mode（非 Phase1 默认）
 components:
   securitySchemes:
     bearerAuth:
@@ -1003,6 +1116,11 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    DispenseId:
+      name: dispenseId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
   responses:
     NotFound:
       description: Not found
@@ -1029,7 +1147,9 @@ components:
         ILLEGAL_STATE_TRANSITION, INSUFFICIENT_STOCK, ITEM_NOT_CAN_BACK,
         REFUND_REQUIRES_RETURN（已确认强制：已发药须先退药再退费）,
         REFUND_EXCEEDS_REFUNDABLE, CHARGE_AMOUNT_MISMATCH,
-        NOT_CHARGED, ALREADY_ABATED, ALREADY_DISPENSED
+        NOT_CHARGED, ALREADY_ABATED, ALREADY_DISPENSED（≡H02 ALREADY_FULLY_DISPENSED）,
+        DISPENSE_EXCEEDS_AVAILABLE, EMPTY_DISPENSE_ITEMS, NOT_DISPENSED,
+        RETURN_EXCEEDS_DISPENSE, RETURN_REASON_REQUIRED
       content:
         application/json:
           schema:
@@ -1458,47 +1578,100 @@ components:
           description: '≡ paidAt（别名）'
     DispenseRequest:
       type: object
-      required: [items]
+      required: [orderId, items]
+      description: |
+        确认发药。chargeId 主路径建议必填（可由 orderId 解析）；items 仅 DRUG。
+        dispenseQty 默认=availableQty，可改小（部分发）。
       properties:
+        orderId: { type: string, format: uuid }
+        chargeId:
+          type: string
+          format: uuid
+          description: 已支付 NORMAL Charge；缺省时由实现按 orderId 解析唯一有效单
         items:
           type: array
+          minItems: 1
           items:
             type: object
-            required: [orderItemId, qty]
+            required: [dispenseQty]
             properties:
               orderItemId: { type: string, format: uuid }
-              qty: { type: number }
+              chargeItemId: { type: string, format: uuid, description: 与 orderItemId 至少填一 }
+              dispenseQty:
+                type: number
+                description: 本次发药数量；0 < qty ≤ availableQty
+              selected:
+                type: boolean
+                description: UI 勾选；服务端以 dispenseQty>0 为准
     ReturnDispenseRequest:
       type: object
       required: [reason, items]
       properties:
-        reason: { type: string, description: 退药原因必填 }
+        reason:
+          type: string
+          minLength: 1
+          description: 退药原因必填（B-05 / RETURN_REASON_REQUIRED）
         items:
           type: array
+          minItems: 1
           items:
             type: object
-            required: [dispenseItemId, qty]
+            required: [dispenseItemId, returnQty]
             properties:
               dispenseItemId: { type: string, format: uuid }
-              qty: { type: number }
+              returnQty:
+                type: number
+                description: 退数量；0 < qty ≤ 可退（已发−已退）
     DispenseItemDto:
       type: object
       properties:
         dispenseItemId: { type: string, format: uuid }
-        orderItemId: { type: string, format: uuid }
-        qty: { type: number }
+        orderItemId: { type: string, format: uuid, nullable: true }
+        chargeItemId: { type: string, format: uuid, nullable: true }
+        itemNo: { type: string, description: 目录编码，仅 DRUG }
+        itemName: { type: string }
+        units: { type: string }
+        chargedQty: { type: number, description: 已收费数量（快照） }
+        dispensedQty: { type: number, description: 本单发药数量；聚合查询时可为净发累计 }
+        returnedQty: { type: number, description: 本单已退数量 }
+        availableQty:
+          type: number
+          description: chargedQty − 净发（净发=累计已发−累计已退）；待发载入用
+        dispenseQty:
+          type: number
+          description: 本次请求发药数量（请求回显）
+        stockHint:
+          type: string
+          description: 库存提示文案（不足标红）
+        stockQty:
+          type: number
+          description: 当前 qty_on_hand（提示用）
+        lineDispenseStatus:
+          type: string
+          enum: [NONE, PARTIAL, FULL]
+          description: |
+            相对收费行净发：NONE=净发0；PARTIAL=0<净发<charged；FULL=净发=charged
     DispenseDto:
       type: object
+      required: [dispenseId, dispenseNo, orderId, status, items]
       properties:
         dispenseId: { type: string, format: uuid }
         dispenseNo: { type: string }
         orderId: { type: string, format: uuid }
-        charged: { type: boolean }
-        status: { type: string }
+        chargeId: { type: string, format: uuid, nullable: true }
+        registerId: { type: string, format: uuid }
+        patientId: { type: string, format: uuid }
+        status:
+          type: string
+          enum: [DONE, PARTIAL_RETURNED, RETURNED]
+          description: 本发药单头状态（DONE=已记账；PARTIAL_RETURNED=部分退；RETURNED=本单净发0）
         orderStatus:
           type: string
-          description: 权威处方状态 PROC / RECIPE_UNCHECK 等
-        returnReason: { type: string }
+          description: |
+            权威处方状态。有净发→PROC。一期不扩 RECIPE_UNCHECK 入库；
+            退费前置以行净发数量判定（净发>0 → REFUND_REQUIRES_RETURN）。
+        returnReason: { type: string, nullable: true }
+        operatorId: { type: string, nullable: true }
         items:
           type: array
           items:
@@ -1508,6 +1681,9 @@ components:
       type: object
       properties:
         skuId: { type: string, format: uuid }
-        skuCode: { type: string }
+        skuCode: { type: string, description: ≡ item_no（如 DRUG-A） }
+        itemNo: { type: string, description: ≡ skuCode }
         name: { type: string }
         qtyOnHand: { type: number }
+        units: { type: string }
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
