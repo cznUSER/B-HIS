@@ -24,6 +24,15 @@ body {
     #e7eef3;
 }
 
+/* 2026-10-12 P1-H05-LOGIN-BG 登录页全屏背景；首页仍用 .page */
+.login-page {
+  background-color: #d7eef2;
+  background-image: url('/bhis-login-bg.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
 .card {
   width: min(100%, 420px);
   background: #fff;
@@ -31,6 +40,14 @@ body {
   border-radius: 16px;
   padding: 28px 28px 24px;
   box-shadow: 0 16px 40px rgba(22, 50, 74, 0.08);
+}
+
+.login-page .card {
+  background: #ffffff;
+  border-color: rgba(255, 255, 255, 0.85);
+  box-shadow:
+    0 22px 50px rgba(15, 55, 74, 0.18),
+    0 2px 8px rgba(15, 55, 74, 0.08);
 }
 
 .brand {
