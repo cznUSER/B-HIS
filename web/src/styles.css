@@ -2398,3 +2398,111 @@ a.todo-card:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* 2026-10-12 P1-H05-DISPENSE-UI 门诊发药 Mock。无采购、批次或单位换算。 */
+
+.dispense-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dispense-page .field span {
+  font-weight: 700;
+}
+
+.dispense-page input:not([type='checkbox']),
+.dispense-page select,
+.dispense-page textarea {
+  width: 100%;
+  height: 36px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  padding: 0 10px;
+  background: #fff;
+  font: inherit;
+  color: inherit;
+}
+
+.dispense-page textarea {
+  height: auto;
+  min-height: 72px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.dispense-page input[type='checkbox'] {
+  width: auto;
+  height: auto;
+  margin: 0;
+}
+
+.dispense-page .col-narrow input {
+  width: 72px;
+}
+
+.dispense-page tr.is-short td {
+  background: #fff6f6;
+}
+
+.stock-bad {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.ticket-status[data-status='NONE'] {
+  background: #eef1f3;
+  color: #3d5666;
+}
+
+.ticket-status[data-status='PARTIAL'] {
+  background: #fff3e4;
+  color: #8a5a12;
+}
+
+.ticket-status[data-status='FULL'] {
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.dispense-empty {
+  align-items: flex-start;
+  text-align: left;
+}
+
+.dispense-empty h2 {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.issued-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+}
+
+.issued-filters .field {
+  flex: 1 1 160px;
+}
+
+.return-list,
+.dispense-detail ul {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.return-list li,
+.dispense-detail {
+  padding: 10px;
+  border: 1px solid #e6eef2;
+  border-radius: 4px;
+}
+
+.dispense-detail h3 {
+  font-size: 15px;
+}

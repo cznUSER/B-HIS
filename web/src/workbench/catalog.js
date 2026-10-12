@@ -17,7 +17,8 @@ export const STATUS_LABELS = {
 // 2026-10-12 P1-H05-PATIENT-UI 建档已可保存和查询。
 // 2026-10-12 P1-H05-REGISTER-UI 挂号可选科室和医生。
 // 2026-10-12 P1-H05-ORDER-UI 开单可按挂号暂存和提交。
-// 2026-10-12 P1-H05-CHARGE-UI 收费可预览、现金支付、查询和退费。发药、退药仍是空态。
+// 2026-10-12 P1-H05-CHARGE-UI 收费可预览、现金支付、查询和退费。
+// 2026-10-12 P1-H05-DISPENSE-UI 发药 Mock 可演示待发、部分发和退药。退药/退费入口仍是空态。
 // status 为 disabled 时不提供路由，避免跳进空白业务页。
 export const OUTPATIENT_MODULES = [
   {
@@ -55,8 +56,8 @@ export const OUTPATIENT_MODULES = [
   {
     key: 'dispense',
     name: '发药',
-    blurb: '须已收费；简易库存',
-    status: 'developing',
+    blurb: '须已收费；可部分发、退药',
+    status: 'available',
     roles: ['PHARMACIST', 'SYSTEM'],
     recommendFor: ['PHARMACIST'],
   },

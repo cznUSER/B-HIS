@@ -1,7 +1,9 @@
 <script setup>
 // 2026-10-12 P1-H05-CHARGE-UI 门诊收费：待收、现金、查询、退费。侧栏仍由 AppShell 提供。
 // 2026-10-12 VITE_USE_MOCK=false 时走 charge-preview / charges / pay / refund。
+// 2026-10-12 P1-H05-DISPENSE-UI 发药页「去退费」带 charge_id 时打开退费。
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { ApiError } from '../api/errors.js'
 import {
   fetchCharge,
@@ -14,6 +16,7 @@ import {
 import { PAY_CASH, RESERVED_PAY_TYPES, formatYuan, statusLabel } from '../api/chargeContract.js'
 import { session } from '../auth/session.js'
 
+const route = useRoute()
 const subjects = ref([])
 const keyword = ref('')
 const activeKey = ref('')
@@ -215,10 +218,18 @@ async function onRefund() {
   }
 }
 
+function queryChargeId() {
+  const value = route.query.charge_id != null ? route.query.charge_id : route.query.chargeId
+  const raw = Array.isArray(value) ? value[0] : value
+  return typeof raw === 'string' ? raw.trim() : ''
+}
+
 onMounted(async () => {
   try {
     await refreshSubjects()
     await refreshList()
+    const chargeId = queryChargeId()
+    if (chargeId) await openRefund(chargeId)
   } catch (error) {
     applyError(error, '收费页载入失败')
   }

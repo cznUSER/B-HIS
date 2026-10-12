@@ -30,6 +30,17 @@ const MESSAGE_BY_CODE = {
   REFUND_EXCEEDS_REFUNDABLE: '退数量超过可退数量',
   ALREADY_ABATED: '该收费单已作废，不能再退',
   ALREADY_CHARGED: '该处方已收费',
+  // 2026-10-12 P1-H05-DISPENSE-UI 发药/退药文案。库存不足的收费文案留在上面，发药调用时另传「无法发药」。
+  NOT_CHARGED: '未收费，不能发药',
+  DISPENSE_EXCEEDS_AVAILABLE: '发药数量超过可发数量',
+  EMPTY_DISPENSE_ITEMS: '没有可发明细',
+  ALREADY_DISPENSED: '已全部发完，不能再发',
+  ALREADY_FULLY_DISPENSED: '已全部发完，不能再发',
+  NOT_DISPENSED: '尚未发药，不能退药',
+  RETURN_EXCEEDS_DISPENSE: '退药数量超过可退数量',
+  RETURN_REASON_REQUIRED: '请填写退药原因',
+  IDEMPOTENT_REJECT: '重复提交已处理，未再次扣减/回滚',
+  NOT_IMPLEMENTED: '发药接口尚未接入',
 }
 
 const CODE_BY_STATUS = {
