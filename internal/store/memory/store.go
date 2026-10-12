@@ -23,6 +23,10 @@ type Store struct {
 	registers   map[string]domain.Register
 	catalog     map[string]domain.CatalogItem
 	orders      map[string]domain.Order
+	charges     map[string]domain.Charge
+	payments    map[string]domain.Payment
+	drugOnHand  map[string]int64
+	dispense    map[string]dispenseRec
 }
 
 func New() *Store {
@@ -36,6 +40,10 @@ func New() *Store {
 		registers:   make(map[string]domain.Register),
 		catalog:     make(map[string]domain.CatalogItem),
 		orders:      make(map[string]domain.Order),
+		charges:     make(map[string]domain.Charge),
+		payments:    make(map[string]domain.Payment),
+		drugOnHand:  make(map[string]int64),
+		dispense:    make(map[string]dispenseRec),
 	}
 	s.Add(seed.DemoUser())
 	s.Add(seed.DisabledUser())
