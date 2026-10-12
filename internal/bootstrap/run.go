@@ -15,6 +15,7 @@ import (
 	"github.com/cznUSER/B-HIS/internal/auth"
 	"github.com/cznUSER/B-HIS/internal/config"
 	"github.com/cznUSER/B-HIS/internal/logging"
+	"github.com/cznUSER/B-HIS/internal/port"
 	"github.com/cznUSER/B-HIS/internal/redact"
 	"github.com/cznUSER/B-HIS/internal/store"
 	"github.com/cznUSER/B-HIS/internal/webui"
@@ -59,6 +60,10 @@ func RunWith(ctx context.Context, cfg config.Config, opt Options) error {
 	if err != nil {
 		return err
 	}
+	master, ok := users.(port.MasterStore)
+	if !ok {
+		return fmt.Errorf("store does not implement master data")
+	}
 	svc := &app.Service{
 		Users:       users,
 		Revocations: revocations,
@@ -68,6 +73,7 @@ func RunWith(ctx context.Context, cfg config.Config, opt Options) error {
 		Orders:      orders,
 		Charges:     charges,
 		Dispenses:   dispenses,
+		Master:      master,
 		Tokens:      issuer,
 		Limiter:     auth.NewLimiter(cfg.MaxFailures(), window),
 		Log:         log,

@@ -47,6 +47,16 @@ func classifyWriteError(err error) error {
 		strings.Contains(msg, "ux_payment_no"), strings.Contains(msg, "pk_payment"),
 		strings.Contains(msg, "ux_dispense_no"), strings.Contains(msg, "pk_dispense"):
 		return port.ErrDuplicateBusinessNo
+	case strings.Contains(msg, "ux_department_dept_code"):
+		return port.ErrDuplicateDeptCode
+	case strings.Contains(msg, "ux_doctor_doctor_code"):
+		return port.ErrDuplicateDoctorCode
+	case strings.Contains(msg, "ux_catalog_item_no"), strings.Contains(msg, "ux_inventory_item_no"):
+		return port.ErrDuplicateItemNo
+	case strings.Contains(msg, "ux_app_user_username"):
+		return port.ErrDuplicateUsername
+	case strings.Contains(msg, "ux_dict_item_type_code"):
+		return port.ErrDuplicateDictCode
 	default:
 		return err
 	}

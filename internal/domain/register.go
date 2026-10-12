@@ -18,6 +18,11 @@ type Department struct {
 	DeptCode     string
 	DeptName     string
 	Status       string
+	SortNo       int
+	CreatedAt    time.Time
+	CreatedBy    string
+	UpdatedAt    time.Time
+	UpdatedBy    string
 	IsDeleted    bool
 }
 
@@ -28,6 +33,10 @@ type Doctor struct {
 	DoctorCode   string
 	DoctorName   string
 	Status       string
+	CreatedAt    time.Time
+	CreatedBy    string
+	UpdatedAt    time.Time
+	UpdatedBy    string
 	IsDeleted    bool
 }
 

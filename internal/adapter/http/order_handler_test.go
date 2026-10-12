@@ -75,9 +75,9 @@ func TestOrderHTTP(t *testing.T) {
 	t.Run("health version", func(t *testing.T) {
 		code, body := getAuth(t, ts.URL+"/health", "")
 		if code != 200 ||
-			!strings.Contains(string(body), `"version":"0.3.9-draft"`) ||
+			!strings.Contains(string(body), `"version":"0.3.10-draft"`) ||
 			!strings.Contains(string(body), `"contractVersion":"0.3.10-draft"`) ||
-			!strings.Contains(string(body), `"implementedVersion":"0.3.9-draft"`) {
+			!strings.Contains(string(body), `"implementedVersion":"0.3.10-draft"`) {
 			t.Fatalf("%d %s", code, body)
 		}
 	})

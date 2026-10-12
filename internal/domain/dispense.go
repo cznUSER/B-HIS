@@ -29,6 +29,7 @@ type InventoryItem struct {
 	QtyOnHandMilli int64
 	Units          string
 	Status         string
+	RowVersion     string
 	CreatedAt      time.Time
 	CreatedBy      string
 	UpdatedAt      time.Time

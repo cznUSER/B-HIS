@@ -106,13 +106,16 @@ type DispenseListDTO struct {
 
 // InventoryItemDTO is OpenAPI InventoryItemDto. skuCode ≡ itemNo.
 type InventoryItemDTO struct {
-	SkuID     string  `json:"skuId"`
-	SkuCode   string  `json:"skuCode"`
-	ItemNo    string  `json:"itemNo"`
-	Name      string  `json:"name"`
-	QtyOnHand float64 `json:"qtyOnHand"`
-	Units     string  `json:"units"`
-	Status    string  `json:"status"`
+	SkuID      string  `json:"skuId"`
+	SkuCode    string  `json:"skuCode"`
+	ItemNo     string  `json:"itemNo"`
+	Name       string  `json:"name"`
+	ItemName   string  `json:"itemName,omitempty"`
+	QtyOnHand  float64 `json:"qtyOnHand"`
+	Units      string  `json:"units"`
+	Status     string  `json:"status"`
+	RowVersion string  `json:"rowVersion,omitempty"`
+	UpdatedAt  string  `json:"updatedAt,omitempty"`
 }
 
 // InventoryListDTO is GET /inventory/items.
@@ -490,12 +493,20 @@ func (s *Service) ListInventory(ctx context.Context, claims *auth.Claims, q Inve
 	}
 	items := make([]InventoryItemDTO, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, InventoryItemDTO{
-			SkuID: row.SkuID, SkuCode: row.ItemNo, ItemNo: row.ItemNo, Name: row.ItemName,
-			QtyOnHand: float64(row.QtyOnHandMilli) / 1000, Units: row.Units, Status: row.Status,
-		})
+		items = append(items, toInventoryItemDTO(row))
 	}
 	return &InventoryListDTO{Items: items}, nil
+}
+
+func toInventoryItemDTO(row domain.InventoryItem) InventoryItemDTO {
+	dto := InventoryItemDTO{
+		SkuID: row.SkuID, SkuCode: row.ItemNo, ItemNo: row.ItemNo, Name: row.ItemName, ItemName: row.ItemName,
+		QtyOnHand: float64(row.QtyOnHandMilli) / 1000, Units: row.Units, Status: row.Status, RowVersion: row.RowVersion,
+	}
+	if !row.UpdatedAt.IsZero() {
+		dto.UpdatedAt = row.UpdatedAt.UTC().Format(time.RFC3339)
+	}
+	return dto
 }
 
 func normalizeDispense(in CreateDispenseInput) (orderID, chargeID string, canon dispenseCanon, fields []string, biz *Error) {

@@ -24,6 +24,11 @@ type CatalogItem struct {
 	Units         string
 	PriceCents    int64
 	Status        string
+	Controlled    bool
+	CreatedAt     time.Time
+	CreatedBy     string
+	UpdatedAt     time.Time
+	UpdatedBy     string
 	IsDeleted     bool
 }
 

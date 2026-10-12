@@ -80,6 +80,7 @@ func (s *Store) CommitDispense(_ context.Context, d domain.Dispense) (*domain.Di
 	for itemNo, qty := range needs {
 		row := s.inventory[itemNo]
 		row.QtyOnHandMilli -= qty
+		row.RowVersion = bumpRowVersion(row.RowVersion)
 		row.UpdatedAt = now
 		row.UpdatedBy = d.UpdatedBy
 		s.inventory[itemNo] = row
@@ -156,6 +157,7 @@ func (s *Store) CommitReturn(_ context.Context, dispenseID, reason, operatorID s
 	for itemNo, qty := range needs {
 		row := s.inventory[itemNo]
 		row.QtyOnHandMilli += qty
+		row.RowVersion = bumpRowVersion(row.RowVersion)
 		row.UpdatedAt = now
 		row.UpdatedBy = operatorID
 		s.inventory[itemNo] = row

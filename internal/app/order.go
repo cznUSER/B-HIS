@@ -590,21 +590,12 @@ func (s *Service) requireOpenRegister(ctx context.Context, registerID string) (*
 }
 
 func (s *Service) requireDeptDoctor(ctx context.Context, departmentID, doctorID string) error {
-	ok, err := s.Registers.DepartmentExists(ctx, departmentID)
-	if err != nil {
+	dept, err := s.Registers.GetDepartment(ctx, departmentID)
+	if err = gateActiveDepartment(dept, err); err != nil {
 		return err
 	}
-	if !ok {
-		return &Error{Status: 404, Code: CodeDepartmentNotFound, Message: msgDepartmentNotFound}
-	}
-	ok, err = s.Registers.DoctorExists(ctx, doctorID)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return &Error{Status: 404, Code: CodeDoctorNotFound, Message: msgDoctorNotFound}
-	}
-	return nil
+	doc, err := s.Registers.GetDoctor(ctx, doctorID)
+	return gateActiveDoctor(doc, err)
 }
 
 func (s *Service) prepareItems(ctx context.Context, inputs []OrderItemInput) ([]domain.OrderItem, int64, error) {
@@ -708,6 +699,9 @@ func (s *Service) prepareItems(ctx context.Context, inputs []OrderItemInput) ([]
 		}
 		if err != nil {
 			return nil, 0, err
+		}
+		if cat.Status == domain.StatusInactive {
+			return nil, 0, &Error{Status: 409, Code: CodeCatalogInactive, Message: msgCatalogInactive, Details: map[string]any{"itemNo": d.itemNo}}
 		}
 		if cat.ItemType != d.itemType {
 			return nil, 0, validationFields([]string{"itemType"})

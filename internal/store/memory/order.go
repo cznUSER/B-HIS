@@ -159,7 +159,8 @@ func (s *Store) CatalogByItemNo(_ context.Context, itemNo string) (*domain.Catal
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	c, ok := s.catalog[itemNo]
-	if !ok || c.IsDeleted || c.Status != "ACTIVE" {
+	// Inactive rows are returned so the order use case can emit CATALOG_INACTIVE. 2026-10-13
+	if !ok || c.IsDeleted {
 		return nil, port.ErrNotFound
 	}
 	cp := c

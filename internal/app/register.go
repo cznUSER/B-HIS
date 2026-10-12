@@ -329,21 +329,12 @@ func (s *Service) requireRegisterMasters(ctx context.Context, patientID, departm
 		}
 		return err
 	}
-	ok, err := s.Registers.DepartmentExists(ctx, departmentID)
-	if err != nil {
+	dept, err := s.Registers.GetDepartment(ctx, departmentID)
+	if err = gateActiveDepartment(dept, err); err != nil {
 		return err
 	}
-	if !ok {
-		return &Error{Status: 404, Code: CodeDepartmentNotFound, Message: msgDepartmentNotFound}
-	}
-	ok, err = s.Registers.DoctorExists(ctx, doctorID)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return &Error{Status: 404, Code: CodeDoctorNotFound, Message: msgDoctorNotFound}
-	}
-	return nil
+	doc, err := s.Registers.GetDoctor(ctx, doctorID)
+	return gateActiveDoctor(doc, err)
 }
 
 func hasPerm(u *domain.User, want string) bool {
