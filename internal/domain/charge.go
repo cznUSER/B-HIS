@@ -24,10 +24,9 @@ const (
 	FavourableAllocDiscountOnRemain = "DISCOUNT_ON_REMAIN"
 	FavourableAllocDiscountFirst    = "DISCOUNT_FIRST"
 
-	// DefaultDrugOnHandMilli is the charge-side stock stub: 100.000 per drug item_no
-	// when no explicit on-hand has been set. TREAT lines do not consume it.
-	// There is no inventory table yet. Tests lower this to reach INSUFFICIENT_STOCK.
-	// The demo catalog (DRUG-A / DRUG-B) stays payable at the default. 2026-10-12
+	// DefaultDrugOnHandMilli is the seeded on-hand for DRUG-A / DRUG-B (100.000).
+	// Charge and dispense both read inventory_item.qty_on_hand. A missing item is 0.
+	// Charge only compares; it does not decrement. Tests may lower the row. 2026-10-12
 	DefaultDrugOnHandMilli int64 = 100000
 )
 

@@ -163,7 +163,7 @@ type orderItemCanon struct {
 	ProcDepartmentID string `json:"procDepartmentId"`
 }
 
-// NotImplemented is the Phase1 stub for recipe-check and dispense. charge-preview is implemented.
+// NotImplemented is the Phase1 stub for recipe-check. charge-preview and dispense are implemented.
 func NotImplemented() *Error {
 	return &Error{Status: 501, Code: CodeNotImplemented, Message: msgNotImplemented}
 }

@@ -71,6 +71,7 @@ type Service struct {
 	Registers   port.RegisterStore
 	Orders      port.OrderStore
 	Charges     port.ChargeStore
+	Dispenses   port.DispenseStore
 
 	// idemMu guards process-local Idempotency-Key hits for patient create, register create, and order create.
 	// 002_patient, 003_register, and 004_order have no idempotency table; keys are not persisted.

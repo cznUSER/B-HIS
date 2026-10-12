@@ -2,7 +2,7 @@
 
 医院信息系统（H Phase1）。Go 登录 API 在仓库根目录；Vue 登录界面在 `web/`。
 
-门诊一期当前实现 **登录鉴权**、**患者建档**（`POST/GET /api/v1/patients`）、**挂号**（`POST/GET /api/v1/registers`、退号与接诊）、**开单**（`/api/v1/orders` 创建、查询、PATCH、commit/submit、abate）、**收费**（`GET /orders/{orderId}/charge-preview`、`POST /charges`、`POST /charges/{chargeId}/pay`、`POST /charges/{chargeId}/refund`、`GET /charges`）和 `GET /health`（已实现版本 **0.3.8-draft**）。契约 `api/openapi.yaml` 为 **0.3.9-draft**（发药/退药 + 简易库存；本片不注册 Go handler）。完成就诊、诊断、发药，以及 deprecated `/encounters` 仍未注册。`recipe-check` 与 `dispense` 返回 501。
+门诊一期当前实现 **登录鉴权**、**患者建档**（`POST/GET /api/v1/patients`）、**挂号**（`POST/GET /api/v1/registers`、退号与接诊）、**开单**（`/api/v1/orders` 创建、查询、PATCH、commit/submit、abate）、**收费**（`GET /orders/{orderId}/charge-preview`、`POST /charges`、`POST /charges/{chargeId}/pay`、`POST /charges/{chargeId}/refund`、`GET /charges`）、**发药/退药**（`POST /dispenses`、`POST /dispenses/{id}/return`、`GET /dispenses`、`GET /inventory/items`；`POST /orders/{id}/dispense` 为同语义别名）和 `GET /health`（已实现版本 **0.3.9-draft**）。契约 `api/openapi.yaml` 为 **0.3.9-draft**。完成就诊、诊断，以及 deprecated `/encounters` 仍未注册。`recipe-check` 返回 501。收费只核对库存、不预扣；发药事务扣减，退药回加。
 
 H03 `0.3.0-draft` 没有 Auth。Auth 路径保持不变，患者建档规则仍是 0.3.5（必填 name/sex/birthday/fareIdentity）。成功体按 OpenAPI：`LoginResponse` / `UserDto` / `PatientDto`，不包 `success/data`。失败体按《接口契约》§1.2：`success: false`、`data: null`、`error.code`、`requestId`。
 

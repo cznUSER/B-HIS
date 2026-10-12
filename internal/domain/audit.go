@@ -16,6 +16,8 @@ const (
 	ActionChargeCreate    = "charge.create"
 	ActionChargePay       = "charge.pay"
 	ActionChargeRefund    = "charge.refund"
+	ActionDispenseCreate  = "dispense.create"
+	ActionDispenseReturn  = "dispense.return"
 
 	OutcomeSuccess = "SUCCESS"
 	OutcomeFail    = "FAIL"

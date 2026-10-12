@@ -15,12 +15,11 @@ import (
 )
 
 // Store implements identity ports on SQL Server.
-// drugOnHand and dispense are process-local charge stubs (not 005 columns). 2026-10-12
+// dispenseStub is only the pre-dispense refund fixture. On-hand and slips live in 006/007. 2026-10-12
 type Store struct {
-	db         *sql.DB
-	mu         sync.Mutex
-	drugOnHand map[string]int64
-	dispense   map[string]dispenseRec
+	db           *sql.DB
+	mu           sync.Mutex
+	dispenseStub map[string]dispenseRec
 }
 
 func Open(dsn string) (*sql.DB, error) {
@@ -39,9 +38,8 @@ func Open(dsn string) (*sql.DB, error) {
 
 func New(db *sql.DB) *Store {
 	return &Store{
-		db:         db,
-		drugOnHand: make(map[string]int64),
-		dispense:   make(map[string]dispenseRec),
+		db:           db,
+		dispenseStub: make(map[string]dispenseRec),
 	}
 }
 

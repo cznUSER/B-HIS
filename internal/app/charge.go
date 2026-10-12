@@ -883,9 +883,10 @@ func remainderItem(it domain.ChargeItem, qtyMilli, totalCents int64) domain.Char
 	return it
 }
 
-// refundDispenseOK enforces B-08 / 拍板#22h.
-// Dispense HTTP is still 501. An explicit ledger wins; otherwise Order status PROC
-// means every DRUG line on that order is dispensed and not yet returned. 2026-10-12
+// refundDispenseOK enforces B-08 / 拍板#22h / #23f.
+// Net dispensed > 0 on this charge item, or on the same order item (successor squares get new ids),
+// is REFUND_REQUIRES_RETURN. A never-dispensed line stays refundable even when the order is PROC.
+// With no dispense rows at all, Order status PROC still blocks DRUG lines (fixture path). 2026-10-12
 func (s *Service) refundDispenseOK(ctx context.Context, it domain.ChargeItem, order *domain.Order) error {
 	disp, ret, explicit, err := s.Charges.DispenseLedger(ctx, it.ChargeItemID)
 	if err != nil {
@@ -897,6 +898,27 @@ func (s *Service) refundDispenseOK(ctx context.Context, it domain.ChargeItem, or
 		}
 		return nil
 	}
+	if s.Dispenses != nil && it.OrderItemID != "" {
+		od, orr, ok, err := s.Dispenses.NetByOrderItem(ctx, it.OrderItemID)
+		if err != nil {
+			return err
+		}
+		if ok && od > orr {
+			return &Error{Status: 409, Code: CodeRefundRequiresReturn, Message: msgRefundRequiresReturn}
+		}
+		if ok {
+			return nil
+		}
+	}
+	if s.Dispenses != nil && order != nil && order.OrderID != "" {
+		has, err := s.Dispenses.OrderHasDispense(ctx, order.OrderID)
+		if err != nil {
+			return err
+		}
+		if has {
+			return nil
+		}
+	}
 	kind, err := s.lineKind(ctx, it, order)
 	if err != nil {
 		return err
@@ -907,10 +929,8 @@ func (s *Service) refundDispenseOK(ctx context.Context, it domain.ChargeItem, or
 	return nil
 }
 
-// ensureStock is the charge-side stock check (拍板#22g). There is no inventory module.
-// DRUG lines must be ≤ the stub on-hand (default 100 per item_no, enough for DRUG-A/DRUG-B).
-// TREAT lines are free. This does not decrement stock; SetDrugOnHandMilli makes the refusal reachable.
-// Preview does not call this. 2026-10-12
+// ensureStock is the charge-side check (拍板#22g). It reads inventory_item.qty_on_hand and does not
+// decrement it. TREAT lines are free. Preview does not call this. 2026-10-12
 func (s *Service) ensureStock(ctx context.Context, lines []stockLine) error {
 	if s.Charges == nil {
 		return errors.New("charge store is not configured")
