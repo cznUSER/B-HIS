@@ -2,7 +2,7 @@
 
 医院信息系统（H Phase1）。Go 登录 API 在仓库根目录；Vue 登录界面在 `web/`。
 
-门诊一期当前实现 **登录鉴权**、**患者建档**（`POST/GET /api/v1/patients`）、**挂号**（`POST/GET /api/v1/registers`、退号与接诊）、**开单**（`/api/v1/orders` 创建、查询、PATCH、commit/submit、abate）和 `GET /health`（版本 **0.3.7-draft**）。`api/openapi.yaml` 契约为 **0.3.7-draft**。完成就诊、诊断、收费、发药，以及 deprecated `/encounters` 仍未注册。`recipe-check`、`charge-preview`、`dispense` 返回 501。
+门诊一期当前实现 **登录鉴权**、**患者建档**（`POST/GET /api/v1/patients`）、**挂号**（`POST/GET /api/v1/registers`、退号与接诊）、**开单**（`/api/v1/orders` 创建、查询、PATCH、commit/submit、abate）和 `GET /health`（已实现版本 **0.3.7-draft**）。契约 `api/openapi.yaml` 为 **0.3.8-draft**（收费路径已写入；本片不实现 Charge/Payment handler）。完成就诊、诊断、收费、发药，以及 deprecated `/encounters` 仍未注册。`recipe-check`、`charge-preview`、`dispense` 返回 501。
 
 H03 `0.3.0-draft` 没有 Auth。Auth 路径保持不变，患者建档规则仍是 0.3.5（必填 name/sex/birthday/fareIdentity）。成功体按 OpenAPI：`LoginResponse` / `UserDto` / `PatientDto`，不包 `success/data`。失败体按《接口契约》§1.2：`success: false`、`data: null`、`error.code`、`requestId`。
 
@@ -233,7 +233,7 @@ CI 和这台云端构建保持 **memory**。要在 Windows 开发机连 SQL Serv
 
 1. 不要把主机、账号、口令写进 Git、拍板文档或 `config.example.yaml`。
 2. 在 `E:\B-HIS` 自建 gitignore 文件 `.env.local` 或 `config.local.yaml`。
-3. 库名 **BHIS**。按顺序执行 `001_identity.up.sql`、`002_patient.up.sql`、`003_register.up.sql`、`003_register_seed.up.sql`（见 `migrations/README.md`）。Windows 身份脚本优先用 `scripts/apply-migration.ps1`（已带 `sqlcmd -I`）。不要改官方 DDL。`sqlcmd` 的口令用环境变量 `SQLCMDPASSWORD`，不要写进脚本。
+3. 库名 **BHIS**。按顺序执行 `001_identity`、`002_patient`、`003_register` 与种子、`004_order` 与种子、`005_charge` 与空种子（见 `migrations/README.md`）。Windows 身份脚本优先用 `scripts/apply-migration.ps1`（已带 `sqlcmd -I`）。不要改官方 DDL。`sqlcmd` 的口令用环境变量 `SQLCMDPASSWORD`，不要写进脚本。
 4. 启动前设置：
 
 ```text
