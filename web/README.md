@@ -1,6 +1,6 @@
 # B-HIS Web 登录
 
-Vue 3 + Vue Router + Vite。登录页对接 H03 OpenAPI **0.3.2** 的 Auth；登录成功进入首页看板 `/app`。侧栏仍在。患者建档可保存和查询。挂号在 `VITE_USE_MOCK=false` 时走 `POST/GET /api/v1/registers` 与退号。开单在同一开关下走 `POST/GET/PATCH /api/v1/orders` 与提交、作废。收费在同一开关下走预览、创建、现金支付、查询和退费。发药在 `VITE_USE_MOCK=true` 下可演示待发、部分发和退药，不请求 `/dispenses`。退药/退费入口仍是空态：
+Vue 3 + Vue Router + Vite。登录页对接 H03 OpenAPI **0.3.2** 的 Auth；登录成功进入首页看板 `/app`。侧栏仍在。患者建档可保存和查询。挂号在 `VITE_USE_MOCK=false` 时走 `POST/GET /api/v1/registers` 与退号。开单在同一开关下走 `POST/GET/PATCH /api/v1/orders` 与提交、作废。收费在同一开关下走预览、创建、现金支付、查询和退费。发药在 `VITE_USE_MOCK=false` 时走 `POST/GET /api/v1/dispenses` 与退药，Mock 打开时仍用本地演示。退药/退费入口仍是空态：
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
@@ -39,7 +39,7 @@ npm run dev
 
 首页主区是工作台：待办一行（待收费、待发药为 0，分别进入收费页和发药页；进销存未上传、未贯标提醒为二期，不能点；库存预警为 0 的弱占位）、经营概况（今天 / 昨天 / 本周 / 本月、日期按钮二期、刷新）、收费行和客流行、两张等分圆环（收入来源、支付方式，图例都是 0）。页上标明「演示 / 占位」。切换时间和刷新不会改数字，也不请求经营接口。
 
-`/app/outpatient` 仍是六张卡的总览，不是登录落地页。顺序不变：患者建档、挂号、开单、收费、发药、退药/退费。患者建档、挂号、开单、收费徽标是「可用」。建档进入 `/app/outpatient/patient`（档案管理里的「患者建档」同一条路由）。挂号进入 `/app/outpatient/register`，没有 `patientId` 时提示先建档。开单进入 `/app/outpatient/order`。收费进入 `/app/outpatient/charge`。发药徽标是「可用」，进入 `/app/outpatient/dispense`（Mock）。退药/退费仍是「开发中」，有权限时打开空态「接口就绪后开放」。无权限的卡保持原位、灰显。顶上有一条可关闭的闭环提示。
+`/app/outpatient` 仍是六张卡的总览，不是登录落地页。顺序不变：患者建档、挂号、开单、收费、发药、退药/退费。患者建档、挂号、开单、收费徽标是「可用」。建档进入 `/app/outpatient/patient`（档案管理里的「患者建档」同一条路由）。挂号进入 `/app/outpatient/register`，没有 `patientId` 时提示先建档。开单进入 `/app/outpatient/order`。收费进入 `/app/outpatient/charge`。发药徽标是「可用」，进入 `/app/outpatient/dispense`。退药/退费仍是「开发中」，有权限时打开空态「接口就绪后开放」。无权限的卡保持原位、灰显。顶上有一条可关闭的闭环提示。
 
 ## 患者建档
 
@@ -78,9 +78,20 @@ npm run dev
 
 ## 门诊发药
 
-`/app/outpatient/dispense` 在侧栏「发药」。默认 `VITE_USE_MOCK=true`，不请求网络。关掉 Mock 后页面提示发药接口尚未接入，不调用 `POST /dispenses` 或 `POST /dispenses/{id}/return`。路径名与 OpenAPI 0.3.9-draft 对齐，真接口等后续 API。
+`/app/outpatient/dispense` 在侧栏「发药」。与收费、开单共用 `VITE_USE_MOCK`。页面没有采购、调拨、盘点或批次选择。登录账号 `system` / `1`。退药成功后「去退费」进入 `/app/outpatient/charge?charge_id=`。
 
-演示账号 `system` / `1`。检索示例：王全发（可全发）、李部分（可改小数量）、赵缺货（库存不足）、陈未收（未收费，不能发药）、孙已发（已发，可退药）。退药成功后「去退费」进入 `/app/outpatient/charge?charge_id=`。页面没有采购、调拨、盘点或批次选择。
+`VITE_USE_MOCK=true`（`web/.env` 默认）不请求网络。演示检索：王全发（可全发）、李部分（可改小数量）、赵缺货（库存不足）、陈未收（未收费，不能发药）、孙已发（已发，可退药）。
+
+`VITE_USE_MOCK=false` 时走真实 HTTP。`web/.env.local` 可写 `VITE_API_BASE_URL=http://localhost:8080/api/v1`，或写 `VITE_API_BASE_URL=/api/v1` 且 `VITE_API_PROXY_TARGET=http://localhost:8080`，然后重新 `npm run dev`。Go API 监听 `:8080`。
+
+| 操作 | 方法 | 路径 |
+|------|------|------|
+| 确认发药（全发 / 部分发） | `POST` | `/api/v1/dispenses` |
+| 退药 | `POST` | `/api/v1/dispenses/{dispenseId}/return` |
+| 已发列表 / 详情 | `GET` | `/api/v1/dispenses`、`/api/v1/dispenses/{dispenseId}` |
+| 待发载入 | `GET` | `/api/v1/charges`、`/api/v1/orders/{orderId}`、`/api/v1/dispenses?chargeId=`、`/api/v1/inventory/items` |
+
+待发只含已支付且 `status=NORMAL` 的 DRUG 行。可发数量为收费数量减净发。行态 `NONE` / `PARTIAL` / `FULL`。未收费提示「未收费，不能发药」。库存不足提示「库存不足，无法发药」。已发药未退药时，收费页退费仍提示「已发药，请先退药再退费」。
 
 身份证号非空且已存在时拒绝创建，不合并。真实接口返回 `409 DUPLICATE_ID_NUMBER`（页面也认旧码 `DUPLICATE_PATIENT`），提示「该身份证号已存在，不能重复建档」，可「打开已有患者」。空身份证号允许再次保存。卡号冲突为 `409 DUPLICATE_CARD_NO`，提示「卡号已存在，不能重复建档」。本页不采集卡号。
 
@@ -161,7 +172,7 @@ pnpm dev
 浏览器打开 http://localhost:5173 。提交时按钮禁用并显示「登录中…」；再次提交会清掉上一条错误。
 
 ```bash
-npm run check       # Mock 登录、工作台、建档、挂号、开单、收费、发药。收费真接口形状用本脚本里的假 HTTP；发药不请求网络。不访问 Go API
+npm run check       # Mock 登录、工作台、建档、挂号、开单、收费、发药。收费和发药的真接口形状用脚本里的假 HTTP。不访问 Go API
 npm run check:api   # 仅当 VITE_USE_MOCK=false 时打真 API；否则跳过。CI 不跑
 npm run build       # 生产构建
 ```

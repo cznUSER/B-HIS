@@ -1,5 +1,6 @@
 <script setup>
-// 2026-10-12 P1-H05-DISPENSE-UI 门诊发药 Mock：待发、部分发、退药。不请求 Go。
+// 2026-10-12 P1-H05-DISPENSE-UI 门诊发药：待发、部分发、退药。
+// 2026-10-12 VITE_USE_MOCK=false 时走 /dispenses；Mock 仍可演示。
 import { computed, onMounted, ref } from 'vue'
 import { ApiError } from '../api/errors.js'
 import { useMock } from '../api/config.js'
@@ -54,6 +55,11 @@ const returnResult = ref(null)
 const returnError = ref('')
 
 const busy = computed(() => loading.value || dispensing.value || returning.value)
+const searchPlaceholder = computed(() => (
+  mockMode
+    ? '例如王全发、GH-FULL-001、SQ-PART-001、RX-SHORT-001'
+    : '患者姓名、患者号、挂号号、收费单号或处方号'
+))
 const operatorName = computed(() => {
   const name = session.user && session.user.displayName
   return typeof name === 'string' && name.trim() ? name.trim() : '当前用户'
@@ -201,6 +207,18 @@ async function submit(list) {
   } catch (error) {
     errorMessage.value = error instanceof ApiError ? error.message : '发药失败，请稍后重试'
     errorCode.value = error instanceof ApiError ? error.code : ''
+    if (searched.value) {
+      try {
+        await reloadPending()
+      } catch {
+        // 保留本次发药错误，不改成刷新失败文案。
+      }
+    }
+    try {
+      await loadIssued()
+    } catch {
+      // 已发列表刷新失败时仍显示发药错误。
+    }
   } finally {
     dispensing.value = false
   }
@@ -316,7 +334,6 @@ function useDemo(text) {
 }
 
 onMounted(async () => {
-  if (!mockMode) return
   searchInput.value?.focus()
   await loadIssued()
 })
@@ -335,19 +352,13 @@ onMounted(async () => {
     <header class="dash-head">
       <h1 id="dispense-title">门诊发药</h1>
       <p class="dash-flag">只发已收费药品。可改小数量做部分发。已发药品退药后才能去退费。</p>
+      <p class="muted">演示账号 system / 1</p>
     </header>
 
-    <div v-if="!mockMode" class="empty-panel" data-testid="dispense-offline">
-      <h2>发药接口尚未接入</h2>
-      <p class="empty-lead">请使用演示模式</p>
-      <p class="muted">把 VITE_USE_MOCK 保持为 true 后重新打开页面。演示账号 system / 1。</p>
-    </div>
-
-    <template v-else>
-      <form class="patient-panel" @submit.prevent="onSearch">
+    <form class="patient-panel" @submit.prevent="onSearch">
         <div class="panel-head">
           <h2>检索待发</h2>
-          <button class="text-btn" type="button" :disabled="busy" @click="onReset">重置演示数据</button>
+          <button v-if="mockMode" class="text-btn" type="button" :disabled="busy" @click="onReset">重置演示数据</button>
         </div>
         <div class="charge-search">
           <label class="field">
@@ -356,7 +367,7 @@ onMounted(async () => {
               ref="searchInput"
               v-model="query"
               data-testid="dispense-search"
-              placeholder="例如王全发、GH-FULL-001、SQ-PART-001、RX-SHORT-001"
+              :placeholder="searchPlaceholder"
               autocomplete="off"
             />
           </label>
@@ -368,7 +379,7 @@ onMounted(async () => {
             刷新库存
           </button>
         </div>
-        <div class="demo-chips" aria-label="演示检索">
+        <div v-if="mockMode" class="demo-chips" aria-label="演示检索">
           <button
             v-for="item in DEMO_CASES"
             :key="item.query"
@@ -630,6 +641,5 @@ onMounted(async () => {
           </div>
         </aside>
       </div>
-    </template>
   </section>
 </template>
