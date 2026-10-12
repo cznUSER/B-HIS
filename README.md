@@ -2,7 +2,7 @@
 
 医院信息系统（H Phase1）。Go 登录 API 在仓库根目录；Vue 登录界面在 `web/`。
 
-门诊一期当前实现 **登录鉴权**、**患者建档**（`POST/GET /api/v1/patients`）、**挂号**（`POST/GET /api/v1/registers` 与退号）和 `GET /health`（健康检查仍报已实现 **0.3.6-draft**）。`api/openapi.yaml` 契约为 **0.3.7-draft**（开单 `/orders` 仅契约，本进程不注册 handler）。接诊、完成就诊、诊断，以及 deprecated `/encounters` 仍未注册。
+门诊一期当前实现 **登录鉴权**、**患者建档**（`POST/GET /api/v1/patients`）、**挂号**（`POST/GET /api/v1/registers`、退号与接诊）和 `GET /health`（健康检查仍报已实现 **0.3.6-draft**）。`api/openapi.yaml` 契约为 **0.3.7-draft**（开单 `/orders` 仅契约，本进程不注册 handler）。完成就诊、诊断，以及 deprecated `/encounters` 仍未注册。
 
 H03 `0.3.0-draft` 没有 Auth。Auth 路径保持不变，患者建档规则仍是 0.3.5（必填 name/sex/birthday/fareIdentity）。成功体按 OpenAPI：`LoginResponse` / `UserDto` / `PatientDto`，不包 `success/data`。失败体按《接口契约》§1.2：`success: false`、`data: null`、`error.code`、`requestId`。
 
@@ -204,7 +204,7 @@ curl -sS -D - http://127.0.0.1:8080/api/v1/patients \
 
 ## 挂号
 
-需 Bearer。挂号和退号角色为 **SYSTEM / REGISTRAR**（权限 `encounter:create`、`encounter:cancel`，SYSTEM 走 `admin:*`）。查询和详情对所有已登录且未停用的角色开放。角色以用户表为准，与 `GET /auth/me` 相同。
+需 Bearer。挂号和退号角色为 **SYSTEM / REGISTRAR**（权限 `encounter:create`、`encounter:cancel`，SYSTEM 走 `admin:*`）。接诊角色为 **SYSTEM / REGISTRAR / DOCTOR**（权限 `encounter:check-in`）。查询和详情对所有已登录且未停用的角色开放。角色以用户表为准，与 `GET /auth/me` 相同。
 
 `POST /api/v1/registers` 返回 `201` `RegisterDto`，初始 `status=NORMAL`。必填 `patientId`、`departmentId`、`doctorId`、`visitDate`。缺字段为 `400 VALIDATION_ERROR`。`registerSort` 可选；`registerFee` 默认 `0`；`registerCharged` 默认 `false`。患者不存在 `404 PATIENT_NOT_FOUND`；科室不存在 `404 DEPARTMENT_NOT_FOUND`；医生不存在 `404 DOCTOR_NOT_FOUND`。`registerId` 与 `registerNo` 由服务生成。`registeredAt` 为创建时间。
 
@@ -212,11 +212,13 @@ curl -sS -D - http://127.0.0.1:8080/api/v1/patients \
 
 `GET /api/v1/registers` 的查询参数 `patientId`、`registerNo`、`visitDate` 均可选，精确匹配，条件之间为 AND。不带任何条件时返回 `{"items":[]}`，与患者查询相同。未知 `registerId` 为 `404 NOT_FOUND`。
 
+`POST /api/v1/registers/{registerId}/check-in`：`NORMAL` 或 `USED` → `DIAGNOSING`。`BACK` / `DIAGNOSING` / `DIAGNOSED` / `PAUSED` 为 `409 ILLEGAL_STATE_TRANSITION`，状态与退号留痕不变。不要求请求体。未知 `registerId` 为 `404 NOT_FOUND`。
+
 `POST /api/v1/registers/{registerId}/cancel`：仅 `NORMAL` → `BACK`，并写入 `backOperatorId` / `backOperatedAt`（当前用户）。`USED` / `DIAGNOSING` / `DIAGNOSED` / `PAUSED` 为 `409 REGISTER_NOT_CANCELLABLE`，状态不变。已是 `BACK` 再退为 `409 REGISTER_BACK_NOT_ALLOWED`，退号留痕不覆盖。
 
-`Idempotency-Key` 只对挂号创建在进程内生效。同键同体返回第一次的 `201`；同键不同体为 `409 IDEMPOTENCY_KEY_CONFLICT`。官方 `003_register` 没有幂等表，键不落库。
+`Idempotency-Key` 只对挂号创建在进程内生效。同键同体返回第一次的 `201`；同键不同体为 `409 IDEMPOTENCY_KEY_CONFLICT`。官方 `003_register` 没有幂等表，键不落库。接诊不使用该请求头。
 
-成功挂号写审计 `register.create`，成功退号写 `register.cancel`，`resource_type=Register`。退号拒绝写同一动作的 `FAIL`。
+成功挂号写审计 `register.create`，成功接诊写 `register.check-in`，成功退号写 `register.cancel`，`resource_type=Register`。接诊或退号拒绝写同一动作的 `FAIL`。
 
 ```bash
 curl -sS -D - http://127.0.0.1:8080/api/v1/registers \
@@ -247,7 +249,7 @@ BHIS_DB_DSN=sqlserver://<user>:<password>@<host>:1433?database=BHIS&encrypt=disa
 
 JSON Lines：`./logs/h-api-YYYYMMDD.log`（日期按 Asia/Shanghai）。字段含 `timestamp`、`level`、`request_id`、`actor_id`、`action`、`outcome`、`error_code`、`duration_ms`。
 
-登录审计动作：`LOGIN_SUCCESS`、`LOGIN_FAILURE`、`LOGOUT`。建档审计动作：`patient.create`（`resource_type=Patient`）。挂号审计动作：`register.create`、`register.cancel`（`resource_type=Register`）。不明文记密码、证件号或 DSN。
+登录审计动作：`LOGIN_SUCCESS`、`LOGIN_FAILURE`、`LOGOUT`。建档审计动作：`patient.create`（`resource_type=Patient`）。挂号审计动作：`register.create`、`register.check-in`、`register.cancel`（`resource_type=Register`）。不明文记密码、证件号或 DSN。
 
 `logs/` 不进 Git。
 

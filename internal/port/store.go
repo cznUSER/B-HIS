@@ -22,6 +22,9 @@ var (
 	ErrRegisterAlreadyBack = errors.New("register already back")
 	// ErrRegisterNotCancellable is a cancel when status is not NORMAL (AC-03).
 	ErrRegisterNotCancellable = errors.New("register not cancellable")
+	// ErrRegisterNotCheckIn is a check-in when status is not NORMAL or USED.
+	// 2026-10-12
+	ErrRegisterNotCheckIn = errors.New("register not check-in")
 )
 
 // UserStore loads identity records. Phase1 default is SQL Server; memory is the local demo.
@@ -36,7 +39,7 @@ type RevocationStore interface {
 	IsRevoked(ctx context.Context, jti string) (bool, error)
 }
 
-// AuditStore appends identity events, patient.create, and register.create / register.cancel.
+// AuditStore appends identity events, patient.create, and register.create / register.check-in / register.cancel.
 // Implementations must not persist passwords.
 type AuditStore interface {
 	Append(ctx context.Context, event domain.AuditEvent) error
@@ -79,6 +82,10 @@ type RegisterStore interface {
 	// BACK returns ErrRegisterAlreadyBack. Any other status returns ErrRegisterNotCancellable.
 	// Neither refusal changes the row.
 	CancelRegister(ctx context.Context, registerID, operatorID string, at time.Time) (*domain.Register, error)
+	// CheckInRegister moves NORMAL or USED → DIAGNOSING and writes updated_by.
+	// Any other status returns ErrRegisterNotCheckIn and leaves the row unchanged.
+	// 2026-10-12
+	CheckInRegister(ctx context.Context, registerID, operatorID string, at time.Time) (*domain.Register, error)
 	DepartmentExists(ctx context.Context, departmentID string) (bool, error)
 	DoctorExists(ctx context.Context, doctorID string) (bool, error)
 }

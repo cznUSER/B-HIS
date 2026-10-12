@@ -5,6 +5,7 @@ package domain
 const (
 	PermPatientCreate    = "patient:create"
 	PermEncounterCreate  = "encounter:create"
+	PermEncounterCheckIn = "encounter:check-in"
 	PermEncounterCancel  = "encounter:cancel"
 	PermOrderSubmit      = "order:submit"
 	PermOrderRecipeCheck = "order:recipe-check"
@@ -20,10 +21,10 @@ const (
 // RolePermissions documents the role × permission skeleton. Login does not enforce it.
 var RolePermissions = map[Role][]string{
 	RoleRegistrar: {
-		PermPatientCreate, PermEncounterCreate, PermEncounterCancel,
+		PermPatientCreate, PermEncounterCreate, PermEncounterCheckIn, PermEncounterCancel,
 	},
 	RoleDoctor: {
-		PermPatientCreate, PermOrderSubmit,
+		PermPatientCreate, PermEncounterCheckIn, PermOrderSubmit,
 	},
 	RoleCashier: {
 		PermPatientCreate, PermChargePay, PermChargeRefund,

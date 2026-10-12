@@ -73,6 +73,10 @@ func TestRegisterHTTP(t *testing.T) {
 		if code != 401 || decodeErr(t, body).Error.Code != "UNAUTHORIZED" {
 			t.Fatalf("cancel %d %s", code, body)
 		}
+		code, body, _ = postJSON(t, base+"/missing/check-in", `{}`, nil)
+		if code != 401 || decodeErr(t, body).Error.Code != "UNAUTHORIZED" {
+			t.Fatalf("check-in %d %s", code, body)
+		}
 	})
 
 	var created registerJSON
@@ -308,6 +312,142 @@ func TestRegisterHTTP(t *testing.T) {
 		}
 	})
 
+	t.Run("check-in", func(t *testing.T) {
+		code, raw, _ := postJSON(t, base, registerBody(patientID, "dept-1", "doc-1", "2026-10-17"), authHdr(tok))
+		if code != 201 {
+			t.Fatalf("create %d %s", code, raw)
+		}
+		bill := decodeRegister(t, raw)
+		code, raw, _ = postJSON(t, base+"/"+bill.RegisterID+"/check-in", `{}`, authHdr(tok))
+		if code != 200 {
+			t.Fatalf("check-in %d %s", code, raw)
+		}
+		dto := decodeRegister(t, raw)
+		if dto.Status != "DIAGNOSING" || dto.RegisterID != bill.RegisterID || dto.BackOperatorID != nil || dto.BackOperatedAt != nil {
+			t.Fatalf("%+v", dto)
+		}
+		if n := countAudit(st, "register.check-in", "SUCCESS", bill.RegisterID); n != 1 {
+			t.Fatalf("audit %d", n)
+		}
+		code, raw = getAuth(t, base+"/"+bill.RegisterID, tok)
+		if code != 200 || decodeRegister(t, raw).Status != "DIAGNOSING" {
+			t.Fatalf("get %d %s", code, raw)
+		}
+		code, raw, _ = postJSON(t, base+"/"+bill.RegisterID+"/check-in", `{}`, authHdr(tok))
+		if code != 409 || decodeErr(t, raw).Error.Code != "ILLEGAL_STATE_TRANSITION" {
+			t.Fatalf("second %d %s", code, raw)
+		}
+		if n := countAudit(st, "register.check-in", "FAIL", bill.RegisterID); n != 1 {
+			t.Fatalf("fail audit %d", n)
+		}
+		code, raw = getAuth(t, base+"/"+bill.RegisterID, tok)
+		if code != 200 || decodeRegister(t, raw).Status != "DIAGNOSING" {
+			t.Fatalf("status changed %d %s", code, raw)
+		}
+		code, raw, _ = postJSON(t, base+"/"+bill.RegisterID+"/cancel", `{}`, authHdr(tok))
+		if code != 409 || decodeErr(t, raw).Error.Code != "REGISTER_NOT_CANCELLABLE" {
+			t.Fatalf("cancel after check-in %d %s", code, raw)
+		}
+
+		code, raw, _ = postJSON(t, base, registerBody(patientID, "dept-1", "doc-1", "2026-10-18"), authHdr(tok))
+		if code != 201 {
+			t.Fatalf("used fixture %d %s", code, raw)
+		}
+		used := decodeRegister(t, raw)
+		if err := st.SetRegisterStatus(used.RegisterID, "USED"); err != nil {
+			t.Fatal(err)
+		}
+		code, raw, _ = postJSON(t, base+"/"+used.RegisterID+"/check-in", `{}`, authHdr(tok))
+		if code != 200 || decodeRegister(t, raw).Status != "DIAGNOSING" {
+			t.Fatalf("used %d %s", code, raw)
+		}
+
+		for _, status := range []string{"BACK", "DIAGNOSED", "PAUSED"} {
+			t.Run(status, func(t *testing.T) {
+				code, raw, _ := postJSON(t, base, registerBody(patientID, "dept-1", "doc-1", "2026-10-19"), authHdr(tok))
+				if code != 201 {
+					t.Fatalf("create %d %s", code, raw)
+				}
+				held := decodeRegister(t, raw)
+				if status == "BACK" {
+					code, raw, _ = postJSON(t, base+"/"+held.RegisterID+"/cancel", `{}`, authHdr(tok))
+					if code != 200 || decodeRegister(t, raw).Status != "BACK" {
+						t.Fatalf("cancel %d %s", code, raw)
+					}
+				} else if err := st.SetRegisterStatus(held.RegisterID, status); err != nil {
+					t.Fatal(err)
+				}
+				before := decodeRegister(t, mustGetRegister(t, base, held.RegisterID, tok))
+				code, raw, _ = postJSON(t, base+"/"+held.RegisterID+"/check-in", `{}`, authHdr(tok))
+				if code != 409 || decodeErr(t, raw).Error.Code != "ILLEGAL_STATE_TRANSITION" {
+					t.Fatalf("check-in %d %s", code, raw)
+				}
+				after := decodeRegister(t, mustGetRegister(t, base, held.RegisterID, tok))
+				if after.Status != status {
+					t.Fatalf("status changed %+v", after)
+				}
+				if status == "BACK" {
+					if after.BackOperatorID == nil || before.BackOperatorID == nil || *after.BackOperatorID != *before.BackOperatorID ||
+						after.BackOperatedAt == nil || before.BackOperatedAt == nil || *after.BackOperatedAt != *before.BackOperatedAt {
+						t.Fatalf("back trace changed before=%+v after=%+v", before, after)
+					}
+				} else if after.BackOperatorID != nil || after.BackOperatedAt != nil {
+					t.Fatalf("back columns written %+v", after)
+				}
+			})
+		}
+
+		code, raw, _ = postJSON(t, base+"/00000000-0000-4000-8000-000000009998/check-in", `{}`, authHdr(tok))
+		if code != 404 || decodeErr(t, raw).Error.Code != "NOT_FOUND" {
+			t.Fatalf("missing %d %s", code, raw)
+		}
+
+		doc := domain.User{
+			ID: "00000000-0000-4000-8000-000000000013", Username: "doctor-checkin", DisplayName: "接诊医生",
+			Roles: []domain.Role{domain.RoleDoctor}, Status: domain.StatusActive,
+		}
+		cashier := domain.User{
+			ID: "00000000-0000-4000-8000-000000000014", Username: "cashier-checkin", DisplayName: "收费员",
+			Roles: []domain.Role{domain.RoleCashier}, Status: domain.StatusActive,
+		}
+		regUser := domain.User{
+			ID: "00000000-0000-4000-8000-000000000015", Username: "registrar-checkin", DisplayName: "挂号员",
+			Roles: []domain.Role{domain.RoleRegistrar}, Status: domain.StatusActive,
+		}
+		st.Add(doc)
+		st.Add(cashier)
+		st.Add(regUser)
+		code, raw, _ = postJSON(t, base, registerBody(patientID, "dept-1", "doc-1", "2026-10-20"), authHdr(tok))
+		if code != 201 {
+			t.Fatalf("role fixture %d %s", code, raw)
+		}
+		roleBill := decodeRegister(t, raw)
+		code, raw, _ = postJSON(t, base+"/"+roleBill.RegisterID+"/check-in", `{}`, authHdr(bearerFor(t, issuer, cashier)))
+		if code != 403 || decodeErr(t, raw).Error.Code != "FORBIDDEN" {
+			t.Fatalf("cashier %d %s", code, raw)
+		}
+		if n := countAudit(st, "register.check-in", "FAIL", roleBill.RegisterID); n != 1 {
+			t.Fatalf("cashier audit %d", n)
+		}
+		code, raw = getAuth(t, base+"/"+roleBill.RegisterID, tok)
+		if code != 200 || decodeRegister(t, raw).Status != "NORMAL" {
+			t.Fatalf("cashier changed status %d %s", code, raw)
+		}
+		code, raw, _ = postJSON(t, base+"/"+roleBill.RegisterID+"/check-in", `{}`, authHdr(bearerFor(t, issuer, doc)))
+		if code != 200 || decodeRegister(t, raw).Status != "DIAGNOSING" {
+			t.Fatalf("doctor %d %s", code, raw)
+		}
+		code, raw, _ = postJSON(t, base, registerBody(patientID, "dept-1", "doc-1", "2026-10-21"), authHdr(tok))
+		if code != 201 {
+			t.Fatalf("registrar fixture %d %s", code, raw)
+		}
+		regBill := decodeRegister(t, raw)
+		code, raw, _ = postJSON(t, base+"/"+regBill.RegisterID+"/check-in", `{}`, authHdr(bearerFor(t, issuer, regUser)))
+		if code != 200 || decodeRegister(t, raw).Status != "DIAGNOSING" {
+			t.Fatalf("registrar %d %s", code, raw)
+		}
+	})
+
 	t.Run("idempotency", func(t *testing.T) {
 		hdr := authHdr(tok)
 		hdr["Idempotency-Key"] = "reg-create-1"
@@ -386,6 +526,15 @@ func decodeRegisterList(t *testing.T, body []byte) []registerJSON {
 		t.Fatalf("json %v %s", err, body)
 	}
 	return list.Items
+}
+
+func mustGetRegister(t *testing.T, base, id, tok string) []byte {
+	t.Helper()
+	code, body := getAuth(t, base+"/"+id, tok)
+	if code != 200 {
+		t.Fatalf("get %d %s", code, body)
+	}
+	return body
 }
 
 func registerListHas(list []registerJSON, id string) bool {
