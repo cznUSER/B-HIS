@@ -1,6 +1,6 @@
 # B-HIS Web 登录
 
-Vue 3 + Vue Router + Vite。登录页对接 H03 OpenAPI **0.3.2** 的 Auth；登录成功进入首页看板 `/app`。侧栏仍在。患者建档可保存和查询。挂号在 `VITE_USE_MOCK=false` 时走 `POST/GET /api/v1/registers` 与退号。开单目前只在 Mock 下可用，不请求 `/orders`。收费、发药、退药/退费仍是空态：
+Vue 3 + Vue Router + Vite。登录页对接 H03 OpenAPI **0.3.2** 的 Auth；登录成功进入首页看板 `/app`。侧栏仍在。患者建档可保存和查询。挂号在 `VITE_USE_MOCK=false` 时走 `POST/GET /api/v1/registers` 与退号。开单在同一开关下走 `POST/GET/PATCH /api/v1/orders` 与提交、作废。收费、发药、退药/退费仍是空态：
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
@@ -91,14 +91,16 @@ Mock 与真实接口共用同一套页面。`web/.env` 默认 `VITE_USE_MOCK=tru
 
 「暂存」为 `SAVE`，不能收费。「提交」调用 commit，状态变为 `COMMIT` 后只读，可供收费；未收费可以作废。已收费不能改，也不能作废。同一挂号可以再开一张。
 
-字段对齐 OpenAPI **0.3.7-draft**：主字段是 `registerId`（`encounterId` 只是同义别名）。状态只有 `SAVE`、`COMMIT`、`PROC`、`ABATE`。本页在 `VITE_USE_MOCK` 打开时走本地 Mock，**不请求** `/api/v1/orders`。关掉 Mock 后页面仍是「请先挂号」，并说明开单接口尚未联调。等 H04 开单接口合并并且可以联调后，再接这些路径：
+字段对齐 OpenAPI **0.3.7-draft**：主字段是 `registerId`（`encounterId` 只是同义别名，请求里不传）。状态只有 `SAVE`、`COMMIT`、`PROC`、`ABATE`。`web/.env` 默认 `VITE_USE_MOCK=true`，开单走本地 Mock，不访问网络。联调时在 `web/.env.local` 写 `VITE_USE_MOCK=false`（与建档、挂号相同），请求经 Vite 代理到 `127.0.0.1:8080`。没有 `registerId` 时仍是「请先挂号」，并可选择当日未退号的挂号。开单医生可以改，诊断可以不填，库存不足只提示。本页不调用挂号接诊。
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| `POST` | `/api/v1/orders` | 创建暂存，`status=SAVE` |
-| `PATCH` | `/api/v1/orders/{orderId}` | 仅 `SAVE` 可改；`PUT` 同义 |
+| `POST` | `/api/v1/orders` | 创建暂存，`status=SAVE`。须有效 `registerId` |
+| `PATCH` | `/api/v1/orders/{orderId}` | 仅 `SAVE` 可改头和明细；不改 `registerId` |
+| `GET` | `/api/v1/orders?registerId=` | 按挂号查询。也可带 `patientId`、`status`、`orderNo` |
 | `POST` | `/api/v1/orders/{orderId}/commit` | `SAVE` → `COMMIT` |
 | `POST` | `/api/v1/orders/{orderId}/abate` | 仅未收费的暂存或已提交可作废 |
+| `GET` | `/api/v1/registers/{registerId}` | 只读带出患者与科室医生。当日列表用 `visitDate` |
 
 演示账号 `system` / `1`。
 

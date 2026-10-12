@@ -1,5 +1,7 @@
-// 2026-10-12 P1-H05-ORDER-UI 开单 Mock 对齐 OpenAPI 0.3.7。不访问 /orders。
+// 2026-10-12 P1-H05-ORDER-UI 开单对齐 OpenAPI 0.3.7。
+// 2026-10-12 Mock 仍走本地；VITE_USE_MOCK=false 时打本脚本内的 HTTP，不访问 Go API。
 import { readFileSync } from 'node:fs'
+import http from 'node:http'
 import { ApiError } from '../src/api/errors.js'
 import { mockLogin, resetMockAuth } from '../src/api/mockAuth.js'
 import {
@@ -12,7 +14,7 @@ import {
   mockPatchOrder,
   resetMockOrders,
 } from '../src/api/mockOrders.js'
-import { ORDER_ROUTES, abateOrder, commitOrder, saveOrder } from '../src/api/orderApi.js'
+import { ORDER_ROUTES, abateOrder, commitOrder, fetchOrderRegister, listOrderRegisters, listOrders, presentOrderError, saveOrder } from '../src/api/orderApi.js'
 import { assertCreateOrderRequest, stockWarnings } from '../src/api/orderContract.js'
 
 function assert(condition, message) {
@@ -49,7 +51,8 @@ resetMockAuth()
 resetMockOrders()
 
 const apiSrc = readFileSync(new URL('../src/api/orderApi.js', import.meta.url), 'utf8')
-assert(!/\bfetch\s*\(/.test(apiSrc), 'order client does not call HTTP')
+assert(/\bfetch\s*\(/.test(apiSrc), 'order client calls HTTP when mock is off')
+assert(!apiSrc.includes('/check-in'), 'order client does not check in')
 assert(ORDER_ROUTES.commit('ord-1') === '/orders/ord-1/commit', 'commit path')
 assert(ORDER_ROUTES.abate('ord-1') === '/orders/ord-1/abate', 'abate path')
 assert(ORDER_ROUTES.item('ord-1') === '/orders/ord-1', 'draft path')
@@ -142,7 +145,226 @@ const viaCommit = await commitOrder(token, viaApi.orderId)
 assert(viaCommit.status === 'COMMIT' && viaCommit.registerId === REGISTER_ID && viaCommit.totalFee === 20, 'facade commit')
 assert((await abateOrder(token, viaCommit.orderId)).status === 'ABATE', 'facade abate')
 
+const encounterCopy = presentOrderError({
+  code: 'ENCOUNTER_REQUIRED',
+  status: 409,
+  message: '需要有效挂号',
+  details: null,
+  requestId: 'r-enc',
+})
+assert(encounterCopy.message === '请先挂号', 'encounter copy')
+
+const REGISTER_ID_HTTP = '11111111-1111-4111-8111-111111111111'
+const PATIENT_ID_HTTP = '22222222-2222-4222-8222-222222222221'
+
+function orderDto(status, extra = {}) {
+  return {
+    orderId: 'ord-1',
+    orderNo: 'R202610120001',
+    registerId: REGISTER_ID_HTTP,
+    encounterId: REGISTER_ID_HTTP,
+    patientId: PATIENT_ID_HTTP,
+    departmentId: 'dept-1',
+    doctorId: 'doc-2',
+    diagnoseName: '上感',
+    recipeSort: 'NORMAL',
+    status,
+    totalFee: 20,
+    charged: false,
+    items: [
+      {
+        orderItemId: 'item-1',
+        lineNo: 1,
+        itemNo: 'DRUG-A',
+        itemType: 'DRUG',
+        itemName: '演示阿莫西林胶囊',
+        spec: '0.25g×24',
+        units: '盒',
+        amount: 2,
+        price: 10,
+        totalFee: 20,
+        usageText: '口服',
+      },
+    ],
+    submittedAt: status === 'COMMIT' ? '2026-10-12T02:00:00Z' : null,
+    abatedAt: status === 'ABATE' ? '2026-10-12T03:00:00Z' : null,
+    abatedBy: status === 'ABATE' ? 'system' : null,
+    ...extra,
+  }
+}
+
+const calls = []
+const server = http.createServer(async (req, res) => {
+  const url = new URL(req.url || '/', 'http://127.0.0.1')
+  const chunks = []
+  for await (const chunk of req) chunks.push(chunk)
+  const raw = Buffer.concat(chunks).toString()
+  calls.push({ method: req.method, path: url.pathname, search: url.search, body: raw, headers: req.headers })
+  const json = (status, payload) => {
+    res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' })
+    res.end(JSON.stringify(payload))
+  }
+  if (!String(req.headers.authorization || '').startsWith('Bearer ')) {
+    json(401, {
+      success: false,
+      data: null,
+      error: { code: 'UNAUTHORIZED', message: '未认证', details: {} },
+      requestId: 'req-auth',
+    })
+    return
+  }
+  if (req.method === 'GET' && url.pathname === `/api/v1/patients/${PATIENT_ID_HTTP}`) {
+    json(200, {
+      patientId: PATIENT_ID_HTTP,
+      name: '李演示',
+      patientNo: 'P202610120001',
+      sex: 'M',
+      birthday: '1990-01-15',
+      fareIdentity: 'SELF',
+      status: 'ACTIVE',
+      cardStatus: 'NOT_SENT',
+    })
+    return
+  }
+  if (req.method === 'GET' && url.pathname === `/api/v1/registers/${REGISTER_ID_HTTP}`) {
+    json(200, {
+      registerId: REGISTER_ID_HTTP,
+      registerNo: 'G202610120001',
+      patientId: PATIENT_ID_HTTP,
+      departmentId: 'dept-1',
+      doctorId: 'doc-1',
+      visitDate: '2026-10-12',
+      status: 'NORMAL',
+      registerFee: 0,
+      registerCharged: false,
+      registeredAt: '2026-10-12T01:00:00Z',
+    })
+    return
+  }
+  if (req.method === 'GET' && url.pathname === '/api/v1/registers') {
+    json(200, {
+      items: [
+        {
+          registerId: REGISTER_ID_HTTP,
+          registerNo: 'G202610120001',
+          patientId: PATIENT_ID_HTTP,
+          departmentId: 'dept-1',
+          doctorId: 'doc-1',
+          visitDate: '2026-10-12',
+          status: 'NORMAL',
+          registerFee: 0,
+          registerCharged: false,
+          registeredAt: '2026-10-12T01:00:00Z',
+        },
+      ],
+    })
+    return
+  }
+  if (req.method === 'POST' && url.pathname === '/api/v1/orders') {
+    const body = JSON.parse(raw || '{}')
+    if (!body.registerId) {
+      json(409, {
+        success: false,
+        data: null,
+        error: { code: 'ENCOUNTER_REQUIRED', message: '需要有效挂号', details: {} },
+        requestId: 'req-enc',
+      })
+      return
+    }
+    json(201, orderDto('SAVE', { doctorId: body.doctorId || 'doc-1', diagnoseName: body.diagnoseName || null }))
+    return
+  }
+  if (req.method === 'PATCH' && url.pathname === '/api/v1/orders/ord-1') {
+    json(200, orderDto('SAVE', { totalFee: 20 }))
+    return
+  }
+  if (req.method === 'GET' && url.pathname === '/api/v1/orders') {
+    json(200, { items: [orderDto('SAVE')] })
+    return
+  }
+  if (req.method === 'POST' && url.pathname === '/api/v1/orders/ord-1/commit') {
+    json(200, orderDto('COMMIT'))
+    return
+  }
+  if (req.method === 'POST' && url.pathname === '/api/v1/orders/ord-1/abate') {
+    json(200, orderDto('ABATE'))
+    return
+  }
+  json(404, {
+    success: false,
+    data: null,
+    error: { code: 'NOT_FOUND', message: '资源不存在', details: {} },
+    requestId: 'req-miss',
+  })
+})
+
+await new Promise((resolve) => {
+  server.listen(0, '127.0.0.1', resolve)
+})
+const { port } = server.address()
 process.env.VITE_USE_MOCK = 'false'
-await expectError(() => saveOrder(token, draft()), 'NOT_IMPLEMENTED', 501)
+process.env.VITE_API_BASE_URL = `http://127.0.0.1:${port}/api/v1`
+
+try {
+  const found = await fetchOrderRegister('header.payload.sig', REGISTER_ID_HTTP)
+  assert(found.status === 'NORMAL' && found.patientName === '李演示' && found.doctorName === '张医生', 'real register')
+  assert(found.departmentName === '内科', 'dept name')
+  const day = await listOrderRegisters('header.payload.sig')
+  assert(day.items.length === 1 && day.items[0].registerId === REGISTER_ID_HTTP, 'today registers')
+  const listCall = calls.find((item) => item.method === 'GET' && item.path === '/api/v1/registers')
+  assert(listCall.search.includes('visitDate='), 'list by visit date')
+  assert(!calls.some((item) => item.path.includes('/check-in')), 'no check-in')
+
+  const created = await saveOrder('header.payload.sig', draft({
+    registerId: REGISTER_ID_HTTP,
+    doctorId: 'doc-2',
+    diagnoseName: '上感',
+  }))
+  assert(created.status === 'SAVE' && created.registerId === REGISTER_ID_HTTP && created.totalFee === 20, 'real save')
+  const post = calls.find((item) => item.method === 'POST' && item.path === '/api/v1/orders')
+  const posted = JSON.parse(post.body)
+  assert(posted.registerId === REGISTER_ID_HTTP, 'post registerId')
+  assert(!Object.prototype.hasOwnProperty.call(posted, 'encounterId'), 'post keeps registerId')
+  assert(posted.doctorId === 'doc-2' && posted.diagnoseName === '上感', 'doctor and diagnose')
+  assert(posted.recipeSort === 'NORMAL', 'ordinary recipe')
+  assert(posted.items[0].itemNo === 'DRUG-A' && posted.items[0].amount === 2 && posted.items[0].price === 10, 'catalog line')
+  assert(typeof post.headers['idempotency-key'] === 'string', 'create idempotency')
+
+  const edited = await saveOrder('header.payload.sig', draft({
+    orderId: created.orderId,
+    registerId: REGISTER_ID_HTTP,
+    doctorId: 'doc-2',
+    diagnoseName: '',
+    items: [{ itemNo: 'DRUG-A', amount: 2 }],
+  }))
+  assert(edited.status === 'SAVE' && edited.orderId === 'ord-1', 'real patch')
+  const patch = calls.find((item) => item.method === 'PATCH')
+  const patched = JSON.parse(patch.body)
+  assert(patched.doctorId === 'doc-2' && patched.diagnoseName === '', 'patch header')
+  assert(!Object.prototype.hasOwnProperty.call(patched, 'registerId'), 'patch does not move register')
+  assert(patched.items.length === 1 && patched.items[0].itemNo === 'DRUG-A', 'patch replaces items')
+
+  const listed = await listOrders('header.payload.sig', REGISTER_ID_HTTP)
+  assert(listed.items.length === 1 && listed.items[0].status === 'SAVE', 'real list')
+  const search = calls.find((item) => item.method === 'GET' && item.path === '/api/v1/orders')
+  assert(search.search.includes(`registerId=${REGISTER_ID_HTTP}`), 'list by registerId')
+
+  const committed = await commitOrder('header.payload.sig', created.orderId)
+  assert(committed.status === 'COMMIT' && committed.totalFee === 20, 'real commit')
+  assert(calls.some((item) => item.method === 'POST' && item.path === '/api/v1/orders/ord-1/commit'), 'commit path used')
+  assert(!calls.some((item) => item.path.endsWith('/submit')), 'no submit alias')
+  const abated = await abateOrder('header.payload.sig', created.orderId)
+  assert(abated.status === 'ABATE', 'real abate')
+
+  await expectError(() => saveOrder('header.payload.sig', { items: [] }), 'ENCOUNTER_REQUIRED', 409)
+  const refused = await expectError(
+    () => saveOrder('', draft({ registerId: REGISTER_ID_HTTP })),
+    'UNAUTHORIZED',
+    401,
+  )
+  assert(refused.code === 'UNAUTHORIZED', 'missing token')
+} finally {
+  await new Promise((resolve) => server.close(resolve))
+}
 
 console.log('order checks passed')
