@@ -62,7 +62,7 @@ Mock 的 `accessToken` 是三段 JWT 外形，签名固定为 `mock`，**不是*
 
 ## 本机真 API 联调
 
-Mock 关掉之后，页面不再出现「本地演示模式。账号 admin / admin123」。登录口令只在表单里输入，不要写进 `web/.env.local`。
+Mock 关掉之后，页面不再出现「本地演示模式」以及演示账号 admin / admin123。登录口令只在表单里输入，不要写进 `web/.env.local`。
 
 ### 1. 启动 Go API
 
