@@ -195,9 +195,9 @@ async function submit(list) {
     })
     const slips = Array.isArray(result.dispenses) && result.dispenses.length > 0 ? result.dispenses : [result]
     const nos = slips.map((item) => item.dispenseNo).join('、')
-    infoMessage.value = `已发药 ${nos}。库存已按行扣减。`
     await reloadPending()
     await loadIssued()
+    infoMessage.value = `已发药 ${nos}。库存已按行扣减。`
   } catch (error) {
     errorMessage.value = error instanceof ApiError ? error.message : '发药失败，请稍后重试'
     errorCode.value = error instanceof ApiError ? error.code : ''
