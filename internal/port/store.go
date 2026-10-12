@@ -16,8 +16,12 @@ var (
 	ErrDuplicateIDNumber = errors.New("duplicate id number")
 	// ErrDuplicateCardNo is a non-empty card_no clash (ux_patient_card_no).
 	ErrDuplicateCardNo = errors.New("duplicate card no")
-	// ErrDuplicateBusinessNo is a hosp_pk_no clash. Callers may retry with a new number.
-	ErrDuplicateBusinessNo = errors.New("duplicate hosp pk no")
+	// ErrDuplicateBusinessNo is a hosp_pk_no or register_no clash. Callers may retry with a new number.
+	ErrDuplicateBusinessNo = errors.New("duplicate business number")
+	// ErrRegisterAlreadyBack is a second cancel of a BACK register (AC-04 / R-04).
+	ErrRegisterAlreadyBack = errors.New("register already back")
+	// ErrRegisterNotCancellable is a cancel when status is not NORMAL (AC-03).
+	ErrRegisterNotCancellable = errors.New("register not cancellable")
 )
 
 // UserStore loads identity records. Phase1 default is SQL Server; memory is the local demo.
@@ -32,7 +36,8 @@ type RevocationStore interface {
 	IsRevoked(ctx context.Context, jti string) (bool, error)
 }
 
-// AuditStore appends identity events and patient.create. Implementations must not persist passwords.
+// AuditStore appends identity events, patient.create, and register.create / register.cancel.
+// Implementations must not persist passwords.
 type AuditStore interface {
 	Append(ctx context.Context, event domain.AuditEvent) error
 }
@@ -53,4 +58,27 @@ type PatientStore interface {
 	Create(ctx context.Context, p domain.Patient) error
 	Get(ctx context.Context, patientID string) (*domain.Patient, error)
 	Search(ctx context.Context, q PatientQuery) ([]domain.Patient, error)
+}
+
+// RegisterQuery is an AND of the provided filters. Empty strings are ignored.
+// PatientID, RegisterNo, and VisitDate (YYYY-MM-DD) are exact.
+type RegisterQuery struct {
+	PatientID  string
+	RegisterNo string
+	VisitDate  string
+	Limit      int
+}
+
+// RegisterStore is the register bill plus department/doctor master data.
+// Method names differ from PatientStore because memory and sqlserver implement both.
+type RegisterStore interface {
+	CreateRegister(ctx context.Context, r domain.Register) error
+	GetRegister(ctx context.Context, registerID string) (*domain.Register, error)
+	SearchRegisters(ctx context.Context, q RegisterQuery) ([]domain.Register, error)
+	// CancelRegister moves NORMAL → BACK and writes the back operator columns.
+	// BACK returns ErrRegisterAlreadyBack. Any other status returns ErrRegisterNotCancellable.
+	// Neither refusal changes the row.
+	CancelRegister(ctx context.Context, registerID, operatorID string, at time.Time) (*domain.Register, error)
+	DepartmentExists(ctx context.Context, departmentID string) (bool, error)
+	DoctorExists(ctx context.Context, doctorID string) (bool, error)
 }

@@ -13,7 +13,7 @@ import (
 	"github.com/cznUSER/B-HIS/internal/logging"
 )
 
-// Handler serves Auth and Patients routes. Other outpatient paths are not registered.
+// Handler serves Auth, Patients, and Registers. Check-in, complete, diagnoses, and /encounters are not registered.
 type Handler struct {
 	svc        *app.Service
 	log        *logging.Logger
@@ -30,6 +30,10 @@ func New(svc *app.Service, log *logging.Logger, origins []string, driver string,
 	mux.HandleFunc("POST /api/v1/patients", h.createPatient)
 	mux.HandleFunc("GET /api/v1/patients", h.searchPatients)
 	mux.HandleFunc("GET /api/v1/patients/{patientId}", h.getPatient)
+	mux.HandleFunc("POST /api/v1/registers", h.createRegister)
+	mux.HandleFunc("GET /api/v1/registers", h.searchRegisters)
+	mux.HandleFunc("GET /api/v1/registers/{registerId}", h.getRegister)
+	mux.HandleFunc("POST /api/v1/registers/{registerId}/cancel", h.cancelRegister)
 	mux.HandleFunc("GET /health", h.health)
 	return withRequestID(recoverPanic(log, accessLog(log, cors(origins, mux))))
 }
@@ -85,7 +89,7 @@ func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) health(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{
 		"status":  "ok",
-		"version": "0.3.5-draft",
+		"version": "0.3.6-draft",
 		"driver":  h.driver,
 	})
 }

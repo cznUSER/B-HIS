@@ -2,7 +2,7 @@
 
 医院信息系统（H Phase1）。Go 登录 API 在仓库根目录；Vue 登录界面在 `web/`。
 
-门诊一期当前实现 **登录鉴权**、**患者建档**（`POST/GET /api/v1/patients`）和 `GET /health`。`api/openapi.yaml` 为 **0.3.6-draft**（含患者建档与 `/registers`）。挂号及之后的门诊路径仍是契约草案，进程不注册这些路由。
+门诊一期当前实现 **登录鉴权**、**患者建档**（`POST/GET /api/v1/patients`）、**挂号**（`POST/GET /api/v1/registers` 与退号）和 `GET /health`。`api/openapi.yaml` 为 **0.3.6-draft**。接诊、完成就诊、诊断，以及 deprecated `/encounters` 仍未注册。
 
 H03 `0.3.0-draft` 没有 Auth。Auth 路径保持不变，患者建档规则仍是 0.3.5（必填 name/sex/birthday/fareIdentity）。成功体按 OpenAPI：`LoginResponse` / `UserDto` / `PatientDto`，不包 `success/data`。失败体按《接口契约》§1.2：`success: false`、`data: null`、`error.code`、`requestId`。
 
@@ -202,13 +202,36 @@ curl -sS -D - http://127.0.0.1:8080/api/v1/patients \
   -d '{"name":"张三","sex":"M","birthday":"1990-01-15","fareIdentity":"SELF"}'
 ```
 
+## 挂号
+
+需 Bearer。挂号和退号角色为 **SYSTEM / REGISTRAR**（权限 `encounter:create`、`encounter:cancel`，SYSTEM 走 `admin:*`）。查询和详情对所有已登录且未停用的角色开放。角色以用户表为准，与 `GET /auth/me` 相同。
+
+`POST /api/v1/registers` 返回 `201` `RegisterDto`，初始 `status=NORMAL`。必填 `patientId`、`departmentId`、`doctorId`、`visitDate`。缺字段为 `400 VALIDATION_ERROR`。`registerSort` 可选；`registerFee` 默认 `0`；`registerCharged` 默认 `false`。患者不存在 `404 PATIENT_NOT_FOUND`；科室不存在 `404 DEPARTMENT_NOT_FOUND`；医生不存在 `404 DOCTOR_NOT_FOUND`。`registerId` 与 `registerNo` 由服务生成。`registeredAt` 为创建时间。
+
+内存库种子与 `003_register_seed.up.sql` 一致：`dept-1` 内科、`dept-2` 外科、`doc-1` 张医生、`doc-2` 李医生。
+
+`GET /api/v1/registers` 的查询参数 `patientId`、`registerNo`、`visitDate` 均可选，精确匹配，条件之间为 AND。不带任何条件时返回 `{"items":[]}`，与患者查询相同。未知 `registerId` 为 `404 NOT_FOUND`。
+
+`POST /api/v1/registers/{registerId}/cancel`：仅 `NORMAL` → `BACK`，并写入 `backOperatorId` / `backOperatedAt`（当前用户）。`USED` / `DIAGNOSING` / `DIAGNOSED` / `PAUSED` 为 `409 REGISTER_NOT_CANCELLABLE`，状态不变。已是 `BACK` 再退为 `409 REGISTER_BACK_NOT_ALLOWED`，退号留痕不覆盖。
+
+`Idempotency-Key` 只对挂号创建在进程内生效。同键同体返回第一次的 `201`；同键不同体为 `409 IDEMPOTENCY_KEY_CONFLICT`。官方 `003_register` 没有幂等表，键不落库。
+
+成功挂号写审计 `register.create`，成功退号写 `register.cancel`，`resource_type=Register`。退号拒绝写同一动作的 `FAIL`。
+
+```bash
+curl -sS -D - http://127.0.0.1:8080/api/v1/registers \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"patientId":"<patientId>","departmentId":"dept-1","doctorId":"doc-1","visitDate":"2026-10-12"}'
+```
+
 ## SQL Server（本机 Windows，可选）
 
 CI 和这台云端构建保持 **memory**。要在 Windows 开发机连 SQL Server 时：
 
 1. 不要把主机、账号、口令写进 Git、拍板文档或 `config.example.yaml`。
 2. 在 `E:\B-HIS` 自建 gitignore 文件 `.env.local` 或 `config.local.yaml`。
-3. 库名 **BHIS**。先执行 `migrations/sqlserver/core/001_identity.up.sql`，再执行 `002_patient.up.sql`（见 `migrations/README.md`）。Windows 身份脚本优先用 `scripts/apply-migration.ps1`（已带 `sqlcmd -I`）。患者表用同样的 `sqlcmd -I`，不要改官方 DDL。`sqlcmd` 的口令用环境变量 `SQLCMDPASSWORD`，不要写进脚本。
+3. 库名 **BHIS**。按顺序执行 `001_identity.up.sql`、`002_patient.up.sql`、`003_register.up.sql`、`003_register_seed.up.sql`（见 `migrations/README.md`）。Windows 身份脚本优先用 `scripts/apply-migration.ps1`（已带 `sqlcmd -I`）。不要改官方 DDL。`sqlcmd` 的口令用环境变量 `SQLCMDPASSWORD`，不要写进脚本。
 4. 启动前设置：
 
 ```text
@@ -224,7 +247,7 @@ BHIS_DB_DSN=sqlserver://<user>:<password>@<host>:1433?database=BHIS&encrypt=disa
 
 JSON Lines：`./logs/h-api-YYYYMMDD.log`（日期按 Asia/Shanghai）。字段含 `timestamp`、`level`、`request_id`、`actor_id`、`action`、`outcome`、`error_code`、`duration_ms`。
 
-登录审计动作：`LOGIN_SUCCESS`、`LOGIN_FAILURE`、`LOGOUT`。建档审计动作：`patient.create`（`resource_type=Patient`）。不明文记密码、证件号或 DSN。
+登录审计动作：`LOGIN_SUCCESS`、`LOGIN_FAILURE`、`LOGOUT`。建档审计动作：`patient.create`（`resource_type=Patient`）。挂号审计动作：`register.create`、`register.cancel`（`resource_type=Register`）。不明文记密码、证件号或 DSN。
 
 `logs/` 不进 Git。
 
