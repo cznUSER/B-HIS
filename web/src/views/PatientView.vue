@@ -1,6 +1,7 @@
 <script setup>
 // 2026-10-12 P1-H05-PATIENT-UI 患者建档与查询。侧栏仍由 AppShell 提供。
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { ApiError } from '../api/errors.js'
 import { createPatient, fetchPatient, searchPatients } from '../api/patientApi.js'
 import {
@@ -12,6 +13,7 @@ import {
 } from '../api/patientContract.js'
 import { session } from '../auth/session.js'
 
+const route = useRoute()
 const today = todayInShanghai()
 
 function blankForm() {
@@ -132,6 +134,12 @@ async function onSearch() {
   }
 }
 
+function queryPatientId() {
+  const raw = route.query.patientId
+  const value = Array.isArray(raw) ? raw[0] : raw
+  return typeof value === 'string' ? value.trim() : ''
+}
+
 async function openPatient(patientId) {
   if (!patientId || opening.value) return
   opening.value = true
@@ -147,6 +155,10 @@ async function openPatient(patientId) {
     opening.value = false
   }
 }
+
+watch(queryPatientId, (id) => {
+  if (id) openPatient(id)
+}, { immediate: true })
 </script>
 
 <template>

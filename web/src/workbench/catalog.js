@@ -14,7 +14,8 @@ export const STATUS_LABELS = {
   disabled: '未启用',
 }
 
-// 2026-10-12 P1-H05-PATIENT-UI 建档已可保存和查询。其余五步仍是空态，徽标为开发中。
+// 2026-10-12 P1-H05-PATIENT-UI 建档已可保存和查询。
+// 2026-10-12 P1-H05-REGISTER-UI 挂号可选科室和医生。开单及之后仍是空态。
 // status 为 disabled 时不提供路由，避免跳进空白业务页。
 export const OUTPATIENT_MODULES = [
   {
@@ -28,8 +29,8 @@ export const OUTPATIENT_MODULES = [
   {
     key: 'register',
     name: '挂号',
-    blurb: '须先有患者；号源简化可后续',
-    status: 'developing',
+    blurb: '须先有患者；选科室和医生',
+    status: 'available',
     roles: ['REGISTRAR', 'SYSTEM'],
     recommendFor: ['REGISTRAR'],
   },
