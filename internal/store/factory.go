@@ -16,24 +16,24 @@ type closerFunc func() error
 
 func (f closerFunc) Close() error { return f() }
 
-// Open selects identity, patient, and register stores from Database.Driver.
+// Open selects identity, patient, register, and order stores from Database.Driver.
 // Callers outside main should not import drivers. DSN is never logged here.
-func Open(cfg config.Config) (port.UserStore, port.RevocationStore, port.AuditStore, port.PatientStore, port.RegisterStore, io.Closer, error) {
+func Open(cfg config.Config) (port.UserStore, port.RevocationStore, port.AuditStore, port.PatientStore, port.RegisterStore, port.OrderStore, io.Closer, error) {
 	switch strings.ToLower(cfg.Database.Driver) {
 	case "", "memory":
 		m := memory.New()
-		return m, m, m, m, m, closerFunc(func() error { return nil }), nil
+		return m, m, m, m, m, m, closerFunc(func() error { return nil }), nil
 	case "sqlserver":
 		if strings.TrimSpace(cfg.Database.DSN) == "" {
-			return nil, nil, nil, nil, nil, nil, fmt.Errorf("Database.DSN is required when Driver is sqlserver")
+			return nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("Database.DSN is required when Driver is sqlserver")
 		}
 		db, err := mssql.Open(cfg.Database.DSN)
 		if err != nil {
-			return nil, nil, nil, nil, nil, nil, fmt.Errorf("sqlserver open failed: %s", redact.String(err.Error()))
+			return nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("sqlserver open failed: %s", redact.String(err.Error()))
 		}
 		st := mssql.New(db)
-		return st, st, st, st, st, db, nil
+		return st, st, st, st, st, st, db, nil
 	default:
-		return nil, nil, nil, nil, nil, nil, fmt.Errorf("unsupported Database.Driver %q", cfg.Database.Driver)
+		return nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("unsupported Database.Driver %q", cfg.Database.Driver)
 	}
 }

@@ -21,6 +21,8 @@ type Store struct {
 	departments map[string]domain.Department
 	doctors     map[string]domain.Doctor
 	registers   map[string]domain.Register
+	catalog     map[string]domain.CatalogItem
+	orders      map[string]domain.Order
 }
 
 func New() *Store {
@@ -32,6 +34,8 @@ func New() *Store {
 		departments: make(map[string]domain.Department),
 		doctors:     make(map[string]domain.Doctor),
 		registers:   make(map[string]domain.Register),
+		catalog:     make(map[string]domain.CatalogItem),
+		orders:      make(map[string]domain.Order),
 	}
 	s.Add(seed.DemoUser())
 	s.Add(seed.DisabledUser())
@@ -40,6 +44,9 @@ func New() *Store {
 	}
 	for _, d := range seed.Doctors() {
 		s.doctors[d.DoctorID] = d
+	}
+	for _, c := range seed.CatalogItems() {
+		s.catalog[c.ItemNo] = c
 	}
 	return s
 }
