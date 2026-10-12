@@ -72,7 +72,7 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' })
       res.end(JSON.stringify({
         id: '00000000-0000-4000-8000-000000000001',
-        username: 'admin',
+        username: 'system',
         displayName: '系统管理员',
         roles: ['SYSTEM'],
       }))
@@ -116,12 +116,12 @@ try {
     throw new Error(`expected ${code}`)
   }
 
-  const bad = await expectError(() => login('admin', 'admin123'), 'INVALID_CREDENTIALS', 401)
+  const bad = await expectError(() => login('system', 'wrong-password'), 'INVALID_CREDENTIALS', 401)
   assert(bad.message === '用户名或密码错误', 'error message')
   assert(bad.requestId === 'req-fixture', 'requestId')
   assert(bad.details && typeof bad.details === 'object', 'details object')
 
-  const ok = await login('admin', 'good')
+  const ok = await login('system', 'good')
   assert(ok.tokenType === 'Bearer', 'tokenType')
   assert(ok.accessToken === 'header.payload.sig', 'real-shaped token')
   assert(!ok.accessToken.endsWith('.mock'), 'not a mock token')
@@ -130,7 +130,7 @@ try {
   assert(ok.user.roles.includes('SYSTEM'), 'roles')
 
   const me = await fetchMe(ok.accessToken)
-  assert(me.username === 'admin', 'me username')
+  assert(me.username === 'system', 'me username')
 
   await logout(ok.accessToken)
   await logout('token-ok200')

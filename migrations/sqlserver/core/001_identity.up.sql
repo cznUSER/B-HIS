@@ -1,7 +1,8 @@
 -- BHIS identity tables (P1-H04). Apply with sqlcmd against the instance; this file has no password.
 --   SQLCMDPASSWORD is read from the environment (do not commit it).
 --   sqlcmd -S <host> -U <user> -f 65001 -d master -i migrations/sqlserver/core/001_identity.up.sql
--- The bcrypt hash matches the memory-mode demo account documented in README. Plaintext is not stored here.
+-- The bcrypt hash matches internal/store/seed DemoPasswordHash (staff default password, cost 10).
+-- Plaintext is not stored here. The system admin username is system.
 
 IF DB_ID(N'BHIS') IS NULL
 BEGIN
@@ -97,9 +98,9 @@ IF NOT EXISTS (SELECT 1 FROM dbo.app_user WHERE user_id = '00000000-0000-4000-80
 INSERT INTO dbo.app_user (user_id, username, display_name, password_hash, status, created_by, updated_by)
 VALUES (
     '00000000-0000-4000-8000-000000000001',
-    'admin',
+    'system',
     N'系统管理员',
-    '$2a$10$uVUbI161ahIWvB2/rbXUjuWubRAMog3zNNfldqp4mx/M.ZtuD8TgS',
+    '$2a$10$04.ABDU39oM7NW1GGCkdmuvvMrlm2fxFLxg1YuqDWJR.Zy.lXBPGK',
     'ACTIVE',
     'system',
     'system'
@@ -116,9 +117,31 @@ VALUES (
     '00000000-0000-4000-8000-000000000002',
     'disabled',
     N'已停用账号',
-    '$2a$10$uVUbI161ahIWvB2/rbXUjuWubRAMog3zNNfldqp4mx/M.ZtuD8TgS',
+    '$2a$10$04.ABDU39oM7NW1GGCkdmuvvMrlm2fxFLxg1YuqDWJR.Zy.lXBPGK',
     'DISABLED',
     'system',
     'system'
 );
+GO
+
+-- Re-applying this script keeps the reserved demo rows on the current username and hash.
+UPDATE dbo.app_user
+SET username = 'system',
+    display_name = N'系统管理员',
+    password_hash = '$2a$10$04.ABDU39oM7NW1GGCkdmuvvMrlm2fxFLxg1YuqDWJR.Zy.lXBPGK',
+    updated_at = SYSUTCDATETIME(),
+    updated_by = 'system'
+WHERE user_id = '00000000-0000-4000-8000-000000000001'
+  AND (
+    username <> 'system'
+    OR password_hash <> '$2a$10$04.ABDU39oM7NW1GGCkdmuvvMrlm2fxFLxg1YuqDWJR.Zy.lXBPGK'
+  );
+GO
+
+UPDATE dbo.app_user
+SET password_hash = '$2a$10$04.ABDU39oM7NW1GGCkdmuvvMrlm2fxFLxg1YuqDWJR.Zy.lXBPGK',
+    updated_at = SYSUTCDATETIME(),
+    updated_by = 'system'
+WHERE user_id = '00000000-0000-4000-8000-000000000002'
+  AND password_hash <> '$2a$10$04.ABDU39oM7NW1GGCkdmuvvMrlm2fxFLxg1YuqDWJR.Zy.lXBPGK';
 GO

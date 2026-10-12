@@ -51,8 +51,8 @@ npm run build       # 生产构建
 
 | 用户名 | 密码 | 结果 |
 |--------|------|------|
-| `admin` | `admin123` | 200，显示名「系统管理员」，角色 `SYSTEM` |
-| `disabled` | `disabled123` | 403 `ACCOUNT_DISABLED` |
+| `system` | `1` | 200，显示名「系统管理员」，角色 `SYSTEM` |
+| `disabled` | `1` | 403 `ACCOUNT_DISABLED` |
 | 其他或密码错误 | | 401 `INVALID_CREDENTIALS`（不区分用户是否存在） |
 | 同一用户名连续失败 5 次 | | 之后 429 `AUTH_RATE_LIMITED`（仅当前页面内存计数，刷新清零） |
 
@@ -62,7 +62,7 @@ Mock 的 `accessToken` 是三段 JWT 外形，签名固定为 `mock`，**不是*
 
 ## 本机真 API 联调
 
-Mock 关掉之后，页面不再出现「本地演示模式」以及演示账号 admin / admin123。登录口令只在表单里输入，不要写进 `web/.env.local`。
+Mock 关掉之后，页面不再出现「本地演示模式」，改为「本机 API 账号」`system` / `1`。登录口令只在表单里输入，不要写进 `web/.env.local`。员工默认密码是 `1`。
 
 ### 1. 启动 Go API
 
@@ -88,12 +88,12 @@ curl -sS http://127.0.0.1:8080/health
 
 应看到 `"status":"ok"` 且 `"driver":"memory"`（未改数据库驱动时）。监听地址若被 `BHIS_API_ADDR` 改掉，下面的 `VITE_API_BASE_URL` 要跟着改。
 
-内存演示账号以仓库根 [README](../README.md)「内存演示账号」为准，和 Mock **不是同一套口令**：
+内存演示账号以仓库根 [README](../README.md)「内存演示账号」为准，和 Mock 是同一套口令。员工默认密码是 `1`。
 
 | 用户名 | 密码 | 结果 |
 |--------|------|------|
-| `admin` | `Admin@123` | 200，显示名「系统管理员」，角色 `SYSTEM` |
-| `disabled` | 同上 | 密码正确时 403 `ACCOUNT_DISABLED`；密码错误仍是 401 `INVALID_CREDENTIALS` |
+| `system` | `1` | 200，显示名「系统管理员」，角色 `SYSTEM` |
+| `disabled` | `1` | 密码正确时 403 `ACCOUNT_DISABLED`；密码错误仍是 401 `INVALID_CREDENTIALS` |
 
 同一 IP 或用户名失败次数默认 **8 次 / 15 分钟** 后 429 `AUTH_RATE_LIMITED`（`config.example.yaml` 的 `Auth.RateLimit`）。这和 Mock 的「连续 5 次、刷新清零」不同。正式环境请改掉演示口令。这不是 SQL Server 的登录口令，也不要写进前端仓库。
 
@@ -126,7 +126,7 @@ VITE_API_PROXY_TARGET=http://127.0.0.1:8080
 
 | 步骤 | 期望 |
 |------|------|
-| 成功 | `admin` / 根 README 中的演示口令。进入首页，文案「已登录」，姓名「系统管理员」，角色 `SYSTEM` |
+| 成功 | `system` / `1`。进入首页，文案「已登录」，姓名「系统管理员」，角色 `SYSTEM` |
 | 失败 | 故意错口令。展示服务端 `error.message`「用户名或密码错误」，以及 `INVALID_CREDENTIALS`。未知用户同一个码，页面不说明用户是否存在 |
 | 停用 | `disabled` 且口令正确。`ACCOUNT_DISABLED`，「账号已停用」。该用户口令错误仍是 `INVALID_CREDENTIALS` |
 | 退出 | 首页「退出登录」。`POST /api/v1/auth/logout` 成功为 **204 空体**。回到登录页；刷新停在登录页。同一 token 再访问为 401 `TOKEN_INVALID` |
@@ -150,4 +150,4 @@ npm run check:api
 npm run build:demo
 ```
 
-仓库根目录的 `scripts/build-windows.ps1` 会执行这条命令，把 `web/dist` 拷进 `internal/webui/assets`，再打出 `bin/b-his-host.exe`。账号与启动说明见仓库根目录 [README.md](../README.md) 的「Windows 双击启动」。真实 API 演示账号是 `admin` / `Admin@123`。
+仓库根目录的 `scripts/build-windows.ps1` 会执行这条命令，把 `web/dist` 拷进 `internal/webui/assets`，再打出 `bin/b-his-host.exe`。账号与启动说明见仓库根目录 [README.md](../README.md) 的「Windows 双击启动」。演示账号是 `system` / `1`。

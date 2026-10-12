@@ -13,7 +13,9 @@ async function expectError(fn, code, status) {
     assert(error instanceof ApiError, 'expected ApiError')
     assert(error.code === code, `expected code ${code}, got ${error.code}`)
     assert(error.status === status, `expected status ${status}, got ${error.status}`)
-    assert(!JSON.stringify(error).includes('admin123'), 'error leaked password')
+    const blob = JSON.stringify(error)
+    assert(!blob.includes('admin123') && !blob.includes('Admin@123'), 'error leaked legacy password')
+    assert(!Object.prototype.hasOwnProperty.call(error, 'password'), 'error leaked password')
     return error
   }
   throw new Error(`expected ${code}`)
@@ -21,11 +23,11 @@ async function expectError(fn, code, status) {
 
 resetMockAuth()
 
-const ok = mockLogin({ username: 'admin', password: 'admin123' })
+const ok = mockLogin({ username: 'system', password: '1' })
 assert(ok.tokenType === 'Bearer', 'tokenType')
 assert(typeof ok.accessToken === 'string' && ok.accessToken.endsWith('.mock'), 'mock jwt')
 assert(ok.expiresIn === 28800, 'expiresIn')
-assert(ok.user.username === 'admin', 'username')
+assert(ok.user.username === 'system', 'username')
 assert(ok.user.displayName === '系统管理员', 'displayName')
 assert(Array.isArray(ok.user.roles) && ok.user.roles.includes('SYSTEM'), 'roles')
 
@@ -38,10 +40,10 @@ await expectError(() => mockMe(ok.accessToken), 'TOKEN_INVALID', 401)
 await expectError(() => mockLogout(ok.accessToken), 'TOKEN_INVALID', 401)
 
 resetMockAuth()
-await expectError(() => mockLogin({ username: 'admin', password: 'wrong' }), 'INVALID_CREDENTIALS', 401)
+await expectError(() => mockLogin({ username: 'system', password: 'wrong' }), 'INVALID_CREDENTIALS', 401)
 await expectError(() => mockLogin({ username: 'nobody', password: 'x' }), 'INVALID_CREDENTIALS', 401)
 await expectError(
-  () => mockLogin({ username: 'disabled', password: 'disabled123' }),
+  () => mockLogin({ username: 'disabled', password: '1' }),
   'ACCOUNT_DISABLED',
   403,
 )
@@ -49,9 +51,9 @@ await expectError(() => mockLogin({ username: '', password: 'x' }), 'VALIDATION_
 
 resetMockAuth()
 for (let i = 0; i < 5; i += 1) {
-  await expectError(() => mockLogin({ username: 'admin', password: 'bad' }), 'INVALID_CREDENTIALS', 401)
+  await expectError(() => mockLogin({ username: 'system', password: 'bad' }), 'INVALID_CREDENTIALS', 401)
 }
-await expectError(() => mockLogin({ username: 'admin', password: 'admin123' }), 'AUTH_RATE_LIMITED', 429)
+await expectError(() => mockLogin({ username: 'system', password: '1' }), 'AUTH_RATE_LIMITED', 429)
 
 const envelope = new Response(
   JSON.stringify({

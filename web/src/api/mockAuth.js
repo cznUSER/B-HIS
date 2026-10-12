@@ -1,4 +1,5 @@
 // 2026-10-12 P1-H05 登录界面
+// 2026-10-12 演示账号 system / 1；员工默认密码为 1
 // 本地 Mock，响应形状与 OpenAPI 0.3.2 login / logout / me 一致。
 // accessToken 只是演示用的 JWT 三段结构，签名固定为 mock，不是服务端 HS256。
 
@@ -10,18 +11,18 @@ const TOKEN_TTL_SECONDS = 28800
 const FAILURE_LIMIT = 5
 
 const ACCOUNTS = {
-  admin: {
-    password: 'admin123',
+  system: {
+    password: '1',
     disabled: false,
     user: {
-      id: 'u-admin',
-      username: 'admin',
+      id: 'u-system',
+      username: 'system',
       displayName: '系统管理员',
       roles: ['SYSTEM'],
     },
   },
   disabled: {
-    password: 'disabled123',
+    password: '1',
     disabled: true,
     user: {
       id: 'u-disabled',

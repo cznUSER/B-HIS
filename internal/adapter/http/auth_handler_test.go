@@ -3,6 +3,7 @@ package httpapi
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -113,10 +114,14 @@ func getAuth(t *testing.T, url, token string) (int, []byte) {
 	return resp.StatusCode, b
 }
 
+func loginBody(username, password string) string {
+	return fmt.Sprintf(`{"username":%q,"password":%q}`, username, password)
+}
+
 func TestLoginSuccess(t *testing.T) {
 	ts, _, _, dir := newServer(t, 8)
 	code, body, _ := postJSON(t, ts.URL+"/api/v1/auth/login",
-		`{"username":"admin","password":"Admin@123"}`, nil)
+		loginBody(seed.DemoUsername, seed.DemoPassword), nil)
 	if code != 200 {
 		t.Fatalf("status %d body %s", code, body)
 	}
@@ -134,7 +139,7 @@ func TestLoginSuccess(t *testing.T) {
 	if got.TokenType != "Bearer" || got.ExpiresIn != 28800 || got.AccessToken == "" {
 		t.Fatalf("%+v", got)
 	}
-	if got.User.ID != seed.DemoUserID || got.User.Username != "admin" || got.User.DisplayName != "系统管理员" {
+	if got.User.ID != seed.DemoUserID || got.User.Username != seed.DemoUsername || got.User.DisplayName != seed.DemoDisplayName {
 		t.Fatalf("%+v", got.User)
 	}
 	if len(got.User.Roles) != 1 || got.User.Roles[0] != "SYSTEM" {
@@ -144,7 +149,7 @@ func TestLoginSuccess(t *testing.T) {
 	if !strings.Contains(logs, "LOGIN_SUCCESS") {
 		t.Fatalf("missing LOGIN_SUCCESS: %s", logs)
 	}
-	if strings.Contains(logs, "Admin@123") || strings.Contains(logs, `"password"`) {
+	if strings.Contains(logs, "Admin@123") || strings.Contains(logs, "admin123") || strings.Contains(logs, `"password"`) {
 		t.Fatalf("password leaked into log: %s", logs)
 	}
 }
@@ -152,7 +157,7 @@ func TestLoginSuccess(t *testing.T) {
 func TestWrongPasswordAndUnknownUserSameError(t *testing.T) {
 	ts, _, _, dir := newServer(t, 8)
 	code1, body1, _ := postJSON(t, ts.URL+"/api/v1/auth/login",
-		`{"username":"admin","password":"WrongPass!9"}`, map[string]string{"X-Request-Id": "req-1"})
+		loginBody(seed.DemoUsername, "WrongPass!9"), map[string]string{"X-Request-Id": "req-1"})
 	code2, body2, _ := postJSON(t, ts.URL+"/api/v1/auth/login",
 		`{"username":"nobody","password":"WrongPass!9"}`, nil)
 	if code1 != 401 || code2 != 401 {
@@ -198,7 +203,7 @@ func TestMeWithoutToken(t *testing.T) {
 func TestMeWithTokenAndLogout(t *testing.T) {
 	ts, _, _, dir := newServer(t, 8)
 	_, body, _ := postJSON(t, ts.URL+"/api/v1/auth/login",
-		`{"username":"admin","password":"Admin@123"}`, nil)
+		loginBody(seed.DemoUsername, seed.DemoPassword), nil)
 	var logged loginDTO
 	if err := json.Unmarshal(body, &logged); err != nil {
 		t.Fatal(err)
@@ -215,7 +220,7 @@ func TestMeWithTokenAndLogout(t *testing.T) {
 	if err := json.Unmarshal(me, &user); err != nil {
 		t.Fatal(err)
 	}
-	if user.ID != seed.DemoUserID || user.Username != "admin" || len(user.Roles) != 1 {
+	if user.ID != seed.DemoUserID || user.Username != seed.DemoUsername || len(user.Roles) != 1 {
 		t.Fatalf("%+v", user)
 	}
 
@@ -246,7 +251,7 @@ func TestMeWithTokenAndLogout(t *testing.T) {
 
 func TestTokenExpiredAndInvalid(t *testing.T) {
 	ts, st, issuer, _ := newServer(t, 8)
-	user, err := st.FindByUsername(nil, "admin")
+	user, err := st.FindByUsername(nil, seed.DemoUsername)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -274,7 +279,7 @@ func TestTokenExpiredAndInvalid(t *testing.T) {
 func TestAccountDisabled(t *testing.T) {
 	ts, _, _, _ := newServer(t, 8)
 	code, body, _ := postJSON(t, ts.URL+"/api/v1/auth/login",
-		`{"username":"disabled","password":"Admin@123"}`, nil)
+		loginBody(seed.DisabledUsername, seed.DemoPassword), nil)
 	var e errDTO
 	_ = json.Unmarshal(body, &e)
 	if code != 403 || e.Error.Code != "ACCOUNT_DISABLED" {
@@ -292,7 +297,7 @@ func TestRateLimitAndValidation(t *testing.T) {
 	ts, _, _, _ := newServer(t, 2)
 	for i := 0; i < 2; i++ {
 		code, body, _ := postJSON(t, ts.URL+"/api/v1/auth/login",
-			`{"username":"admin","password":"nope"}`, nil)
+			loginBody(seed.DemoUsername, "nope"), nil)
 		var e errDTO
 		_ = json.Unmarshal(body, &e)
 		if code != 401 || e.Error.Code != "INVALID_CREDENTIALS" {
@@ -300,7 +305,7 @@ func TestRateLimitAndValidation(t *testing.T) {
 		}
 	}
 	code, body, hdr := postJSON(t, ts.URL+"/api/v1/auth/login",
-		`{"username":"admin","password":"nope"}`, nil)
+		loginBody(seed.DemoUsername, "nope"), nil)
 	var e errDTO
 	_ = json.Unmarshal(body, &e)
 	if code != 429 || e.Error.Code != "AUTH_RATE_LIMITED" {
@@ -335,8 +340,14 @@ func TestCORSPreflight(t *testing.T) {
 }
 
 func TestDemoHashMatchesPassword(t *testing.T) {
+	if seed.DemoUsername != "system" || seed.DemoPassword != "1" || seed.StaffDefaultPassword != "1" {
+		t.Fatal("documented demo account must be system / staff default password 1")
+	}
 	if bcrypt.CompareHashAndPassword([]byte(seed.DemoPasswordHash), []byte(seed.DemoPassword)) != nil {
 		t.Fatal("demo hash does not match documented memory password")
+	}
+	if bcrypt.CompareHashAndPassword([]byte(seed.DisabledUser().PasswordHash), []byte(seed.StaffDefaultPassword)) != nil {
+		t.Fatal("disabled account must use the staff default password")
 	}
 	if auth.CheckPassword(auth.DummyHash, seed.DemoPassword) {
 		t.Fatal("dummy hash must not accept the demo password")

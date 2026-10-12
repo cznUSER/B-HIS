@@ -19,6 +19,7 @@ import (
 
 	"github.com/cznUSER/B-HIS/internal/bootstrap"
 	"github.com/cznUSER/B-HIS/internal/redact"
+	"github.com/cznUSER/B-HIS/internal/store/seed"
 )
 
 func main() {
@@ -81,7 +82,7 @@ func start(configFlag string, open bool) error {
 		return err
 	}
 	page := loginURL(cfg.Host.ApiAddr)
-	fmt.Printf("B-HIS local demo\nLogin: %s\nDatabase: %s\nDemo account: admin / Admin@123\nKeep this window open. Close it or press Ctrl+C to stop.\n", page, cfg.Database.Driver)
+	fmt.Printf("B-HIS local demo\nLogin: %s\nDatabase: %s\nDemo account: %s / %s\nKeep this window open. Close it or press Ctrl+C to stop.\n", page, cfg.Database.Driver, seed.DemoUsername, seed.DemoPassword)
 	if cfg.PlaceholderSecret() {
 		fmt.Fprintf(os.Stderr, "host: jwt secret is a placeholder; set BHIS_JWT_SECRET outside this demo\n")
 	}
@@ -124,8 +125,8 @@ func usage() {
 	fmt.Fprintf(os.Stderr, `b-his-host serves the login page and the API in one process.
 
 Double-click bin\b-his-host.exe (or run it with no arguments). A browser opens
-the local login page. Default database is memory. Demo account: admin / Admin@123
-(this is not a SQL Server password).
+the local login page. Default database is memory. Demo account: %s / %s
+(staff default password; this is not a SQL Server password).
 
   b-his-host.exe
   b-his-host.exe -no-browser
@@ -143,6 +144,6 @@ Headless API, without the login page:
   go run ./cmd/api -config config.example.yaml
 
 Vite mock UI for development stays in web/: npm run dev
-(mock account admin / admin123). Rebuild the exe with scripts\build-windows.ps1.
-`)
+(mock account %s / %s). Rebuild the exe with scripts\build-windows.ps1.
+`, seed.DemoUsername, seed.DemoPassword, seed.DemoUsername, seed.DemoPassword)
 }

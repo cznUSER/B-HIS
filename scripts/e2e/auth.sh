@@ -6,7 +6,7 @@ BASE="${BASE:-http://127.0.0.1:8080}"
 login() {
   curl -sS -D /tmp/bhis-login.hdr "$BASE/api/v1/auth/login" \
     -H 'Content-Type: application/json' \
-    -d '{"username":"admin","password":"Admin@123"}'
+    -d '{"username":"system","password":"1"}'
   echo
 }
 
@@ -15,7 +15,7 @@ login
 echo "== bad password (expect INVALID_CREDENTIALS) =="
 curl -sS -D - "$BASE/api/v1/auth/login" \
   -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"wrong"}'
+  -d '{"username":"system","password":"wrong"}'
 echo
 echo "== me without token (expect UNAUTHORIZED) =="
 curl -sS -D - "$BASE/api/v1/auth/me"

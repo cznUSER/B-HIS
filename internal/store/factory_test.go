@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/cznUSER/B-HIS/internal/config"
+	"github.com/cznUSER/B-HIS/internal/store/seed"
 )
 
 func TestOpenMemory(t *testing.T) {
@@ -12,8 +13,8 @@ func TestOpenMemory(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer closer.Close()
-	u, err := users.FindByUsername(nil, "admin")
-	if err != nil || u.Username != "admin" {
+	u, err := users.FindByUsername(nil, seed.DemoUsername)
+	if err != nil || u.Username != "system" || u.DisplayName != seed.DemoDisplayName {
 		t.Fatalf("%v %+v", err, u)
 	}
 }

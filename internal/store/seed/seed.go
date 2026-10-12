@@ -4,17 +4,22 @@ package seed
 import "github.com/cznUSER/B-HIS/internal/domain"
 
 const (
+	// StaffDefaultPassword is the password for every seeded staff account.
+	// Future staff seeds must use this value. Only the bcrypt hash is stored.
+	StaffDefaultPassword = "1"
+
 	DemoUserID      = "00000000-0000-4000-8000-000000000001"
-	DemoUsername    = "admin"
-	DemoPassword    = "Admin@123"
+	DemoUsername    = "system"
+	DemoPassword    = StaffDefaultPassword
 	DemoDisplayName = "系统管理员"
 
 	DisabledUserID      = "00000000-0000-4000-8000-000000000002"
 	DisabledUsername    = "disabled"
 	DisabledDisplayName = "已停用账号"
 
-	// DemoPasswordHash is bcrypt(Admin@123, cost 10). Shared by the memory store and the SQL seed.
-	DemoPasswordHash = "$2a$10$uVUbI161ahIWvB2/rbXUjuWubRAMog3zNNfldqp4mx/M.ZtuD8TgS"
+	// DemoPasswordHash is bcrypt(StaffDefaultPassword, cost 10).
+	// Shared by the memory store, the disabled test account, and the SQL seed.
+	DemoPasswordHash = "$2a$10$04.ABDU39oM7NW1GGCkdmuvvMrlm2fxFLxg1YuqDWJR.Zy.lXBPGK"
 )
 
 func DemoUser() domain.User {

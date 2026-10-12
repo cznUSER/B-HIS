@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/cznUSER/B-HIS/internal/store/seed"
 )
 
 func TestDriverEnvOverridesFile(t *testing.T) {
@@ -77,11 +79,11 @@ func TestExampleHasNoRealDSN(t *testing.T) {
 		t.Fatal(err)
 	}
 	sql := string(sqlb)
-	if !strings.Contains(sql, "BHIS") || !strings.Contains(sql, "$2a$10$uVUbI161ahIWvB2/rbXUjuWubRAMog3zNNfldqp4mx/M.ZtuD8TgS") {
-		t.Fatal("migration must target BHIS and embed the bcrypt hash")
+	if !strings.Contains(sql, "BHIS") || !strings.Contains(sql, seed.DemoPasswordHash) || !strings.Contains(sql, "'system'") {
+		t.Fatal("migration must target BHIS and embed the system demo bcrypt hash")
 	}
-	if strings.Contains(sql, "Admin@123") {
-		t.Fatal("sql seed must not contain the demo plaintext password")
+	if strings.Contains(sql, "Admin@123") || strings.Contains(sql, "admin123") || strings.Contains(sql, "'admin'") {
+		t.Fatal("sql seed must not contain the legacy demo username or plaintext password")
 	}
 }
 

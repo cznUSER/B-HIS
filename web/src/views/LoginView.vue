@@ -3,6 +3,7 @@
 // 2026-10-12 P1-H05-LOGIN-POLISH 视觉打磨，不改 Auth 字段
 // 2026-10-12 P1-H05-LOGIN-BG 登录页全屏背景
 // 2026-10-12 真实 API 页显示本机演示账号
+// 2026-10-12 演示账号 system / 1；员工默认密码为 1
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { login } from '../api/authApi.js'
@@ -118,15 +119,15 @@ async function onSubmit() {
 
         <p v-if="mockMode" class="hint">
           <span>本地演示模式</span>
-          <code>admin</code>
+          <code>system</code>
           <span>/</span>
-          <code>admin123</code>
+          <code>1</code>
         </p>
         <p v-else class="hint">
           <span>本机 API 账号</span>
-          <code>admin</code>
+          <code>system</code>
           <span>/</span>
-          <code>Admin@123</code>
+          <code>1</code>
         </p>
       </div>
     </section>

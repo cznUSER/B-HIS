@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cznUSER/B-HIS/internal/config"
+	"github.com/cznUSER/B-HIS/internal/store/seed"
 )
 
 func TestEmbeddedUIAndMemoryLogin(t *testing.T) {
@@ -64,7 +65,7 @@ func TestEmbeddedUIAndMemoryLogin(t *testing.T) {
 	login, err := client.Post(
 		"http://"+addr+"/api/v1/auth/login",
 		"application/json",
-		strings.NewReader(`{"username":"admin","password":"Admin@123"}`),
+		strings.NewReader(`{"username":"`+seed.DemoUsername+`","password":"`+seed.DemoPassword+`"}`),
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -83,7 +84,7 @@ func TestEmbeddedUIAndMemoryLogin(t *testing.T) {
 	if err := json.Unmarshal(lb, &payload); err != nil {
 		t.Fatal(err)
 	}
-	if payload.AccessToken == "" || payload.User.Username != "admin" {
+	if payload.AccessToken == "" || payload.User.Username != seed.DemoUsername {
 		t.Fatalf("payload %+v", payload)
 	}
 
