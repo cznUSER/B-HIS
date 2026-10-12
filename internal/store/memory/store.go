@@ -12,38 +12,41 @@ import (
 
 // Store is the zero-DB identity store for local demo and tests.
 type Store struct {
-	mu          sync.Mutex
-	byID        map[string]domain.User
-	byName      map[string]string
-	revoked     map[string]time.Time
-	audits      []domain.AuditEvent
-	patients    map[string]domain.Patient
-	departments map[string]domain.Department
-	doctors     map[string]domain.Doctor
-	registers   map[string]domain.Register
-	catalog     map[string]domain.CatalogItem
-	orders      map[string]domain.Order
-	charges     map[string]domain.Charge
-	payments    map[string]domain.Payment
-	drugOnHand  map[string]int64
-	dispense    map[string]dispenseRec
+	mu           sync.Mutex
+	byID         map[string]domain.User
+	byName       map[string]string
+	revoked      map[string]time.Time
+	audits       []domain.AuditEvent
+	patients     map[string]domain.Patient
+	departments  map[string]domain.Department
+	doctors      map[string]domain.Doctor
+	registers    map[string]domain.Register
+	catalog      map[string]domain.CatalogItem
+	orders       map[string]domain.Order
+	charges      map[string]domain.Charge
+	payments     map[string]domain.Payment
+	inventory    map[string]domain.InventoryItem
+	ledgers      []domain.InventoryLedger
+	dispenses    map[string]domain.Dispense
+	dispenseStub map[string]dispenseRec
 }
 
 func New() *Store {
 	s := &Store{
-		byID:        make(map[string]domain.User),
-		byName:      make(map[string]string),
-		revoked:     make(map[string]time.Time),
-		patients:    make(map[string]domain.Patient),
-		departments: make(map[string]domain.Department),
-		doctors:     make(map[string]domain.Doctor),
-		registers:   make(map[string]domain.Register),
-		catalog:     make(map[string]domain.CatalogItem),
-		orders:      make(map[string]domain.Order),
-		charges:     make(map[string]domain.Charge),
-		payments:    make(map[string]domain.Payment),
-		drugOnHand:  make(map[string]int64),
-		dispense:    make(map[string]dispenseRec),
+		byID:         make(map[string]domain.User),
+		byName:       make(map[string]string),
+		revoked:      make(map[string]time.Time),
+		patients:     make(map[string]domain.Patient),
+		departments:  make(map[string]domain.Department),
+		doctors:      make(map[string]domain.Doctor),
+		registers:    make(map[string]domain.Register),
+		catalog:      make(map[string]domain.CatalogItem),
+		orders:       make(map[string]domain.Order),
+		charges:      make(map[string]domain.Charge),
+		payments:     make(map[string]domain.Payment),
+		inventory:    make(map[string]domain.InventoryItem),
+		dispenses:    make(map[string]domain.Dispense),
+		dispenseStub: make(map[string]dispenseRec),
 	}
 	s.Add(seed.DemoUser())
 	s.Add(seed.DisabledUser())
@@ -55,6 +58,9 @@ func New() *Store {
 	}
 	for _, c := range seed.CatalogItems() {
 		s.catalog[c.ItemNo] = c
+	}
+	for _, it := range seed.InventoryItems() {
+		s.inventory[it.ItemNo] = it
 	}
 	return s
 }

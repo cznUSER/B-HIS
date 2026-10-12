@@ -11,7 +11,7 @@ import (
 )
 
 // SQL follows migrations/sqlserver/core/005_charge. Do not add columns here.
-// Drug on-hand and dispense/return stay process-local until an inventory module exists. 2026-10-12
+// On-hand is dbo.inventory_item (006). Dispense totals are dbo.dispense_item (007). 2026-10-12
 
 type dispenseRec struct {
 	dispensed int64
@@ -258,43 +258,66 @@ func (s *Store) RefundCharge(ctx context.Context, old domain.Charge, newCharge *
 	return loaded, loadedNew, &pay, nil
 }
 
-func (s *Store) DrugOnHandMilli(_ context.Context, itemNo string) (int64, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.drugOnHand == nil {
-		return domain.DefaultDrugOnHandMilli, nil
+func (s *Store) DrugOnHandMilli(ctx context.Context, itemNo string) (int64, error) {
+	var qty sql.NullString
+	err := s.db.QueryRowContext(ctx, `
+		SELECT CONVERT(varchar(40), qty_on_hand)
+		FROM dbo.inventory_item
+		WHERE item_no = @item_no AND is_deleted = 0 AND status = 'ACTIVE'`,
+		sql.Named("item_no", itemNo),
+	).Scan(&qty)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
 	}
-	if v, ok := s.drugOnHand[itemNo]; ok {
-		return v, nil
+	if err != nil {
+		return 0, err
 	}
-	return domain.DefaultDrugOnHandMilli, nil
+	return decimalToMilli(qty.String)
 }
 
-// SetDrugOnHandMilli sets the process-local drug on-hand stub (quantity × 1000). 2026-10-12
+// SetDrugOnHandMilli writes inventory_item.qty_on_hand so charge and dispense share one row. 2026-10-12
 func (s *Store) SetDrugOnHandMilli(itemNo string, milli int64) error {
 	if itemNo == "" || milli < 0 {
 		return fmt.Errorf("invalid on-hand")
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.drugOnHand == nil {
-		s.drugOnHand = map[string]int64{}
+	res, err := s.db.ExecContext(context.Background(), `
+		UPDATE dbo.inventory_item
+		SET qty_on_hand = @qty, status = 'ACTIVE', updated_at = SYSUTCDATETIME()
+		WHERE item_no = @item_no AND is_deleted = 0`,
+		sql.Named("qty", milliToDecimal(milli)),
+		sql.Named("item_no", itemNo),
+	)
+	if err != nil {
+		return err
 	}
-	s.drugOnHand[itemNo] = milli
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return port.ErrNotFound
+	}
 	return nil
 }
 
-func (s *Store) DispenseLedger(_ context.Context, chargeItemID string) (int64, int64, bool, error) {
+func (s *Store) DispenseLedger(ctx context.Context, chargeItemID string) (int64, int64, bool, error) {
+	disp, ret, n, err := s.sumDispenseItems(ctx, "charge_item_id", chargeItemID)
+	if err != nil {
+		return 0, 0, false, err
+	}
+	if n > 0 {
+		return disp, ret, true, nil
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	rec, ok := s.dispense[chargeItemID]
+	rec, ok := s.dispenseStub[chargeItemID]
 	if !ok {
 		return 0, 0, false, nil
 	}
 	return rec.dispensed, rec.returned, true, nil
 }
 
-// SetDispenseMilli records the process-local dispensed/returned stub. Dispense HTTP stays 501. 2026-10-12
+// SetDispenseMilli records a charge-item stub used when no dispense_item row exists yet. 2026-10-12
 func (s *Store) SetDispenseMilli(ctx context.Context, chargeItemID string, dispensedMilli, returnedMilli int64) error {
 	if chargeItemID == "" || dispensedMilli < 0 || returnedMilli < 0 || returnedMilli > dispensedMilli {
 		return fmt.Errorf("invalid dispense qty")
@@ -312,10 +335,10 @@ func (s *Store) SetDispenseMilli(ctx context.Context, chargeItemID string, dispe
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.dispense == nil {
-		s.dispense = map[string]dispenseRec{}
+	if s.dispenseStub == nil {
+		s.dispenseStub = map[string]dispenseRec{}
 	}
-	s.dispense[chargeItemID] = dispenseRec{dispensed: dispensedMilli, returned: returnedMilli}
+	s.dispenseStub[chargeItemID] = dispenseRec{dispensed: dispensedMilli, returned: returnedMilli}
 	return nil
 }
 

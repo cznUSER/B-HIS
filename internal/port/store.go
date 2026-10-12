@@ -41,6 +41,18 @@ var (
 	ErrChargeAlreadyAbated = errors.New("charge already abated")
 	// ErrChargeNotPaid is a refund before pay.
 	ErrChargeNotPaid = errors.New("charge not paid")
+	// ErrNotCharged is a dispense without a paid NORMAL charge.
+	ErrNotCharged = errors.New("not charged")
+	// ErrInsufficientStock is a dispense or charge whose drug qty exceeds qty_on_hand.
+	ErrInsufficientStock = errors.New("insufficient stock")
+	// ErrAlreadyDispensed is a dispense request against a line that is already FULL.
+	ErrAlreadyDispensed = errors.New("already dispensed")
+	// ErrDispenseExceeds is a dispense qty outside 0 < qty ≤ available.
+	ErrDispenseExceeds = errors.New("dispense exceeds available")
+	// ErrReturnExceeds is a return qty outside 0 < qty ≤ dispensed−returned.
+	ErrReturnExceeds = errors.New("return exceeds dispense")
+	// ErrNotDispensed is a return of a line that was not dispensed or is unknown.
+	ErrNotDispensed = errors.New("not dispensed")
 )
 
 // UserStore loads identity records. Phase1 default is SQL Server; memory is the local demo.
@@ -148,9 +160,8 @@ type ChargeQuery struct {
 
 // ChargeStore is the square, its items, and its payments.
 // memory and sqlserver both implement it. Pay and refund are one transaction each.
-// Drug on-hand and dispense/return quantities are a charge-side stub (not 005 columns):
-// default drug on-hand is domain.DefaultDrugOnHandMilli so the demo catalog can pay,
-// and tests can lower it to reach INSUFFICIENT_STOCK. 2026-10-12
+// DrugOnHandMilli reads inventory_item.qty_on_hand (006). Charge never decrements it.
+// DispenseLedger is net dispensed for one charge item (real slips, else the test stub). 2026-10-12
 type ChargeStore interface {
 	CreateCharge(ctx context.Context, c domain.Charge) error
 	GetCharge(ctx context.Context, chargeID string) (*domain.Charge, error)
@@ -160,10 +171,43 @@ type ChargeStore interface {
 	// RefundCharge abates old, optionally inserts the remainder charge, and inserts a REFUND payment.
 	// newCharge nil means a full refund (no zero-amount square).
 	RefundCharge(ctx context.Context, old domain.Charge, newCharge *domain.Charge, payment domain.Payment) (*domain.Charge, *domain.Charge, *domain.Payment, error)
-	// DrugOnHandMilli is the stub on-hand for a drug item_no (quantity × 1000).
-	// Unknown item numbers use domain.DefaultDrugOnHandMilli.
+	// DrugOnHandMilli is inventory_item.qty_on_hand for item_no (quantity × 1000).
+	// Unknown or inactive items are 0. TREAT is not in the table.
 	DrugOnHandMilli(ctx context.Context, itemNo string) (int64, error)
-	// DispenseLedger is the stub dispensed/returned quantity for one charge item (× 1000).
-	// ok is false when nobody has recorded an explicit ledger row.
+	// DispenseLedger is dispensed and returned quantity for one charge item (× 1000).
+	// Real dispense_item rows win. ok is false when nothing has been recorded.
 	DispenseLedger(ctx context.Context, chargeItemID string) (dispensedMilli, returnedMilli int64, ok bool, err error)
+}
+
+// DispenseQuery filters are AND-ed. Empty strings are ignored.
+// FromDate and ToDate are inclusive Asia/Shanghai days (YYYY-MM-DD) on dispensed_at.
+type DispenseQuery struct {
+	PatientID  string
+	RegisterID string
+	ChargeID   string
+	OrderID    string
+	FromDate   string
+	ToDate     string
+	Limit      int
+}
+
+// ReturnLine is one return inside a single return transaction.
+type ReturnLine struct {
+	DispenseItemID string
+	ReturnMilli    int64
+}
+
+// DispenseStore is dispense slips plus the quantity ledger they mutate.
+// CommitDispense and CommitReturn each run as one transaction: stock, ledger, slip.
+// 2026-10-12
+type DispenseStore interface {
+	CommitDispense(ctx context.Context, d domain.Dispense) (*domain.Dispense, error)
+	CommitReturn(ctx context.Context, dispenseID, reason, operatorID string, at time.Time, lines []ReturnLine) (*domain.Dispense, error)
+	GetDispense(ctx context.Context, dispenseID string) (*domain.Dispense, error)
+	SearchDispenses(ctx context.Context, q DispenseQuery) ([]domain.Dispense, error)
+	ListInventory(ctx context.Context, itemNo string) ([]domain.InventoryItem, error)
+	QtyOnHandMilli(ctx context.Context, itemNo string) (int64, error)
+	OrderHasDispense(ctx context.Context, orderID string) (bool, error)
+	NetByChargeItem(ctx context.Context, chargeItemID string) (dispensedMilli, returnedMilli int64, ok bool, err error)
+	NetByOrderItem(ctx context.Context, orderItemID string) (dispensedMilli, returnedMilli int64, ok bool, err error)
 }

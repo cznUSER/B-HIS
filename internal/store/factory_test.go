@@ -9,7 +9,7 @@ import (
 )
 
 func TestOpenMemory(t *testing.T) {
-	users, _, _, patients, registers, orders, charges, closer, err := Open(config.Config{Database: config.DatabaseConfig{Driver: "memory"}})
+	users, _, _, patients, registers, orders, charges, dispenses, closer, err := Open(config.Config{Database: config.DatabaseConfig{Driver: "memory"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -18,8 +18,8 @@ func TestOpenMemory(t *testing.T) {
 	if err != nil || u.Username != "system" || u.DisplayName != seed.DemoDisplayName {
 		t.Fatalf("%v %+v", err, u)
 	}
-	if patients == nil || registers == nil || orders == nil || charges == nil {
-		t.Fatal("nil patient, register, order, or charge store")
+	if patients == nil || registers == nil || orders == nil || charges == nil || dispenses == nil {
+		t.Fatal("nil patient, register, order, charge, or dispense store")
 	}
 	ctx := context.Background()
 	for _, id := range []string{"dept-1", "dept-2"} {
@@ -47,7 +47,7 @@ func TestOpenMemory(t *testing.T) {
 }
 
 func TestOpenSQLServerRequiresDSN(t *testing.T) {
-	_, _, _, _, _, _, _, _, err := Open(config.Config{Database: config.DatabaseConfig{Driver: "sqlserver"}})
+	_, _, _, _, _, _, _, _, _, err := Open(config.Config{Database: config.DatabaseConfig{Driver: "sqlserver"}})
 	if err == nil {
 		t.Fatal("expected error")
 	}

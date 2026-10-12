@@ -207,47 +207,60 @@ func reservePaymentLocked(s *Store, payment domain.Payment) error {
 	return nil
 }
 
-// DrugOnHandMilli returns the stub on-hand. Missing keys use the demo default (100). 2026-10-12
+// DrugOnHandMilli reads inventory_item.qty_on_hand. Missing or inactive items are 0.
+// Charge uses this as a check only. 2026-10-12
 func (s *Store) DrugOnHandMilli(_ context.Context, itemNo string) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.drugOnHand == nil {
-		return domain.DefaultDrugOnHandMilli, nil
+	q, ok := s.onHandLocked(itemNo)
+	if !ok {
+		return 0, nil
 	}
-	if v, ok := s.drugOnHand[itemNo]; ok {
-		return v, nil
-	}
-	return domain.DefaultDrugOnHandMilli, nil
+	return q, nil
 }
 
-// SetDrugOnHandMilli sets the stub on-hand (quantity × 1000). milli 0 makes the next drug charge fail.
-// Not an HTTP API. 2026-10-12
+// SetDrugOnHandMilli overwrites qty_on_hand (quantity × 1000) so charge and dispense share one row.
+// milli 0 makes the next drug charge fail. Not an HTTP API. 2026-10-12
 func (s *Store) SetDrugOnHandMilli(itemNo string, milli int64) error {
 	if itemNo == "" || milli < 0 {
 		return fmt.Errorf("invalid on-hand")
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.drugOnHand == nil {
-		s.drugOnHand = map[string]int64{}
+	it, ok := s.inventory[itemNo]
+	if !ok {
+		it = domain.InventoryItem{
+			SkuID: "sku-" + itemNo, ItemNo: itemNo, ItemName: itemNo, Units: "盒",
+			Status: domain.InventoryStatusActive,
+		}
 	}
-	s.drugOnHand[itemNo] = milli
+	it.QtyOnHandMilli = milli
+	it.IsDeleted = false
+	it.Status = domain.InventoryStatusActive
+	s.inventory[itemNo] = it
 	return nil
 }
 
-// DispenseLedger returns the explicit dispensed/returned stub. ok is false when unset. 2026-10-12
+// DispenseLedger prefers real dispense_item totals. The test stub applies only when no slip exists.
+// 2026-10-12
 func (s *Store) DispenseLedger(_ context.Context, chargeItemID string) (int64, int64, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	rec, ok := s.dispense[chargeItemID]
+	disp, ret, n := s.sumDispenseLocked(func(it domain.DispenseItem) bool {
+		return it.ChargeItemID == chargeItemID
+	})
+	if n > 0 {
+		return disp, ret, true, nil
+	}
+	rec, ok := s.dispenseStub[chargeItemID]
 	if !ok {
 		return 0, 0, false, nil
 	}
 	return rec.dispensed, rec.returned, true, nil
 }
 
-// SetDispenseMilli records dispensed and returned quantities for one charge item (× 1000).
-// Dispense HTTP stays 501; tests use this so REFUND_REQUIRES_RETURN is reachable. 2026-10-12
+// SetDispenseMilli records a charge-item stub when the caller is not going through dispense HTTP.
+// Real slips, when present, hide this stub. 2026-10-12
 func (s *Store) SetDispenseMilli(chargeItemID string, dispensedMilli, returnedMilli int64) error {
 	if chargeItemID == "" || dispensedMilli < 0 || returnedMilli < 0 || returnedMilli > dispensedMilli {
 		return fmt.Errorf("invalid dispense qty")
@@ -257,10 +270,10 @@ func (s *Store) SetDispenseMilli(chargeItemID string, dispensedMilli, returnedMi
 	if _, ok := findChargeItemLocked(s, chargeItemID); !ok {
 		return port.ErrNotFound
 	}
-	if s.dispense == nil {
-		s.dispense = map[string]dispenseRec{}
+	if s.dispenseStub == nil {
+		s.dispenseStub = map[string]dispenseRec{}
 	}
-	s.dispense[chargeItemID] = dispenseRec{dispensed: dispensedMilli, returned: returnedMilli}
+	s.dispenseStub[chargeItemID] = dispenseRec{dispensed: dispensedMilli, returned: returnedMilli}
 	return nil
 }
 

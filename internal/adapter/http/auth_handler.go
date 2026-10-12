@@ -13,9 +13,9 @@ import (
 	"github.com/cznUSER/B-HIS/internal/logging"
 )
 
-// Handler serves Auth, Patients, Registers (including check-in), Orders, and Charges.
-// Complete, diagnoses, dispense, and deprecated /encounters are not registered.
-// recipe-check and dispense return 501. 2026-10-12
+// Handler serves Auth, Patients, Registers (including check-in), Orders, Charges, and Dispenses.
+// Complete, diagnoses, and deprecated /encounters are not registered.
+// recipe-check returns 501. POST /orders/{orderId}/dispense is the dispense alias. 2026-10-12
 type Handler struct {
 	svc        *app.Service
 	log        *logging.Logger
@@ -46,12 +46,17 @@ func New(svc *app.Service, log *logging.Logger, origins []string, driver string,
 	mux.HandleFunc("POST /api/v1/orders/{orderId}/abate", h.abateOrder)
 	mux.HandleFunc("POST /api/v1/orders/{orderId}/recipe-check", h.orderNotImplemented)
 	mux.HandleFunc("GET /api/v1/orders/{orderId}/charge-preview", h.previewCharge)
-	mux.HandleFunc("POST /api/v1/orders/{orderId}/dispense", h.orderNotImplemented)
+	mux.HandleFunc("POST /api/v1/orders/{orderId}/dispense", h.dispenseOrderAlias)
 	mux.HandleFunc("POST /api/v1/charges", h.createCharge)
 	mux.HandleFunc("GET /api/v1/charges", h.searchCharges)
 	mux.HandleFunc("GET /api/v1/charges/{chargeId}", h.getCharge)
 	mux.HandleFunc("POST /api/v1/charges/{chargeId}/pay", h.payCharge)
 	mux.HandleFunc("POST /api/v1/charges/{chargeId}/refund", h.refundCharge)
+	mux.HandleFunc("POST /api/v1/dispenses", h.createDispense)
+	mux.HandleFunc("GET /api/v1/dispenses", h.searchDispenses)
+	mux.HandleFunc("GET /api/v1/dispenses/{dispenseId}", h.getDispense)
+	mux.HandleFunc("POST /api/v1/dispenses/{dispenseId}/return", h.returnDispense)
+	mux.HandleFunc("GET /api/v1/inventory/items", h.listInventory)
 	mux.HandleFunc("GET /health", h.health)
 	return withRequestID(recoverPanic(log, accessLog(log, cors(origins, mux))))
 }
@@ -107,7 +112,7 @@ func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) health(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{
 		"status":  "ok",
-		"version": "0.3.8-draft",
+		"version": "0.3.9-draft",
 		"driver":  h.driver,
 	})
 }
