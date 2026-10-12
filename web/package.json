@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "check": "node scripts/check-mock.mjs"
+    "check": "node scripts/check-mock.mjs && node scripts/check-client-http.mjs",
+    "check:api": "node scripts/check-real-api.mjs"
   },
   "dependencies": {
     "vue": "^3.5.22",

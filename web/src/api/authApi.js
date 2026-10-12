@@ -1,4 +1,5 @@
 // 2026-10-12 P1-H05 登录界面
+// 2026-10-12 P1-H05 真 API 联调：直连时 credentials 用 omit（CORS 不回 Allow-Credentials）；退出以 204 空体为成功。
 // POST /api/v1/auth/login | POST /api/v1/auth/logout | GET /api/v1/auth/me
 // 口令只进入请求体，不写入日志。
 
@@ -8,6 +9,14 @@ import { assertLoginRequest, assertLoginResponse, assertUserDto } from './contra
 import { mockLogin, mockLogout, mockMe } from './mockAuth.js'
 
 const JSON_ACCEPT = 'application/json'
+
+function requestInit(init) {
+  return {
+    credentials: 'omit',
+    cache: 'no-store',
+    ...init,
+  }
+}
 
 function delay(ms) {
   return new Promise((resolve) => {
@@ -38,14 +47,14 @@ export async function login(username, password) {
 
   let response
   try {
-    response = await fetch(apiUrl('/auth/login'), {
+    response = await fetch(apiUrl('/auth/login'), requestInit({
       method: 'POST',
       headers: {
         Accept: JSON_ACCEPT,
         'Content-Type': 'application/json; charset=utf-8',
       },
       body: JSON.stringify(request),
-    })
+    }))
   } catch {
     throw apiError(0, 'HTTP_ERROR', '无法连接登录服务')
   }
@@ -64,13 +73,13 @@ export async function logout(accessToken) {
 
   let response
   try {
-    response = await fetch(apiUrl('/auth/logout'), {
+    response = await fetch(apiUrl('/auth/logout'), requestInit({
       method: 'POST',
       headers: {
         Accept: JSON_ACCEPT,
         ...bearer(accessToken),
       },
-    })
+    }))
   } catch {
     throw apiError(0, 'HTTP_ERROR', '无法连接登录服务')
   }
@@ -93,13 +102,13 @@ export async function fetchMe(accessToken) {
 
   let response
   try {
-    response = await fetch(apiUrl('/auth/me'), {
+    response = await fetch(apiUrl('/auth/me'), requestInit({
       method: 'GET',
       headers: {
         Accept: JSON_ACCEPT,
         ...bearer(accessToken),
       },
-    })
+    }))
   } catch {
     throw apiError(0, 'HTTP_ERROR', '无法连接登录服务')
   }
