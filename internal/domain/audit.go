@@ -10,6 +10,9 @@ const (
 	ActionRegisterCreate  = "register.create"
 	ActionRegisterCheckIn = "register.check-in"
 	ActionRegisterCancel  = "register.cancel"
+	ActionOrderCreate     = "order.create"
+	ActionOrderCommit     = "order.commit"
+	ActionOrderAbate      = "order.abate"
 
 	OutcomeSuccess = "SUCCESS"
 	OutcomeFail    = "FAIL"

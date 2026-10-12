@@ -41,7 +41,7 @@ func RunWith(ctx context.Context, cfg config.Config, opt Options) error {
 	}
 	defer log.Close()
 
-	users, revocations, audit, patients, registers, closer, err := store.Open(cfg)
+	users, revocations, audit, patients, registers, orders, closer, err := store.Open(cfg)
 	if err != nil {
 		return fmt.Errorf("%s", redact.String(err.Error()))
 	}
@@ -65,6 +65,7 @@ func RunWith(ctx context.Context, cfg config.Config, opt Options) error {
 		Audit:       audit,
 		Patients:    patients,
 		Registers:   registers,
+		Orders:      orders,
 		Tokens:      issuer,
 		Limiter:     auth.NewLimiter(cfg.MaxFailures(), window),
 		Log:         log,

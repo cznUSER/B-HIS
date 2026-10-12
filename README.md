@@ -2,7 +2,7 @@
 
 医院信息系统（H Phase1）。Go 登录 API 在仓库根目录；Vue 登录界面在 `web/`。
 
-门诊一期当前实现 **登录鉴权**、**患者建档**（`POST/GET /api/v1/patients`）、**挂号**（`POST/GET /api/v1/registers`、退号与接诊）和 `GET /health`（健康检查仍报已实现 **0.3.6-draft**）。`api/openapi.yaml` 契约为 **0.3.7-draft**（开单 `/orders` 仅契约，本进程不注册 handler）。完成就诊、诊断，以及 deprecated `/encounters` 仍未注册。
+门诊一期当前实现 **登录鉴权**、**患者建档**（`POST/GET /api/v1/patients`）、**挂号**（`POST/GET /api/v1/registers`、退号与接诊）、**开单**（`/api/v1/orders` 创建、查询、PATCH、commit/submit、abate）和 `GET /health`（版本 **0.3.7-draft**）。`api/openapi.yaml` 契约为 **0.3.7-draft**。完成就诊、诊断、收费、发药，以及 deprecated `/encounters` 仍未注册。`recipe-check`、`charge-preview`、`dispense` 返回 501。
 
 H03 `0.3.0-draft` 没有 Auth。Auth 路径保持不变，患者建档规则仍是 0.3.5（必填 name/sex/birthday/fareIdentity）。成功体按 OpenAPI：`LoginResponse` / `UserDto` / `PatientDto`，不包 `success/data`。失败体按《接口契约》§1.2：`success: false`、`data: null`、`error.code`、`requestId`。
 
@@ -249,7 +249,7 @@ BHIS_DB_DSN=sqlserver://<user>:<password>@<host>:1433?database=BHIS&encrypt=disa
 
 JSON Lines：`./logs/h-api-YYYYMMDD.log`（日期按 Asia/Shanghai）。字段含 `timestamp`、`level`、`request_id`、`actor_id`、`action`、`outcome`、`error_code`、`duration_ms`。
 
-登录审计动作：`LOGIN_SUCCESS`、`LOGIN_FAILURE`、`LOGOUT`。建档审计动作：`patient.create`（`resource_type=Patient`）。挂号审计动作：`register.create`、`register.check-in`、`register.cancel`（`resource_type=Register`）。不明文记密码、证件号或 DSN。
+登录审计动作：`LOGIN_SUCCESS`、`LOGIN_FAILURE`、`LOGOUT`。建档审计动作：`patient.create`（`resource_type=Patient`）。挂号审计动作：`register.create`、`register.check-in`、`register.cancel`（`resource_type=Register`）。开单审计动作：`order.create`、`order.commit`、`order.abate`（`resource_type=Order`）。不明文记密码、证件号或 DSN。
 
 `logs/` 不进 Git。
 
