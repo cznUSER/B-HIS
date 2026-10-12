@@ -33,12 +33,18 @@ for (const key of keys) {
 }
 
 for (const item of OUTPATIENT_MODULES) {
-  assert(item.status === 'developing', `${item.key} status`)
+  if (item.key === 'patient') assert(item.status === 'available', 'patient is usable')
+  else assert(item.status === 'developing', `${item.key} status`)
   assert(item.status !== 'disabled', `${item.key} should stay enterable`)
 }
 
 const system = decorateModules(['SYSTEM'])
-assert(system.every((item) => item.allowed && item.statusLabel === '开发中'), 'system can open all')
+assert(system.every((item) => item.allowed), 'system can open all')
+assert(system.find((item) => item.key === 'patient').statusLabel === '可用', 'patient badge')
+assert(
+  system.filter((item) => item.key !== 'patient').every((item) => item.statusLabel === '开发中'),
+  'other modules stay developing',
+)
 assert(system.every((item) => !item.recommended), 'system has no single recommendation')
 
 const registrar = decorateModules(['REGISTRAR'])

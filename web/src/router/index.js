@@ -1,12 +1,13 @@
 // 2026-10-12 P1-H05 登录界面
 // 2026-10-12 P1-H05-HOME 登录后进入门诊工作台
 // 2026-10-12 P1-H05-HOME-DASH 默认页改为首页看板，六步仍走 /app/outpatient/*
+// 2026-10-12 P1-H05-PATIENT-UI 建档页替换空态，其余模块仍走空态
 import { createRouter, createWebHistory } from 'vue-router'
 import { isAuthenticated } from '../auth/session.js'
 import AppShell from '../components/AppShell.vue'
 import LoginView from '../views/LoginView.vue'
 import DashboardView from '../views/DashboardView.vue'
-import ModulePlaceholderView from '../views/ModulePlaceholderView.vue'
+import OutpatientModuleView from '../views/OutpatientModuleView.vue'
 import WorkbenchView from '../views/WorkbenchView.vue'
 import { findModule } from '../workbench/catalog.js'
 
@@ -34,7 +35,7 @@ const router = createRouter({
         {
           path: 'outpatient/:module',
           name: 'outpatient-module',
-          component: ModulePlaceholderView,
+          component: OutpatientModuleView,
           beforeEnter: (to) => {
             if (!findModule(String(to.params.module || ''))) return { name: 'home' }
             return true
