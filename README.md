@@ -2,9 +2,9 @@
 
 医院信息系统（H Phase1）。Go 登录 API 在仓库根目录；Vue 登录界面在 `web/`。
 
-门诊一期当前实现 **登录鉴权**、**患者建档**（`POST/GET /api/v1/patients`，OpenAPI 0.3.5-draft）和 `GET /health`。挂号及之后的门诊路径仍是契约草案，进程不注册这些路由。
+门诊一期当前实现 **登录鉴权**、**患者建档**（`POST/GET /api/v1/patients`）和 `GET /health`。`api/openapi.yaml` 为 **0.3.6-draft**（含患者建档与 `/registers`）。挂号及之后的门诊路径仍是契约草案，进程不注册这些路由。
 
-H03 `0.3.0-draft` 没有 Auth。`api/openapi.yaml` 现为 **0.3.5-draft**（Auth 路径保持不变，另含患者建档）。成功体按 OpenAPI：`LoginResponse` / `UserDto` / `PatientDto`，不包 `success/data`。失败体按《接口契约》§1.2：`success: false`、`data: null`、`error.code`、`requestId`。
+H03 `0.3.0-draft` 没有 Auth。Auth 路径保持不变，患者建档规则仍是 0.3.5（必填 name/sex/birthday/fareIdentity）。成功体按 OpenAPI：`LoginResponse` / `UserDto` / `PatientDto`，不包 `success/data`。失败体按《接口契约》§1.2：`success: false`、`data: null`、`error.code`、`requestId`。
 
 ## Web 登录界面
 
