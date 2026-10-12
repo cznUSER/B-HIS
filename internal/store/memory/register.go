@@ -107,6 +107,28 @@ func (s *Store) CancelRegister(_ context.Context, registerID, operatorID string,
 	}
 }
 
+// CheckInRegister accepts only NORMAL or USED. Other statuses leave the row unchanged.
+// 2026-10-12
+func (s *Store) CheckInRegister(_ context.Context, registerID, operatorID string, at time.Time) (*domain.Register, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r, ok := s.registers[registerID]
+	if !ok || r.IsDeleted {
+		return nil, port.ErrNotFound
+	}
+	switch r.Status {
+	case domain.RegisterStatusNormal, domain.RegisterStatusUsed:
+		r.Status = domain.RegisterStatusDiagnosing
+		r.UpdatedAt = at.UTC()
+		r.UpdatedBy = operatorID
+		s.registers[registerID] = r
+		c := r
+		return &c, nil
+	default:
+		return nil, port.ErrRegisterNotCheckIn
+	}
+}
+
 func (s *Store) DepartmentExists(_ context.Context, departmentID string) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

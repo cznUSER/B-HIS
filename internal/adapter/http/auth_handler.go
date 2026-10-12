@@ -13,7 +13,8 @@ import (
 	"github.com/cznUSER/B-HIS/internal/logging"
 )
 
-// Handler serves Auth, Patients, and Registers. Check-in, complete, diagnoses, and /encounters are not registered.
+// Handler serves Auth, Patients, and Registers, including check-in.
+// Complete, diagnoses, orders, and deprecated /encounters are not registered.
 type Handler struct {
 	svc        *app.Service
 	log        *logging.Logger
@@ -33,6 +34,7 @@ func New(svc *app.Service, log *logging.Logger, origins []string, driver string,
 	mux.HandleFunc("POST /api/v1/registers", h.createRegister)
 	mux.HandleFunc("GET /api/v1/registers", h.searchRegisters)
 	mux.HandleFunc("GET /api/v1/registers/{registerId}", h.getRegister)
+	mux.HandleFunc("POST /api/v1/registers/{registerId}/check-in", h.checkInRegister)
 	mux.HandleFunc("POST /api/v1/registers/{registerId}/cancel", h.cancelRegister)
 	mux.HandleFunc("GET /health", h.health)
 	return withRequestID(recoverPanic(log, accessLog(log, cors(origins, mux))))
