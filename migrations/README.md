@@ -8,6 +8,9 @@ Phase1 只维护 SQL Server 脚本。目标库名 **BHIS**。
 | `sqlserver/core/001_identity.down.sql` | 删除身份表，不删除数据库 |
 | `sqlserver/core/002_patient.up.sql` | 患者/MPI 表 `dbo.patient`（依赖 BHIS；varchar(64) 主键；证件号、卡号、院内主键过滤唯一索引）。不建库 |
 | `sqlserver/core/002_patient.down.sql` | 删除患者表，不删除数据库 |
+| `sqlserver/core/003_register.up.sql` | 科室 `dbo.department`、医生 `dbo.doctor`、挂号单 `dbo.register_bill`（依赖 BHIS 与 `dbo.patient`；varchar(64) 主键；号源=科室+医生，无排班表）。不建库 |
+| `sqlserver/core/003_register.down.sql` | 按外键依赖删除挂号单、医生、科室表，不删除数据库 |
+| `sqlserver/core/003_register_seed.up.sql` | 幂等种子：科室 `dept-1`/`dept-2`、医生 `doc-1`/`doc-2`。无口令、无连接串 |
 
 脚本给 `sqlcmd` 用（含 `GO`）。密码不要写进命令行历史或仓库：让 `sqlcmd` 从环境变量 `SQLCMDPASSWORD` 读取。
 
@@ -15,10 +18,14 @@ Phase1 只维护 SQL Server 脚本。目标库名 **BHIS**。
 
 `002_patient` 里的过滤唯一索引同样依赖 `QUOTED_IDENTIFIER ON`。脚本内已 `SET QUOTED_IDENTIFIER ON`；调用 `sqlcmd` 时仍要带 `-I`，与身份迁移一致。不要改这份已提交的 DDL。
 
+`003_register` 的科室编码、医生编码、挂号单号过滤唯一索引同样依赖 `QUOTED_IDENTIFIER ON`。脚本内已 `SET QUOTED_IDENTIFIER ON`；`sqlcmd` 仍要带 `-I`。种子在表创建之后执行。
+
 ```text
 powershell -ExecutionPolicy Bypass -File scripts/apply-migration.ps1 -Server <host> -User <user>
 sqlcmd -S <host> -U <user> -I -f 65001 -d master -i migrations/sqlserver/core/001_identity.up.sql
 sqlcmd -S <host> -U <user> -I -f 65001 -d master -i migrations/sqlserver/core/002_patient.up.sql
+sqlcmd -S <host> -U <user> -I -f 65001 -d master -i migrations/sqlserver/core/003_register.up.sql
+sqlcmd -S <host> -U <user> -I -f 65001 -d master -i migrations/sqlserver/core/003_register_seed.up.sql
 ```
 
 API 默认 `Database.Driver=memory`，不连 SQL Server。切到 `sqlserver` 时，DSN 放在环境变量 `BHIS_DB_DSN` 或 gitignore 的 `config.local.yaml` / `.env.local`。

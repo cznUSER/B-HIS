@@ -12,23 +12,35 @@ import (
 
 // Store is the zero-DB identity store for local demo and tests.
 type Store struct {
-	mu       sync.Mutex
-	byID     map[string]domain.User
-	byName   map[string]string
-	revoked  map[string]time.Time
-	audits   []domain.AuditEvent
-	patients map[string]domain.Patient
+	mu          sync.Mutex
+	byID        map[string]domain.User
+	byName      map[string]string
+	revoked     map[string]time.Time
+	audits      []domain.AuditEvent
+	patients    map[string]domain.Patient
+	departments map[string]domain.Department
+	doctors     map[string]domain.Doctor
+	registers   map[string]domain.Register
 }
 
 func New() *Store {
 	s := &Store{
-		byID:     make(map[string]domain.User),
-		byName:   make(map[string]string),
-		revoked:  make(map[string]time.Time),
-		patients: make(map[string]domain.Patient),
+		byID:        make(map[string]domain.User),
+		byName:      make(map[string]string),
+		revoked:     make(map[string]time.Time),
+		patients:    make(map[string]domain.Patient),
+		departments: make(map[string]domain.Department),
+		doctors:     make(map[string]domain.Doctor),
+		registers:   make(map[string]domain.Register),
 	}
 	s.Add(seed.DemoUser())
 	s.Add(seed.DisabledUser())
+	for _, d := range seed.Departments() {
+		s.departments[d.DepartmentID] = d
+	}
+	for _, d := range seed.Doctors() {
+		s.doctors[d.DoctorID] = d
+	}
 	return s
 }
 
