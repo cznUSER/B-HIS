@@ -1,28 +1,26 @@
 openapi: 3.0.3
 info:
   title: H Phase1 Outpatient Loop API
-  version: 0.3.7-draft
+  version: 0.3.8-draft
   description: |
-    P1-H03-ORDER 契约草案 v0.3.7（开单 /orders + 目录种子；对齐 H02 开单字段清单 + 拍板#21）。
-    挂号六态、CureBill、Square Abate+新单、CanBack、卡状态已对齐。
+    P1-H03-CHARGE 契约草案 v0.3.8（收费 Charge/Payment；对齐拍板#13/#22 + H08 交接）。
+    挂号六态、开单四态、Square Abate+新单、CanBack、卡状态已对齐。
     实现基线：Go API（可桌面 Host 托管）+ SQL Server；Store 可切换。
-    库存方案 A（真实扣减）；Inventory 查询启用。
+    库存方案 A（真实扣减）；Inventory 查询启用；**收费侧**拦库存（开单只提示）。
     Auth：JWT HS256 access token（默认 TTL 8h）；login/logout/me 供 H04+H05 登录页落地。
-    拍板#13：已发药须先退药（REFUND_REQUIRES_RETURN 强制）；收费须有效挂号（ENCOUNTER_REQUIRED）；
-    支付演示现金+电子字段预留不联调；毒麻精抗处方权 feature flag 默认 off。
-    v0.3.4/H08：Charge.encounterId 必填；refund 含 favourableAlloc；策略枚举 PROPORTIONAL|
-    DISCOUNT_ON_REMAIN|DISCOUNT_FIRST（H08 草稿待用户确认，非已拍板）；F=0 可硬断言 K-01～K-15；
-    错误码含 INVALID_AMOUNT；交叉引用 deliverables/h08/。
+    拍板#13/#22：已发药须先退药（REFUND_REQUIRES_RETURN）；收费须有效挂号（ENCOUNTER_REQUIRED；
+    registerId≡encounterId）；支付演示现金一次付清+电子字段预留不联调；实收=应收（不允许多收找零）；
+    F=0 主路径硬断言 K-01～K-05；默认不拆方 1:1；全退 newSquare=null；毒麻 feature flag 默认 off。
+    v0.3.4/H08：refund 含 favourableAlloc；策略枚举 PROPORTIONAL|DISCOUNT_ON_REMAIN|DISCOUNT_FIRST
+    （H08 草稿待用户确认，非已拍板）；错误码含 INVALID_AMOUNT；交叉引用 deliverables/h08/。
     v0.3.5/P1-H03-PATIENT：CreatePatientRequest.required=[name,sex,birthday,fareIdentity]；
     address 选填可空；idNumber/cardNo 非空查重 → 409 DUPLICATE_*；拒绝不合并（拍板#20）。
     v0.3.6/P1-H03-REGISTER：主路径 /registers（Encounter≡RegisterBill；encounterId≡registerId）；
-    CreateRegisterRequest.required=[patientId,departmentId,doctorId,visitDate]；registerSort 可选占位；
-    初始 status=NORMAL；退号仅 NORMAL→BACK，否则 409 REGISTER_NOT_CANCELLABLE；
-    迁移 sqlserver/core/003_register（+ seed dept-1/dept-2/doc-1/doc-2）；拍板#19。
-    v0.3.7/P1-H03-ORDER：主字段 registerId（encounterId≡registerId 别名）；save+commit+abate；
-    强制有效挂号（status≠BACK）否则 ENCOUNTER_REQUIRED；一张挂号允许多处方；diagnoseName 不强制；
-    开单医生默认挂号医生可改；库存开单仅提示不拦；目录药品+可选治疗；毒麻钩子关；处方审核一期跳过；
-    迁移 sqlserver/core/004_order（+ seed DRUG-A/DRUG-B/TREAT-1）；状态一期 SAVE|COMMIT|PROC|ABATE。
+    迁移 sqlserver/core/003_register（+ seed）；拍板#19。
+    v0.3.7/P1-H03-ORDER：主字段 registerId；save+commit+abate；004_order（+ seed DRUG-A/B/TREAT-1）。
+    v0.3.8/P1-H03-CHARGE：charge-preview、POST /charges、pay、refund、GET /charges；
+    ChargeDto 主字段 registerId（encounterId≡别名）；successorChargeId；RefundResponse.newSquare 全退 null；
+    PayRequest.amount 必须=squareFee；迁移 sqlserver/core/005_charge（+ 空 seed）；拍板#22。
     旧 /encounters* 保留为 deprecated alias。
 servers:
   - url: /api/v1
@@ -41,6 +39,10 @@ tags:
       状态主路径 SAVE→COMMIT→（收费后）PROC；作废 ABATE 仅未收费。
       拍板#21：强制有效挂号；save+commit；多处方；诊断不强制；毒麻关；审核一期跳过。
   - name: Charges
+    description: |
+      门诊结算（charge + charge_item + payment）。主字段 registerId（encounterId≡registerId）。
+      拍板#22：强制有效挂号；现金一次付清；F=0 主路径；默认不拆 1:1；全退 newSquare=null；
+      实收=应收；收费拦库存；已发药须先退药。迁移 005_charge。
   - name: Dispenses
   - name: Diagnoses
   - name: Inventory
@@ -279,10 +281,7 @@ paths:
   /registers/{registerId}/check-in:
     post:
       tags: [Registers]
-      summary: 接诊 → DIAGNOSING
-      description: |
-        仅 status=NORMAL 或 USED → DIAGNOSING。
-        BACK / DIAGNOSING / DIAGNOSED / PAUSED → 409 ILLEGAL_STATE_TRANSITION，状态与退号留痕不变。
+      summary: 接诊 → DIAGNOSING（可延后实现）
       operationId: checkInRegister
       parameters:
         - $ref: '#/components/parameters/RegisterId'
@@ -716,8 +715,12 @@ paths:
           $ref: '#/components/responses/Conflict'
   /orders/{orderId}/charge-preview:
     get:
-      tags: [Orders]
-      summary: 费用预览（自已提交处方 COMMIT）
+      tags: [Orders, Charges]
+      summary: 费用预览（自已提交处方 COMMIT；须有效挂号）
+      description: |
+        对齐拍板#22i / 22j。前置：Order.status=COMMIT；register status≠BACK。
+        返回待收口径 ChargeDto（未落库亦可）；F=0 时 totalFee=squareFee（K-01/K-02）。
+        库存不足仅在 POST /charges 或 pay 时拦截（开单只提示）。
       operationId: previewCharge
       parameters:
         - $ref: '#/components/parameters/OrderId'
@@ -729,7 +732,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ChargeDto'
         '409':
-          description: 非 COMMIT 不可预览收费
+          description: |
+            非 COMMIT / 无有效挂号 → ENCOUNTER_REQUIRED 等。
           content:
             application/json:
               schema:
@@ -758,9 +762,59 @@ paths:
         '409':
           $ref: '#/components/responses/Conflict'
   /charges:
+    get:
+      tags: [Charges]
+      summary: 结算单列表（按患者 / 挂号 / 日）
+      description: |
+        拍板#22i。至少提供一种过滤：patientId、registerId|encounterId、visitDate 或 from+to。
+        encounterId 语义 ≡ registerId。
+      operationId: listCharges
+      parameters:
+        - name: patientId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: registerId
+          in: query
+          description: 挂号单 ID（主字段）
+          schema: { type: string, format: uuid }
+        - name: encounterId
+          in: query
+          deprecated: true
+          description: ≡ registerId（别名）
+          schema: { type: string, format: uuid }
+        - name: visitDate
+          in: query
+          description: 单日（与挂号 visitDate 或 charge.created_at 日对齐；实现择一写清）
+          schema: { type: string, format: date }
+        - name: from
+          in: query
+          description: 起始日（含）；与 to 成对
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          description: 结束日（含）
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ChargeDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
     post:
       tags: [Charges]
-      summary: 自已提交处方载入/创建待收 Square（须有效 Encounter）
+      summary: 自已提交处方载入/创建待收 Square（须 COMMIT + 有效挂号）
+      description: |
+        拍板#22。body.orderId 必填。前置：Order=COMMIT；register status≠BACK → 否则 ENCOUNTER_REQUIRED。
+        默认不拆：一处方一张 Charge（A21）。收费侧库存不足 → INSUFFICIENT_STOCK。
+        成功：待收 Charge（paidAt=null）；尚未写 Payment。
       operationId: createChargeFromOrder
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -796,10 +850,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ChargeDto'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /charges/{chargeId}/pay:
     post:
       tags: [Charges]
-      summary: 收费确认（Square NORMAL；须有效挂号，禁止无挂号直接收费）
+      summary: 收费确认（现金一次付清；实收=应收；须有效挂号）
+      description: |
+        拍板#22b/22f/22g。PayRequest.payType 主路径 CASH；amount **必须等于** squareFee
+        （不允许多收找零）否则 CHARGE_AMOUNT_MISMATCH / INVALID_AMOUNT。
+        库存不足 → INSUFFICIENT_STOCK。成功：Charge NORMAL + paidAt；Payment CHARGE SUCCEEDED。
+        F=0 硬断言 K-01～K-05。
       operationId: payCharge
       parameters:
         - $ref: '#/components/parameters/ChargeId'
@@ -824,7 +885,11 @@ paths:
   /charges/{chargeId}/refund:
     post:
       tags: [Charges]
-      summary: 退费（已发药须先退药；Abate+同事务新 Square；CanBack；部分数量；favourableAlloc 预留，H08 草稿待确认）
+      summary: 退费（先退药；Abate+可选新 Square；全退 newSquare=null）
+      description: |
+        拍板#22e/22h。已发药须先退药 → 否则 409 REFUND_REQUIRES_RETURN。
+        同事务：原单 ABATE；若有未退数量生成新 NORMAL（abatedFromId）；**全退不生成金额0新单，newSquare=null**。
+        favourableAlloc 默认 PROPORTIONAL（H08 草稿待确认，非正式拍板）；F=0 可硬断言。
       operationId: refundCharge
       parameters:
         - $ref: '#/components/parameters/ChargeId'
@@ -1225,40 +1290,55 @@ components:
         abatedBy: { type: string, nullable: true }
     ChargeItemDto:
       type: object
+      required: [chargeItemId, lineNo, itemNo, itemName, qty, unitPrice, totalFee, canBack]
       properties:
         chargeItemId: { type: string, format: uuid }
-        orderItemId: { type: string, format: uuid }
+        orderItemId: { type: string, format: uuid, nullable: true }
+        lineNo: { type: integer }
         itemNo: { type: string }
-        amount: { type: number }
-        price: { type: number }
+        itemName: { type: string }
+        qty:
+          type: number
+          description: '收费数量；须 >0（C-02）。API 亦可用 amount 别名（实现择一，契约主字段 qty）'
+        unitPrice:
+          type: number
+          description: '单价。API 亦可用 price 别名'
         totalFee: { type: number }
-        canBack: { type: boolean }
-        refundedQty: { type: number }
+        canBack: { type: boolean, description: '可退标记；false → ITEM_NOT_CAN_BACK' }
+        refundedQty: { type: number, description: '已退数量；默认 0；≤qty' }
     ChargeDto:
       type: object
-      required: [chargeId, squareNo, encounterId, patientId, totalFee, squareFee, favourableFee, status]
+      required: [chargeId, squareNo, registerId, patientId, totalFee, squareFee, favourableFee, status]
+      description: |
+        结算单（Square）。主字段 registerId；encounterId≡registerId 别名。
+        拍板#22a：无有效挂号不可创建/支付 → ENCOUNTER_REQUIRED。
       properties:
         chargeId: { type: string, format: uuid }
         squareNo: { type: string }
-        orderId: { type: string, format: uuid, nullable: true }
+        orderId: { type: string, format: uuid, nullable: true, description: 'Phase1 主路径有值；可空策略允许多来源' }
+        registerId:
+          type: string
+          format: uuid
+          description: '挂号单 ID（主字段，必填）；≡ encounterId'
         encounterId:
           type: string
           format: uuid
-          description: |
-            必填（C-07 / H08）。无有效 Encounter 不可创建/支付 → ENCOUNTER_REQUIRED。
+          nullable: true
+          deprecated: true
+          description: '≡ registerId（别名）；响应可同时返回'
         patientId: { type: string, format: uuid }
-        totalFee: { type: number, description: 毛额 G；F=0 时与 squareFee 同（K-01/K-02） }
-        squareFee: { type: number, description: 应收 R = G - F }
-        favourableFee: { type: number, description: 整单优惠 F；Phase1 演示常见 0 }
+        totalFee: { type: number, description: '毛额 G；F=0 时与 squareFee 同（K-01/K-02）' }
+        squareFee: { type: number, description: '应收 R = G - F' }
+        favourableFee: { type: number, description: '整单优惠 F；Phase1 验收主路径 0（#22c）' }
         status:
           type: string
           enum: [NORMAL, ABATE]
           description: 对齐 TSquareStatus / H08
-        successorSquareId:
+        successorChargeId:
           type: string
           format: uuid
           nullable: true
-          description: 作废后生成的新单（未退部分）
+          description: '作废后生成的新单（未退部分）；全退为 null。旧名 successorSquareId 弃用'
         abatedFromId:
           type: string
           format: uuid
@@ -1268,37 +1348,46 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ChargeItemDto'
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: '支付成功时间；待收为 null'
     PayRequest:
       type: object
       required: [payType, amount]
+      description: |
+        拍板#22b/22f：现金一次付清；amount 必须等于 Charge.squareFee（实收=应收，不允许多收找零）。
       properties:
-        paymentNo: { type: string }
+        paymentNo: { type: string, nullable: true, description: '可选；省略由服务端生成' }
         payType:
           type: string
           enum: [CASH, OTHER_E, WECHAT, ALIPAY, OTHER]
           description: |
-            Phase1（拍板#13/C-08）：演示主用 CASH；
+            Phase1（拍板#13/#22b）：演示主用 CASH；
             OTHER_E/WECHAT/ALIPAY 字段预留可落库，不联调第三方。
-        amount: { type: number }
+        amount:
+          type: number
+          description: '必须 = squareFee；否则 CHARGE_AMOUNT_MISMATCH / INVALID_AMOUNT'
     FavourableAlloc:
       type: string
       enum: [PROPORTIONAL, DISCOUNT_ON_REMAIN, DISCOUNT_FIRST]
       default: PROPORTIONAL
       description: |
-        部分退优惠分摊策略（H08《金额核对点》§4 **草稿待确认**，非用户已拍板）。
-        PROPORTIONAL：按退毛额占比分摊（H08 推荐草稿）。
+        部分退优惠分摊策略（H08《金额核对点》§4 **草稿待确认**，非正式拍板 #22c）。
+        PROPORTIONAL：按退毛额占比分摊（H08 推荐草稿 / 默认可配）。
         DISCOUNT_ON_REMAIN：优惠留在未退。
         DISCOUNT_FIRST：优惠优先退。
-        Phase1：F=0 时可忽略本字段，硬断言 K-01～K-15；F>0 期望值待用户经 H01 确认。
+        Phase1：F=0 时可忽略本字段，硬断言 K-01～K-05（收费）/ K-10～K-15（退费）；F>0 期望值待用户经 H01 确认。
     RefundRequest:
       type: object
       required: [payType, items]
       description: |
-        对齐 H08 交接 §1.4。
-        前置：Square=NORMAL；已发药明细必须先退药成功，否则 409 REFUND_REQUIRES_RETURN（B-08 已确认强制）。
-        结构：Abate 旧单 + 同事务新单；favourableAlloc 策略枚举可配置（H08 草稿待确认）。
+        对齐 H08 交接 §1.4 + 拍板#22。
+        前置：Square=NORMAL；已发药明细必须先退药成功，否则 409 REFUND_REQUIRES_RETURN（#22h / B-08）。
+        全退：不生成金额为 0 的新 Square → newSquare=null（#22e）。
       properties:
-        reason: { type: string }
+        reason: { type: string, description: '退费原因；建议填写' }
         payType:
           type: string
           enum: [CASH, OTHER_E, WECHAT, ALIPAY, OTHER]
@@ -1320,14 +1409,18 @@ components:
                   超额 → REFUND_EXCEEDS_REFUNDABLE；金额非法 → INVALID_AMOUNT。
     RefundResultDto:
       type: object
+      required: [abatedCharge, refundPayment]
+      description: |
+        退费响应。全退时 newSquare 必须为 null（#22e）；部分退时 newSquare 为承接未退的新 NORMAL。
       properties:
-        abatedSquare:
+        abatedCharge:
           $ref: '#/components/schemas/ChargeDto'
+          description: '已作废原单（status=ABATE）'
         newSquare:
           allOf:
             - $ref: '#/components/schemas/ChargeDto'
           nullable: true
-          description: 未退部分新 Square；全退时可为 null 或金额0
+          description: '未退部分新 Square；**全退必须 null**（不生成金额 0 新单）'
         refundPayment:
           $ref: '#/components/schemas/PaymentDto'
     PaymentDto:
@@ -1347,12 +1440,22 @@ components:
           description: Phase1 演示 CASH；电子枚举预留可落库、不联调
         amount:
           type: number
-          description: ≥0；非法 → INVALID_AMOUNT
+          description: '≥0；收费时须 = squareFee；非法 → INVALID_AMOUNT'
         status:
           type: string
           enum: [PENDING, SUCCEEDED, FAILED]
-          description: 支付/退费成功须为 SUCCEEDED（H08）
-        succeededAt: { type: string, format: date-time }
+          description: 支付/退费成功须为 SUCCEEDED（H08）；Phase1 成功写 SUCCEEDED
+        paidAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: '成功时间（主字段）；succeededAt 为兼容别名'
+        succeededAt:
+          type: string
+          format: date-time
+          nullable: true
+          deprecated: true
+          description: '≡ paidAt（别名）'
     DispenseRequest:
       type: object
       required: [items]
