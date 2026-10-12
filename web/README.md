@@ -77,3 +77,13 @@ VITE_API_PROXY_TARGET=http://localhost:8080
 `/api` 会被代理到 `VITE_API_PROXY_TARGET`。只认字符串 `false` / `0` / `no` 关闭 Mock，其他值（含未设置）仍走 Mock。
 
 生产构建同样读取构建时的 `VITE_*`。不要把真实环境的密钥放进前端仓库。
+
+## Windows 演示 exe
+
+`npm run dev` 保持 Mock。给双击 exe 用的是另一条构建，关闭 Mock，接口走同源 `/api/v1`：
+
+```bash
+npm run build:demo
+```
+
+仓库根目录的 `scripts/build-windows.ps1` 会执行这条命令，把 `web/dist` 拷进 `internal/webui/assets`，再打出 `bin/b-his-host.exe`。账号与启动说明见仓库根目录 [README.md](../README.md) 的「Windows 双击启动」。真实 API 演示账号是 `admin` / `Admin@123`。

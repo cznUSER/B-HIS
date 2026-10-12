@@ -57,6 +57,9 @@ func TestExampleHasNoRealDSN(t *testing.T) {
 	if !strings.Contains(text, "<user>") || !strings.Contains(text, "<password>") || !strings.Contains(text, "<host>") {
 		t.Fatal("example DSN must stay placeholder-only")
 	}
+	if !strings.Contains(text, DemoJWTPlaceholder) {
+		t.Fatal("example JWT placeholder drifted from DemoJWTPlaceholder")
+	}
 	for _, bad := range []string{"sqlserver://sa:", "192.168.", "8888"} {
 		if strings.Contains(text, bad) {
 			t.Fatalf("example contains %s", bad)

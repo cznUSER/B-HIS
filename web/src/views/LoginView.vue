@@ -1,5 +1,6 @@
 <script setup>
 // 2026-10-12 P1-H05 登录界面
+// 2026-10-12 真实 API 页显示本机演示账号
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { login } from '../api/authApi.js'
@@ -88,6 +89,7 @@ async function onSubmit() {
       </form>
 
       <p v-if="mockMode" class="hint">本地演示模式。账号 admin / admin123</p>
+      <p v-else class="hint">本机 API 账号 admin / Admin@123</p>
     </section>
   </main>
 </template>
