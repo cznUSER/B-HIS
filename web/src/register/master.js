@@ -1,17 +1,18 @@
 // 2026-10-12 P1-H05-REGISTER-UI 挂号主数据与退号口径。
-// 科室、医生用演示种子；号别固定占位普通号。无排班日历。
+// 2026-10-12 对齐 OpenAPI 0.3.6：科室键为 departmentId（dept-1 / dept-2）。
+// 号别固定占位普通号。无排班日历。
 
 export const DEPARTMENTS = [
-  { deptCode: 'dept-1', name: '内科' },
-  { deptCode: 'dept-2', name: '外科' },
+  { departmentId: 'dept-1', name: '内科' },
+  { departmentId: 'dept-2', name: '外科' },
 ]
 
 export const DOCTORS = [
-  { doctorId: 'doc-1', name: '张医生', deptCode: 'dept-1' },
-  { doctorId: 'doc-2', name: '李医生', deptCode: 'dept-2' },
+  { doctorId: 'doc-1', name: '张医生', departmentId: 'dept-1' },
+  { doctorId: 'doc-2', name: '李医生', departmentId: 'dept-2' },
 ]
 
-export const CLINIC_SORT = { clinicSort: 'sort-normal', name: '普通号' }
+export const REGISTER_SORT = { registerSort: 'sort-normal', name: '普通号' }
 
 export const STATUS_LABELS = {
   NORMAL: '正常号',
@@ -33,13 +34,13 @@ const REJECT_MESSAGE = {
   BACK: BACK_REJECT,
 }
 
-export function doctorsForDept(deptCode) {
-  return DOCTORS.filter((item) => item.deptCode === deptCode)
+export function doctorsForDept(departmentId) {
+  return DOCTORS.filter((item) => item.departmentId === departmentId)
 }
 
-export function deptName(deptCode) {
-  const found = DEPARTMENTS.find((item) => item.deptCode === deptCode)
-  return found ? found.name : deptCode || '—'
+export function deptName(departmentId) {
+  const found = DEPARTMENTS.find((item) => item.departmentId === departmentId)
+  return found ? found.name : departmentId || '—'
 }
 
 export function doctorName(doctorId) {
@@ -47,9 +48,9 @@ export function doctorName(doctorId) {
   return found ? found.name : doctorId || '—'
 }
 
-export function clinicSortName(clinicSort) {
-  if (!clinicSort || clinicSort === CLINIC_SORT.clinicSort) return CLINIC_SORT.name
-  return clinicSort
+export function registerSortName(registerSort) {
+  if (!registerSort || registerSort === REGISTER_SORT.registerSort) return REGISTER_SORT.name
+  return registerSort
 }
 
 export function statusLabel(status) {

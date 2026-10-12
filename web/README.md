@@ -1,6 +1,6 @@
 # B-HIS Web 登录
 
-Vue 3 + Vue Router + Vite。登录页对接 H03 OpenAPI **0.3.2** 的 Auth；登录成功进入首页看板 `/app`。侧栏仍在。患者建档可保存和查询；挂号在 Mock 下可选科室和医生并退号。开单、收费、发药、退药/退费仍是空态：
+Vue 3 + Vue Router + Vite。登录页对接 H03 OpenAPI **0.3.2** 的 Auth；登录成功进入首页看板 `/app`。侧栏仍在。患者建档可保存和查询。挂号在 `VITE_USE_MOCK=false` 时走 `POST/GET /api/v1/registers` 与退号。开单、收费、发药、退药/退费仍是空态：
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
@@ -49,24 +49,6 @@ npm run dev
 
 保存成功显示患者号、患者标识，并给出「去挂号」（带到 `/app/outpatient/register?patientId=`）。挂号页只读展示该患者，不能在挂号页改主索引。
 
-## 挂号
-
-页面在现有侧栏里，路由 `/app/outpatient/register`。没有 `?patientId=` 时显示「请先选择或建档患者」，并链到建档页。从建档「去挂号」进入后，姓名、性别、出生日期、患者号、身份证（掩码）只读。
-
-必填：患者、科室、医生。科室是内科 `dept-1`、外科 `dept-2`；张医生 `doc-1` 只在内科，李医生 `doc-2` 只在外科。号别固定占位「普通号」。就诊日期为当天，只读。没有排班日历。挂号费默认 0，页面不展示。
-
-Mock 保存后列表出现该单，状态为「正常号」。退号按钮只在正常号上可点，成功后变为「退号」，并提示「已退号」。已用、就诊中、就诊完成、挂起提示「当前号已使用或就诊中，不能退号」；已退提示「该号已退，不能再次退号」。这些演示状态会出现在当日列表里，方便核对按钮。Mock 与建档共用 `VITE_USE_MOCK`。
-
-真实接口尚未要求联调。客户端按 Encounter 形状提交 `patientId`、`deptCode`、`doctorId`、`clinicSort`、`visitDate`、`registerFee`：
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| `POST` | `/api/v1/encounters` | 201，初始 `status=NORMAL` |
-| `GET` | `/api/v1/encounters?patientId=&visitDate=` | `{ items: EncounterDto[] }`。列表路由未开放时，页面仍可保存并显示刚挂的号 |
-| `POST` | `/api/v1/encounters/{encounterId}/cancel` | 正常号改为 `BACK`；其余 `409 REGISTER_BACK_NOT_ALLOWED` |
-
-演示账号 `system` / `1`。关掉 Mock 的方式与建档相同。
-
 身份证号非空且已存在时拒绝创建，不合并。真实接口返回 `409 DUPLICATE_ID_NUMBER`（页面也认旧码 `DUPLICATE_PATIENT`），提示「该身份证号已存在，不能重复建档」，可「打开已有患者」。空身份证号允许再次保存。卡号冲突为 `409 DUPLICATE_CARD_NO`，提示「卡号已存在，不能重复建档」。本页不采集卡号。
 
 查询：姓名按连续文字，身份证号按完整值，都发给 `GET /api/v1/patients`。患者号不是契约查询参数，只在当次已加载结果里精确过滤。
@@ -78,6 +60,26 @@ Mock 保存后列表出现该单，状态为「正常号」。退号按钮只在
 | `GET` | `/api/v1/patients/{patientId}` | 一条 `PatientDto` |
 
 切换方式和登录相同：仓库里的 `web/.env` 默认 `VITE_USE_MOCK=true`。联调真接口时在 `web/.env.local` 写 `VITE_USE_MOCK=false`，`VITE_API_BASE_URL=/api/v1`，`VITE_API_PROXY_TARGET=http://127.0.0.1:8080`，然后重新 `npm run dev`。演示账号 `system` / `1`。Go API 需已启动。
+
+## 挂号
+
+页面在现有侧栏里，路由 `/app/outpatient/register`。没有 `?patientId=` 时显示「请先选择或建档患者」，并链到建档页。从建档「去挂号」进入后，姓名、性别、出生日期、患者号、身份证（掩码）只读。
+
+必填：患者、科室、医生。科室是内科 `dept-1`、外科 `dept-2`；张医生 `doc-1` 只在内科，李医生 `doc-2` 只在外科。号别固定占位「普通号」。就诊日期为当天，只读。没有排班日历。挂号费默认 0，页面不展示。
+
+Mock 与真实接口共用同一套页面。`web/.env` 默认 `VITE_USE_MOCK=true`，不访问网络，方便没有 API 时看页面。联调时在 `web/.env.local` 写 `VITE_USE_MOCK=false`（与建档相同），请求走本机 Go。
+
+保存后列表出现该单，状态为「正常号」。退号按钮只在正常号上可点，成功后变为「退号」，并提示「已退号」。已用、就诊中、就诊完成、挂起若被退号，提示「当前号已使用或就诊中，不能退号」（`409 REGISTER_NOT_CANCELLABLE`）；已退提示「该号已退，不能再次退号」（`409 REGISTER_BACK_NOT_ALLOWED`）。状态不变。
+
+提交字段对齐 OpenAPI 0.3.6，使用 `departmentId`，不用 `deptCode`：
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `POST` | `/api/v1/registers` | 201 `RegisterDto`，初始 `status=NORMAL`。请求 `patientId`、`departmentId`、`doctorId`、`visitDate`，号别 `registerSort=sort-normal`，`registerFee=0` |
+| `GET` | `/api/v1/registers?patientId=&visitDate=` | `{ items: RegisterDto[] }` |
+| `POST` | `/api/v1/registers/{registerId}/cancel` | 正常号改为 `BACK` |
+
+演示账号 `system` / `1`。
 
 ## 本地运行
 

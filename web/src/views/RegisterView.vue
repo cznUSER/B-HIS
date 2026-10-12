@@ -1,18 +1,19 @@
 <script setup>
 // 2026-10-12 P1-H05-REGISTER-UI 挂号页。患者从建档 ?patientId= 带入，只选科室和医生。
+// 2026-10-12 可联调：POST/GET /registers，字段 departmentId。
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ApiError } from '../api/errors.js'
-import { cancelEncounter, createEncounter, listEncounters } from '../api/encounterApi.js'
+import { cancelRegister, createRegister, listRegisters } from '../api/registerApi.js'
 import { fetchPatient } from '../api/patientApi.js'
 import { sexLabel, todayInShanghai } from '../api/patientContract.js'
 import { session } from '../auth/session.js'
 import {
-  CLINIC_SORT,
+  REGISTER_SORT,
   DEPARTMENTS,
   canCancel,
   cancelRejectMessage,
-  clinicSortName,
+  registerSortName,
   deptName,
   doctorName,
   doctorsForDept,
@@ -30,7 +31,7 @@ const loading = ref(false)
 const notFound = ref(false)
 const loadError = ref('')
 const listNote = ref('')
-const deptCode = ref('')
+const departmentId = ref('')
 const doctorId = ref('')
 const saving = ref(false)
 const cancellingId = ref('')
@@ -38,7 +39,7 @@ const notice = ref('')
 const noticeError = ref(false)
 
 const patientId = computed(() => readQuery(route.query.patientId))
-const doctors = computed(() => doctorsForDept(deptCode.value))
+const doctors = computed(() => doctorsForDept(departmentId.value))
 const patientEditTo = computed(() => ({
   name: 'outpatient-module',
   params: { module: 'patient' },
@@ -50,7 +51,7 @@ function readQuery(raw) {
   return typeof value === 'string' ? value.trim() : ''
 }
 
-watch(deptCode, () => {
+watch(departmentId, () => {
   if (!doctors.value.some((item) => item.doctorId === doctorId.value)) doctorId.value = ''
 })
 
@@ -65,7 +66,7 @@ async function load() {
   loadError.value = ''
   listNote.value = ''
   notice.value = ''
-  deptCode.value = ''
+  departmentId.value = ''
   doctorId.value = ''
   if (!patientId.value) return
   loading.value = true
@@ -85,7 +86,7 @@ async function load() {
 
 async function refreshTickets() {
   try {
-    const listed = await listEncounters(session.accessToken, {
+    const listed = await listRegisters(session.accessToken, {
       patientId: patientId.value,
       visitDate,
     })
@@ -93,10 +94,6 @@ async function refreshTickets() {
     listNote.value = ''
   } catch (error) {
     tickets.value = []
-    if (error instanceof ApiError && (error.status === 404 || error.status === 501)) {
-      listNote.value = '挂号列表接口尚未开放。保存后本页仍会显示刚挂的号。'
-      return
-    }
     listNote.value = error instanceof ApiError ? error.message : '暂时无法读取挂号列表'
   }
 }
@@ -109,7 +106,7 @@ function showNotice(message, isError) {
 async function onSave() {
   if (saving.value || !patient.value) return
   showNotice('', false)
-  if (!deptCode.value) {
+  if (!departmentId.value) {
     showNotice('请选择科室', true)
     return
   }
@@ -119,15 +116,15 @@ async function onSave() {
   }
   saving.value = true
   try {
-    const created = await createEncounter(session.accessToken, {
+    const created = await createRegister(session.accessToken, {
       patientId: patient.value.patientId,
-      deptCode: deptCode.value,
+      departmentId: departmentId.value,
       doctorId: doctorId.value,
-      clinicSort: CLINIC_SORT.clinicSort,
+      registerSort: REGISTER_SORT.registerSort,
       visitDate,
       registerFee: 0,
     })
-    tickets.value = [created, ...tickets.value.filter((item) => item.encounterId !== created.encounterId)]
+    tickets.value = [created, ...tickets.value.filter((item) => item.registerId !== created.registerId)]
     showNotice('已保存，状态为正常号', false)
   } catch (error) {
     showNotice(error instanceof ApiError ? error.message : '挂号失败，请稍后重试', true)
@@ -142,11 +139,11 @@ async function onCancel(row) {
     showNotice(cancelRejectMessage(row.status), true)
     return
   }
-  cancellingId.value = row.encounterId
+  cancellingId.value = row.registerId
   showNotice('', false)
   try {
-    const updated = await cancelEncounter(session.accessToken, row.encounterId)
-    tickets.value = tickets.value.map((item) => (item.encounterId === updated.encounterId ? updated : item))
+    const updated = await cancelRegister(session.accessToken, row.registerId)
+    tickets.value = tickets.value.map((item) => (item.registerId === updated.registerId ? updated : item))
     showNotice('已退号', false)
   } catch (error) {
     showNotice(error instanceof ApiError ? error.message : '退号失败，请稍后重试', true)
@@ -225,14 +222,14 @@ async function onCancel(row) {
         <div class="field-grid">
           <label class="field">
             <span>科室 <abbr class="req" title="必填">*</abbr></span>
-            <select v-model="deptCode" data-testid="dept-select">
+            <select v-model="departmentId" data-testid="dept-select">
               <option value="">请选择科室</option>
-              <option v-for="item in DEPARTMENTS" :key="item.deptCode" :value="item.deptCode">{{ item.name }}</option>
+              <option v-for="item in DEPARTMENTS" :key="item.departmentId" :value="item.departmentId">{{ item.name }}</option>
             </select>
           </label>
           <label class="field">
             <span>医生 <abbr class="req" title="必填">*</abbr></span>
-            <select v-model="doctorId" data-testid="doctor-select" :disabled="!deptCode">
+            <select v-model="doctorId" data-testid="doctor-select" :disabled="!departmentId">
               <option value="">请选择医生</option>
               <option v-for="item in doctors" :key="item.doctorId" :value="item.doctorId">{{ item.name }}</option>
             </select>
@@ -286,11 +283,11 @@ async function onCancel(row) {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in tickets" :key="row.encounterId">
-                <td class="mono">{{ row.encounterNo || row.encounterId }}</td>
-                <td>{{ deptName(row.deptCode) }}</td>
+              <tr v-for="row in tickets" :key="row.registerId">
+                <td class="mono">{{ row.registerNo || row.registerId }}</td>
+                <td>{{ deptName(row.departmentId) }}</td>
                 <td>{{ doctorName(row.doctorId) }}</td>
-                <td>{{ clinicSortName(row.clinicSort) }}</td>
+                <td>{{ registerSortName(row.registerSort) }}</td>
                 <td>
                   <span class="ticket-status" :data-status="row.status">{{ statusLabel(row.status) }}</span>
                 </td>
@@ -299,11 +296,11 @@ async function onCancel(row) {
                     class="button button-ghost button-compact"
                     type="button"
                     :data-testid="`cancel-${row.status}`"
-                    :disabled="!canCancel(row.status) || cancellingId === row.encounterId"
+                    :disabled="!canCancel(row.status) || cancellingId === row.registerId"
                     :title="canCancel(row.status) ? '退号' : cancelRejectMessage(row.status)"
                     @click="onCancel(row)"
                   >
-                    {{ cancellingId === row.encounterId ? '退号中…' : '退号' }}
+                    {{ cancellingId === row.registerId ? '退号中…' : '退号' }}
                   </button>
                   <p v-if="!canCancel(row.status)" class="ticket-reject">{{ cancelRejectMessage(row.status) }}</p>
                 </td>
