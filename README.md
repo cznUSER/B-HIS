@@ -2,7 +2,7 @@
 
 医院信息系统（H Phase1）。Go 登录 API 在仓库根目录；Vue 登录界面在 `web/`。
 
-门诊一期当前实现 **登录鉴权**、**患者建档**（`POST/GET /api/v1/patients`）、**挂号**（`POST/GET /api/v1/registers` 与退号）和 `GET /health`。`api/openapi.yaml` 为 **0.3.6-draft**。接诊、完成就诊、诊断，以及 deprecated `/encounters` 仍未注册。
+门诊一期当前实现 **登录鉴权**、**患者建档**（`POST/GET /api/v1/patients`）、**挂号**（`POST/GET /api/v1/registers` 与退号）和 `GET /health`。`api/openapi.yaml` 为 **0.3.7-draft**（含 `/orders`）。开单 save/commit/abate 仍是契约草案，进程不注册 `/orders`。接诊、完成就诊、诊断，以及 deprecated `/encounters` 仍未注册。
 
 H03 `0.3.0-draft` 没有 Auth。Auth 路径保持不变，患者建档规则仍是 0.3.5（必填 name/sex/birthday/fareIdentity）。成功体按 OpenAPI：`LoginResponse` / `UserDto` / `PatientDto`，不包 `success/data`。失败体按《接口契约》§1.2：`success: false`、`data: null`、`error.code`、`requestId`。
 
@@ -225,13 +225,17 @@ curl -sS -D - http://127.0.0.1:8080/api/v1/registers \
   -d '{"patientId":"<patientId>","departmentId":"dept-1","doctorId":"doc-1","visitDate":"2026-10-12"}'
 ```
 
+## 开单（契约，尚未注册路由）
+
+`api/openapi.yaml` **0.3.7-draft** 主路径 `/orders`：`POST` 暂存（SAVE）、`POST /orders/{orderId}/commit`（SAVE→COMMIT）、`POST /orders/{orderId}/abate`（未收费作废）。必填有效 `registerId`（挂号存在且 status≠BACK，否则 `409 ENCOUNTER_REQUIRED`，拍板#21）。状态一期 SAVE|COMMIT|PROC|ABATE。目录种子 DRUG-A、DRUG-B、TREAT-1 在 `004_order_seed.up.sql`。本同步不含 Go handler，H04 在合并后实现。
+
 ## SQL Server（本机 Windows，可选）
 
 CI 和这台云端构建保持 **memory**。要在 Windows 开发机连 SQL Server 时：
 
 1. 不要把主机、账号、口令写进 Git、拍板文档或 `config.example.yaml`。
 2. 在 `E:\B-HIS` 自建 gitignore 文件 `.env.local` 或 `config.local.yaml`。
-3. 库名 **BHIS**。按顺序执行 `001_identity.up.sql`、`002_patient.up.sql`、`003_register.up.sql`、`003_register_seed.up.sql`（见 `migrations/README.md`）。Windows 身份脚本优先用 `scripts/apply-migration.ps1`（已带 `sqlcmd -I`）。不要改官方 DDL。`sqlcmd` 的口令用环境变量 `SQLCMDPASSWORD`，不要写进脚本。
+3. 库名 **BHIS**。按顺序执行 `001_identity.up.sql`、`002_patient.up.sql`、`003_register.up.sql`、`003_register_seed.up.sql`、`004_order.up.sql`、`004_order_seed.up.sql`（见 `migrations/README.md`）。Windows 身份脚本优先用 `scripts/apply-migration.ps1`（已带 `sqlcmd -I`）。不要改官方 DDL。`sqlcmd` 的口令用环境变量 `SQLCMDPASSWORD`，不要写进脚本。
 4. 启动前设置：
 
 ```text
