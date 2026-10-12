@@ -2,6 +2,8 @@
 
 Phase1 只维护 SQL Server 脚本。目标库名 **BHIS**。
 
+契约 tip：**v0.3.10**（OpenAPI **0.3.10-draft**，P1-H03-MASTER）。001–007 历史保留。
+
 | 文件 | 作用 |
 |------|------|
 | `sqlserver/core/001_identity.up.sql` | 创建数据库 BHIS（若无）、身份表、角色、演示账号 `system` 与 `disabled` 的 bcrypt 哈希。明文不写入脚本；员工默认密码见根 README |
@@ -22,6 +24,8 @@ Phase1 只维护 SQL Server 脚本。目标库名 **BHIS**。
 | `sqlserver/core/006_inventory_seed.up.sql` | 幂等种子：`DRUG-A`/`DRUG-B`（sku-drug-a / sku-drug-b）`qty_on_hand=100`。已存在行不重置数量。TREAT-1 不入。无口令、无连接串 |
 | `sqlserver/core/007_dispense.up.sql` | 发药单 `dbo.dispense`、明细 `dbo.dispense_item`（依赖 002 患者、003 挂号、004 处方、005 收费、006 库存；仅 DRUG；部分发；行态 NONE\|PARTIAL\|FULL）。不建库。无独立种子 |
 | `sqlserver/core/007_dispense.down.sql` | 按外键依赖删除 dispense_item、dispense，不删除数据库 |
+| `sqlserver/core/008_master.up.sql` | P1-H03-MASTER：`department.sort_no`、`catalog_item.is_controlled`、`dict_item`（号别种子 `register_sort` / `sort-normal`）。库存 ADJUST 复用 006 的 `inventory_ledger`（无新流水表）。无连接串、无口令 |
+| `sqlserver/core/008_master.down.sql` | 回滚 008：删除 `dict_item`，去掉 `is_controlled` 与 `sort_no`，不删除数据库 |
 
 脚本给 `sqlcmd` 用（含 `GO`）。密码不要写进命令行历史或仓库：让 `sqlcmd` 从环境变量 `SQLCMDPASSWORD` 读取。
 
@@ -37,6 +41,8 @@ Phase1 只维护 SQL Server 脚本。目标库名 **BHIS**。
 
 `006_inventory` 依赖 BHIS，药品编码对齐 `004_order` 目录（`DRUG-A` / `DRUG-B`）。`item_no` 过滤唯一索引依赖 `QUOTED_IDENTIFIER ON`。脚本内已 `SET QUOTED_IDENTIFIER ON`；`sqlcmd` 仍要带 `-I`。种子在表创建之后执行。`007_dispense` 依赖患者、挂号、处方、收费与库存表；`dispense_no` 过滤唯一索引同样依赖 `QUOTED_IDENTIFIER ON`。发药只记 DRUG；收费侧只拦库存、不预扣，扣减与回加由后续发药事务写 ledger。本片只落表，不改 `001`～`005`，也不注册 Go handler。
 
+`008_master` 依赖 001（BHIS / `app_user`）、003（`department`）、004（`catalog_item`）、006（`inventory_item` / `inventory_ledger`）。补 `department.sort_no`、`catalog_item.is_controlled`（默认关），新建 `dict_item` 并种子号别 `register_sort` / `sort-normal`。库存调整复用 `inventory_ledger.biz_type=ADJUST`（不新造 INIT，不建调整单头）。脚本内已 `SET QUOTED_IDENTIFIER ON`；`sqlcmd` 仍要带 `-I`。本片只落表，不注册基础数据 Go handler。
+
 ```text
 powershell -ExecutionPolicy Bypass -File scripts/apply-migration.ps1 -Server <host> -User <user>
 sqlcmd -S <host> -U <user> -I -f 65001 -d master -i migrations/sqlserver/core/001_identity.up.sql
@@ -50,6 +56,7 @@ sqlcmd -S <host> -U <user> -I -f 65001 -d master -i migrations/sqlserver/core/00
 sqlcmd -S <host> -U <user> -I -f 65001 -d master -i migrations/sqlserver/core/006_inventory.up.sql
 sqlcmd -S <host> -U <user> -I -f 65001 -d master -i migrations/sqlserver/core/006_inventory_seed.up.sql
 sqlcmd -S <host> -U <user> -I -f 65001 -d master -i migrations/sqlserver/core/007_dispense.up.sql
+sqlcmd -S <host> -U <user> -I -f 65001 -d master -i migrations/sqlserver/core/008_master.up.sql
 ```
 
 API 默认 `Database.Driver=memory`，不连 SQL Server。切到 `sqlserver` 时，DSN 放在环境变量 `BHIS_DB_DSN` 或 gitignore 的 `config.local.yaml` / `.env.local`。

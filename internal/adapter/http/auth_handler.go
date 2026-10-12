@@ -109,11 +109,20 @@ func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, user)
 }
 
+// healthContractVersion matches OpenAPI info.version (P1-H03-MASTER).
+// healthImplementedVersion stays at dispense: master CRUD handlers are not registered. 2026-10-13
+const (
+	healthContractVersion    = "0.3.10-draft"
+	healthImplementedVersion = "0.3.9-draft"
+)
+
 func (h *Handler) health(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{
-		"status":  "ok",
-		"version": "0.3.9-draft",
-		"driver":  h.driver,
+		"status":             "ok",
+		"version":            healthImplementedVersion,
+		"contractVersion":    healthContractVersion,
+		"implementedVersion": healthImplementedVersion,
+		"driver":             h.driver,
 	})
 }
 
