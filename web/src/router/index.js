@@ -1,9 +1,11 @@
 // 2026-10-12 P1-H05 登录界面
 // 2026-10-12 P1-H05-HOME 登录后进入门诊工作台
+// 2026-10-12 P1-H05-HOME-DASH 默认页改为首页看板，六步仍走 /app/outpatient/*
 import { createRouter, createWebHistory } from 'vue-router'
 import { isAuthenticated } from '../auth/session.js'
 import AppShell from '../components/AppShell.vue'
 import LoginView from '../views/LoginView.vue'
+import DashboardView from '../views/DashboardView.vue'
 import ModulePlaceholderView from '../views/ModulePlaceholderView.vue'
 import WorkbenchView from '../views/WorkbenchView.vue'
 import { findModule } from '../workbench/catalog.js'
@@ -19,6 +21,12 @@ const router = createRouter({
       children: [
         {
           path: '',
+          name: 'home',
+          component: DashboardView,
+          meta: { title: '工作台' },
+        },
+        {
+          path: 'outpatient',
           name: 'workbench',
           component: WorkbenchView,
           meta: { title: '门诊业务' },
@@ -28,21 +36,21 @@ const router = createRouter({
           name: 'outpatient-module',
           component: ModulePlaceholderView,
           beforeEnter: (to) => {
-            if (!findModule(String(to.params.module || ''))) return { name: 'workbench' }
+            if (!findModule(String(to.params.module || ''))) return { name: 'home' }
             return true
           },
         },
       ],
     },
-    { path: '/', redirect: { name: 'workbench' } },
-    { path: '/:pathMatch(.*)*', redirect: { name: 'workbench' } },
+    { path: '/', redirect: { name: 'home' } },
+    { path: '/:pathMatch(.*)*', redirect: { name: 'home' } },
   ],
 })
 
 router.beforeEach((to) => {
   const needsAuth = to.matched.some((record) => record.meta.requiresAuth)
   if (needsAuth && !isAuthenticated.value) return { name: 'login' }
-  if (to.meta.guest && isAuthenticated.value) return { name: 'workbench' }
+  if (to.meta.guest && isAuthenticated.value) return { name: 'home' }
   return true
 })
 
