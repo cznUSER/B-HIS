@@ -68,9 +68,10 @@ type Service struct {
 	TTL         time.Duration
 	Now         func() time.Time
 	Patients    port.PatientStore
+	Registers   port.RegisterStore
 
-	// idemMu guards process-local Idempotency-Key hits for patient create.
-	// 002_patient has no idempotency table; keys are not persisted.
+	// idemMu guards process-local Idempotency-Key hits for patient create and register create.
+	// 002_patient and 003_register have no idempotency table; keys are not persisted.
 	idemMu sync.Mutex
 	idem   map[string]idemHit
 }
