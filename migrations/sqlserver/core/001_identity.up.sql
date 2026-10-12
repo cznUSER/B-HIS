@@ -1,8 +1,19 @@
 -- BHIS identity tables (P1-H04). Apply with sqlcmd against the instance; this file has no password.
 --   SQLCMDPASSWORD is read from the environment (do not commit it).
---   sqlcmd -S <host> -U <user> -f 65001 -d master -i migrations/sqlserver/core/001_identity.up.sql
+--   Preferred on Windows: scripts/apply-migration.ps1 (passes sqlcmd -I).
+--   sqlcmd -S <host> -U <user> -I -f 65001 -d master -i migrations/sqlserver/core/001_identity.up.sql
 -- The bcrypt hash matches internal/store/seed DemoPasswordHash (staff default password, cost 10).
 -- Plaintext is not stored here. The system admin username is system.
+-- 2026-10-12: set QUOTED_IDENTIFIER and repair a legacy username admin without duplicating system.
+-- Filtered index ux_app_user_username requires these options. Callers must still pass sqlcmd -I.
+SET ANSI_NULLS ON;
+SET ANSI_PADDING ON;
+SET ANSI_WARNINGS ON;
+SET ARITHABORT ON;
+SET CONCAT_NULL_YIELDS_NULL ON;
+SET QUOTED_IDENTIFIER ON;
+SET NUMERIC_ROUNDABORT OFF;
+GO
 
 IF DB_ID(N'BHIS') IS NULL
 BEGIN
@@ -94,7 +105,12 @@ ON t.role_code = s.role_code
 WHEN NOT MATCHED THEN INSERT (role_code, role_name) VALUES (s.role_code, s.role_name);
 GO
 
+-- Skip the insert when an active system username already belongs to another row.
 IF NOT EXISTS (SELECT 1 FROM dbo.app_user WHERE user_id = '00000000-0000-4000-8000-000000000001')
+   AND NOT EXISTS (
+        SELECT 1 FROM dbo.app_user
+        WHERE username = 'system' AND is_deleted = 0
+   )
 INSERT INTO dbo.app_user (user_id, username, display_name, password_hash, status, created_by, updated_by)
 VALUES (
     '00000000-0000-4000-8000-000000000001',
@@ -108,6 +124,7 @@ VALUES (
 GO
 
 IF NOT EXISTS (SELECT 1 FROM dbo.user_role WHERE user_id = '00000000-0000-4000-8000-000000000001' AND role_code = 'SYSTEM')
+   AND EXISTS (SELECT 1 FROM dbo.app_user WHERE user_id = '00000000-0000-4000-8000-000000000001')
 INSERT INTO dbo.user_role (user_id, role_code) VALUES ('00000000-0000-4000-8000-000000000001', 'SYSTEM');
 GO
 
@@ -124,17 +141,62 @@ VALUES (
 );
 GO
 
--- Re-applying this script keeps the reserved demo rows on the current username and hash.
+-- Re-applying this script repairs the reserved demo row and a legacy username admin.
+-- Username changes run only when no other active row already holds system
+-- (filtered unique index ux_app_user_username WHERE is_deleted = 0).
 UPDATE dbo.app_user
-SET username = 'system',
-    display_name = N'系统管理员',
+SET display_name = N'系统管理员',
     password_hash = '$2a$10$04.ABDU39oM7NW1GGCkdmuvvMrlm2fxFLxg1YuqDWJR.Zy.lXBPGK',
     updated_at = SYSUTCDATETIME(),
     updated_by = 'system'
 WHERE user_id = '00000000-0000-4000-8000-000000000001'
   AND (
-    username <> 'system'
+    display_name <> N'系统管理员'
     OR password_hash <> '$2a$10$04.ABDU39oM7NW1GGCkdmuvvMrlm2fxFLxg1YuqDWJR.Zy.lXBPGK'
+  );
+GO
+
+UPDATE dbo.app_user
+SET username = 'system',
+    updated_at = SYSUTCDATETIME(),
+    updated_by = 'system'
+WHERE user_id = '00000000-0000-4000-8000-000000000001'
+  AND username <> 'system'
+  AND NOT EXISTS (
+    SELECT 1
+    FROM dbo.app_user AS other
+    WHERE other.username = 'system'
+      AND other.is_deleted = 0
+      AND other.user_id <> '00000000-0000-4000-8000-000000000001'
+  );
+GO
+
+UPDATE dbo.app_user
+SET password_hash = '$2a$10$04.ABDU39oM7NW1GGCkdmuvvMrlm2fxFLxg1YuqDWJR.Zy.lXBPGK',
+    updated_at = SYSUTCDATETIME(),
+    updated_by = 'system'
+WHERE username = 'admin'
+  AND is_deleted = 0
+  AND user_id <> '00000000-0000-4000-8000-000000000001'
+  AND password_hash <> '$2a$10$04.ABDU39oM7NW1GGCkdmuvvMrlm2fxFLxg1YuqDWJR.Zy.lXBPGK';
+GO
+
+UPDATE dbo.app_user
+SET username = 'system',
+    password_hash = '$2a$10$04.ABDU39oM7NW1GGCkdmuvvMrlm2fxFLxg1YuqDWJR.Zy.lXBPGK',
+    updated_at = SYSUTCDATETIME(),
+    updated_by = 'system'
+WHERE username = 'admin'
+  AND is_deleted = 0
+  AND NOT EXISTS (
+    SELECT 1
+    FROM dbo.app_user AS other
+    WHERE other.username = 'system' AND other.is_deleted = 0
+  )
+  AND user_id = (
+    SELECT MIN(a.user_id)
+    FROM dbo.app_user AS a
+    WHERE a.username = 'admin' AND a.is_deleted = 0
   );
 GO
 

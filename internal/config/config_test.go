@@ -82,8 +82,33 @@ func TestExampleHasNoRealDSN(t *testing.T) {
 	if !strings.Contains(sql, "BHIS") || !strings.Contains(sql, seed.DemoPasswordHash) || !strings.Contains(sql, "'system'") {
 		t.Fatal("migration must target BHIS and embed the system demo bcrypt hash")
 	}
-	if strings.Contains(sql, "Admin@123") || strings.Contains(sql, "admin123") || strings.Contains(sql, "'admin'") {
-		t.Fatal("sql seed must not contain the legacy demo username or plaintext password")
+	if !strings.Contains(sql, "QUOTED_IDENTIFIER ON") {
+		t.Fatal("migration must set QUOTED_IDENTIFIER ON")
+	}
+	if !strings.Contains(sql, "username = 'admin'") {
+		t.Fatal("migration must repair a leftover active username admin")
+	}
+	if strings.Contains(sql, "Admin@123") || strings.Contains(sql, "admin123") {
+		t.Fatal("sql seed must not contain a plaintext password")
+	}
+}
+
+func TestApplyMigrationScriptUsesQuotedIdentifier(t *testing.T) {
+	root := repoRoot(t)
+	scriptb, err := os.ReadFile(filepath.Join(root, "scripts", "apply-migration.ps1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := string(scriptb)
+	for _, need := range []string{"-I", "-f 65001", "-d master", "SQLCMDPASSWORD", "001_identity.up.sql"} {
+		if !strings.Contains(script, need) {
+			t.Fatalf("apply-migration.ps1 missing %s", need)
+		}
+	}
+	for _, bad := range []string{"Admin@123", "admin123", "8888", "192.168.", "-P "} {
+		if strings.Contains(script, bad) {
+			t.Fatalf("apply-migration.ps1 contains %s", bad)
+		}
 	}
 }
 
