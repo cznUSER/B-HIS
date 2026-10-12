@@ -3,9 +3,10 @@ package domain
 import "time"
 
 const (
-	ActionLoginSuccess = "LOGIN_SUCCESS"
-	ActionLoginFailure = "LOGIN_FAILURE"
-	ActionLogout       = "LOGOUT"
+	ActionLoginSuccess  = "LOGIN_SUCCESS"
+	ActionLoginFailure  = "LOGIN_FAILURE"
+	ActionLogout        = "LOGOUT"
+	ActionPatientCreate = "patient.create"
 
 	OutcomeSuccess = "SUCCESS"
 	OutcomeFail    = "FAIL"
