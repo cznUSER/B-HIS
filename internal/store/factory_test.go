@@ -8,7 +8,7 @@ import (
 )
 
 func TestOpenMemory(t *testing.T) {
-	users, _, _, closer, err := Open(config.Config{Database: config.DatabaseConfig{Driver: "memory"}})
+	users, _, _, patients, closer, err := Open(config.Config{Database: config.DatabaseConfig{Driver: "memory"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -17,10 +17,13 @@ func TestOpenMemory(t *testing.T) {
 	if err != nil || u.Username != "system" || u.DisplayName != seed.DemoDisplayName {
 		t.Fatalf("%v %+v", err, u)
 	}
+	if patients == nil {
+		t.Fatal("nil patient store")
+	}
 }
 
 func TestOpenSQLServerRequiresDSN(t *testing.T) {
-	_, _, _, _, err := Open(config.Config{Database: config.DatabaseConfig{Driver: "sqlserver"}})
+	_, _, _, _, _, err := Open(config.Config{Database: config.DatabaseConfig{Driver: "sqlserver"}})
 	if err == nil {
 		t.Fatal("expected error")
 	}

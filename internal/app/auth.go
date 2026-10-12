@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cznUSER/B-HIS/internal/auth"
@@ -66,6 +67,12 @@ type Service struct {
 	Log         *logging.Logger
 	TTL         time.Duration
 	Now         func() time.Time
+	Patients    port.PatientStore
+
+	// idemMu guards process-local Idempotency-Key hits for patient create.
+	// 002_patient has no idempotency table; keys are not persisted.
+	idemMu sync.Mutex
+	idem   map[string]idemHit
 }
 
 func (s *Service) now() time.Time {

@@ -2,9 +2,9 @@
 
 医院信息系统（H Phase1）。Go 登录 API 在仓库根目录；Vue 登录界面在 `web/`。
 
-门诊一期当前实现 **登录鉴权**（H03 契约 v0.3.2）和 `GET /health`。OpenAPI 里的门诊路径是契约草案，进程不注册这些路由。
+门诊一期当前实现 **登录鉴权**、**患者建档**（`POST/GET /api/v1/patients`，OpenAPI 0.3.5-draft）和 `GET /health`。挂号及之后的门诊路径仍是契约草案，进程不注册这些路由。
 
-H03 `0.3.0-draft` 没有 Auth。`api/openapi.yaml` 已换成 **0.3.2-draft**（含 `POST /auth/login`、`POST /auth/logout`、`GET /auth/me`）。成功体按 OpenAPI：`LoginResponse` / `UserDto`，不包 `success/data`。失败体按《接口契约》§1.2：`success: false`、`data: null`、`error.code`、`requestId`。
+H03 `0.3.0-draft` 没有 Auth。`api/openapi.yaml` 现为 **0.3.5-draft**（Auth 路径保持不变，另含患者建档）。成功体按 OpenAPI：`LoginResponse` / `UserDto` / `PatientDto`，不包 `success/data`。失败体按《接口契约》§1.2：`success: false`、`data: null`、`error.code`、`requestId`。
 
 ## Web 登录界面
 
@@ -179,13 +179,36 @@ curl -sS -D - http://127.0.0.1:8080/api/v1/auth/me
 
 JWT：HS256。声明 `sub`（userId）、`username`、`roles`、`iat`、`exp`、`jti`。请求头 `Authorization: Bearer <accessToken>`。
 
+## 患者建档
+
+需 Bearer。建档角色为 **SYSTEM / REGISTRAR / DOCTOR / CASHIER**（权限 `patient:create`，SYSTEM 走 `admin:*`）。查询和详情对所有已登录且未停用的角色开放，含 PHARMACIST。角色以用户表为准，与 `GET /auth/me` 相同，不只看 JWT 里的快照。
+
+必填：`name`、`sex`（`M`/`F`/`U`）、`birthday`、`fareIdentity`。`address` 可空（缺省、`""`、`null` 均可）。`idNumber`、`cardNo`、`phone`、`idType` 选填。
+
+生日是纯日期，按 **Asia/Shanghai** 的当天比较：必须 `> 1900-01-01` 且 `≤` 当天。非法为 `400 VALIDATION_ERROR`。库表 CHECK 只保证 `> 1900-01-01`（见已提交的 `002_patient`）；「不能晚于今天」由应用校验。
+
+证件号、卡号非空才查重，冲突 **拒绝且不合并**。`idNumber` 按号码本身唯一（不按 `idType` 组合），`409 DUPLICATE_ID_NUMBER`。`cardNo` 冲突为 `409 DUPLICATE_CARD_NO`。空 `idNumber` 可以多次建档。未发卡 `cardStatus=NOT_SENT`；带了 `cardNo` 则为 `NORMAL`。`status` 默认 `ACTIVE`。`hospPkNo` / `patientNo` 由服务生成（`H`/`P` + 上海日期 + 随机后缀）。
+
+查询参数 `cardNo`、`idNumber`、`hospPkNo` 为精确匹配；`name`、`address` 为包含匹配。不带任何条件时返回 `{"items":[]}`。未知 `patientId` 为 `404 NOT_FOUND`。
+
+`Idempotency-Key` 可选。同一进程内相同键且请求体一致则返回第一次的 `201`；同键不同体为 `409 IDEMPOTENCY_KEY_CONFLICT`。官方 `002_patient` 没有幂等表，键不落库。
+
+成功建档写审计 `patient.create`，`resource_type=Patient`。
+
+```bash
+curl -sS -D - http://127.0.0.1:8080/api/v1/patients \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"张三","sex":"M","birthday":"1990-01-15","fareIdentity":"SELF"}'
+```
+
 ## SQL Server（本机 Windows，可选）
 
 CI 和这台云端构建保持 **memory**。要在 Windows 开发机连 SQL Server 时：
 
 1. 不要把主机、账号、口令写进 Git、拍板文档或 `config.example.yaml`。
 2. 在 `E:\B-HIS` 自建 gitignore 文件 `.env.local` 或 `config.local.yaml`。
-3. 库名 **BHIS**。先执行 `migrations/sqlserver/core/001_identity.up.sql`（见 `migrations/README.md`）。Windows 优先用 `scripts/apply-migration.ps1`（已带 `sqlcmd -I`）。`sqlcmd` 的口令用环境变量 `SQLCMDPASSWORD`，不要写进脚本。
+3. 库名 **BHIS**。先执行 `migrations/sqlserver/core/001_identity.up.sql`，再执行 `002_patient.up.sql`（见 `migrations/README.md`）。Windows 身份脚本优先用 `scripts/apply-migration.ps1`（已带 `sqlcmd -I`）。患者表用同样的 `sqlcmd -I`，不要改官方 DDL。`sqlcmd` 的口令用环境变量 `SQLCMDPASSWORD`，不要写进脚本。
 4. 启动前设置：
 
 ```text
@@ -201,7 +224,7 @@ BHIS_DB_DSN=sqlserver://<user>:<password>@<host>:1433?database=BHIS&encrypt=disa
 
 JSON Lines：`./logs/h-api-YYYYMMDD.log`（日期按 Asia/Shanghai）。字段含 `timestamp`、`level`、`request_id`、`actor_id`、`action`、`outcome`、`error_code`、`duration_ms`。
 
-登录审计动作：`LOGIN_SUCCESS`、`LOGIN_FAILURE`、`LOGOUT`。不明文记密码，不记 DSN。
+登录审计动作：`LOGIN_SUCCESS`、`LOGIN_FAILURE`、`LOGOUT`。建档审计动作：`patient.create`（`resource_type=Patient`）。不明文记密码、证件号或 DSN。
 
 `logs/` 不进 Git。
 

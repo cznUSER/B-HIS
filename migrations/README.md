@@ -13,9 +13,12 @@ Phase1 只维护 SQL Server 脚本。目标库名 **BHIS**。
 
 `app_user.username` 上的过滤唯一索引要求 `QUOTED_IDENTIFIER ON`。Windows 优先走 `scripts/apply-migration.ps1`（已带 `sqlcmd -I`，口令只读 `SQLCMDPASSWORD`）。手写 `sqlcmd` 也必须带 `-I`，否则对该索引的 `INSERT` / `UPDATE` 会失败。
 
+`002_patient` 里的过滤唯一索引同样依赖 `QUOTED_IDENTIFIER ON`。脚本内已 `SET QUOTED_IDENTIFIER ON`；调用 `sqlcmd` 时仍要带 `-I`，与身份迁移一致。不要改这份已提交的 DDL。
+
 ```text
 powershell -ExecutionPolicy Bypass -File scripts/apply-migration.ps1 -Server <host> -User <user>
 sqlcmd -S <host> -U <user> -I -f 65001 -d master -i migrations/sqlserver/core/001_identity.up.sql
+sqlcmd -S <host> -U <user> -I -f 65001 -d master -i migrations/sqlserver/core/002_patient.up.sql
 ```
 
 API 默认 `Database.Driver=memory`，不连 SQL Server。切到 `sqlserver` 时，DSN 放在环境变量 `BHIS_DB_DSN` 或 gitignore 的 `config.local.yaml` / `.env.local`。
