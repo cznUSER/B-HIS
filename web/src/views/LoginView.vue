@@ -5,6 +5,7 @@
 // 2026-10-12 真实 API 页显示本机演示账号
 // 2026-10-12 演示账号 system / 1；员工默认密码为 1
 // 2026-10-12 P1-H05-HOME 登录成功进入门诊工作台
+// 2026-10-12 P1-H05-HOME-DASH 登录成功进入首页看板
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { login } from '../api/authApi.js'
@@ -32,7 +33,7 @@ async function onSubmit() {
     const result = await login(username.value.trim(), password.value)
     applyLogin(result)
     password.value = ''
-    await router.replace({ name: 'workbench' })
+    await router.replace({ name: 'home' })
   } catch (error) {
     if (error instanceof ApiError) {
       errorMessage.value = error.message

@@ -18,6 +18,8 @@ const mod = computed(() => {
 <template>
   <section v-if="mod" class="module-page" :aria-labelledby="`module-${mod.key}`">
     <p class="crumb">
+      <RouterLink :to="{ name: 'home' }">首页</RouterLink>
+      <span aria-hidden="true"> / </span>
       <RouterLink :to="{ name: 'workbench' }">门诊业务</RouterLink>
       <span aria-hidden="true"> / </span>
       <span>{{ mod.name }}</span>
@@ -36,7 +38,7 @@ const mod = computed(() => {
         <p class="empty-lead">无权限</p>
         <p class="muted">当前账号不能进入此模块。</p>
       </template>
-      <RouterLink class="button button-ghost empty-back" :to="{ name: 'workbench' }">返回工作台</RouterLink>
+      <RouterLink class="button button-ghost empty-back" :to="{ name: 'home' }">返回首页</RouterLink>
     </div>
   </section>
 </template>

@@ -1,5 +1,6 @@
 <script setup>
 // 2026-10-12 P1-H05-HOME 门诊一期工作台
+// 2026-10-12 P1-H05-HOME-DASH 六卡改为 /app/outpatient 总览，不再是登录默认页
 import { computed, ref } from 'vue'
 import { session } from '../auth/session.js'
 import ModuleIcon from '../components/ModuleIcon.vue'
@@ -30,6 +31,11 @@ function dismissTip() {
 
 <template>
   <section class="workbench" aria-labelledby="outpatient-title">
+    <p class="crumb">
+      <RouterLink :to="{ name: 'home' }">首页</RouterLink>
+      <span aria-hidden="true"> / </span>
+      <span>门诊业务</span>
+    </p>
     <div v-if="tipVisible" class="tip" role="note">
       <p>收费前须有挂号/就诊 · 支付演示现金 · 已发药先退药再退费</p>
       <button class="tip-close" type="button" aria-label="关闭提示" @click="dismissTip">×</button>
