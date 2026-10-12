@@ -1,19 +1,19 @@
 openapi: 3.0.3
 info:
   title: H Phase1 Outpatient Loop API
-  version: 0.3.9-draft
+  version: 0.3.10-draft
   description: |
-    P1-H03-DISPENSE 契约定稿草案 v0.3.9（发药/退药 + 简易库存；对齐拍板#2/#13/#23 + H02《发药字段清单》+ H09《发药简易库存口径》）。
-    挂号六态、开单四态、Square Abate+新单、CanBack、卡状态已对齐。
+    P1-H03-MASTER 契约定稿草案 v0.3.10（基础数据维护；对齐拍板#24 + H02《基础数据字段清单》+ H09《基础数据-药品目录与库存口径》）。
+    挂号六态、开单四态、发药/退药、Square Abate+新单、CanBack、卡状态已对齐。
     实现基线：Go API（可桌面 Host 托管）+ SQL Server；Store 可切换。
-    库存方案 A（真实扣减）；**收费只拦不预扣**；**发药事务扣减**、退药回加；Inventory 查询启用。
+    库存方案 A（真实扣减）；**收费只拦不预扣**；发药 DISPENSE / 退药 RETURN / 维护 ADJUST 共写同一 qty_on_hand（≥0）。
     Auth：JWT HS256 access token（默认 TTL 8h）；login/logout/me 供 H04+H05 登录页落地。
-    拍板#23：仅已收费 DRUG 可发；部分发；行态 NONE|PARTIAL|FULL；退药≤已发未退；退药后才能退费；
-    毒麻不拦；无批次/采购/换算。数量公式：availableQty=chargedQty−dispensedQty（净发=已发−已退）。
-    v0.3.9/P1-H03-DISPENSE：POST /dispenses、POST /dispenses/{id}/return、GET /dispenses、GET /inventory/items；
-    迁移 006_inventory（+ seed DRUG-A/B）+ 007_dispense；错误码收口 H02 UI 建议码。
-    v0.3.8/P1-H03-CHARGE：charge-preview、POST /charges、pay、refund、GET /charges；005_charge；拍板#22。
-    v0.3.7/P1-H03-ORDER：004_order；拍板#21。v0.3.6 挂号；v0.3.5 患者。
+    拍板#24：科室/医生/目录/库存总量调整/轻量字典/轻量用户；种子 dept-1/2、doc-1/2、DRUG-A/B、TREAT-1 可维护。
+    H09：仅 DRUG 有 inventory_item；新建 DRUG 须建库存行（qty 可 0）；TREAT 不入；期初/盘盈盘亏均 biz_type=ADJUST（不新造 INIT）；ledger 只追加。
+    v0.3.10/P1-H03-MASTER：departments/doctors/catalog-items/inventory adjust/dicts/users；迁移 008_master；
+    错误码 DEPT_CODE_DUPLICATE、DOCTOR_*、ITEM_NO_DUPLICATE、ADJUST_RESULT_NEGATIVE、USERNAME_DUPLICATE 等；
+    权限 inventory:adjust + admin:*；审计 inventory.adjust；contractVersion≡info.version（见 GET /health）。
+    v0.3.9/P1-H03-DISPENSE：dispenses + inventory GET；006+007。v0.3.8 CHARGE；v0.3.7 ORDER；v0.3.6 挂号；v0.3.5 患者。
     旧 /encounters* 保留为 deprecated alias；POST /orders/{id}/dispense 为发药便捷别名。
 servers:
   - url: /api/v1
@@ -45,8 +45,32 @@ tags:
   - name: Diagnoses
   - name: Inventory
     description: |
-      方案 A 简易数量账（inventory_item / inventory_ledger）。GET /inventory/items。
-      item_no 对齐 catalog DRUG-A/B（≡ skuCode）；TREAT 不入库存。迁移 006_inventory。
+      方案 A 简易数量账（inventory_item / inventory_ledger）。GET /inventory/items；POST …/adjust（#24f）。
+      item_no 对齐 catalog DRUG-A/B（≡ skuCode）；仅 DRUG；TREAT 不入库存。
+      DISPENSE/RETURN/ADJUST 共写 qty_on_hand；迁移 006_inventory；维护面见 008_master。
+  - name: Health
+    description: 健康检查；contractVersion 对齐 info.version（0.3.10-draft）。
+  - name: Departments
+    description: |
+      科室主数据维护（#24c）。CRUD + 启停；deptCode 过滤唯一；停用后不可新挂挂号/开单（DEPARTMENT_INACTIVE）。
+      种子 dept-1/dept-2 可改。权限：SYSTEM / admin:*。
+  - name: Doctors
+    description: |
+      医生主数据维护（#24d）。CRUD + 启停；归属科室；列表可 filter departmentId。
+      种子 doc-1/doc-2 可改。权限：SYSTEM / admin:*。
+  - name: Catalog
+    description: |
+      收费/药品目录（#24e / H09）。DRUG+TREAT；itemNo 唯一；改价仅影响之后开单。
+      新建 DRUG 须同事务或紧随建 inventory_item（qty=0）；TREAT 不建库存。
+      毒麻钩子 controlledFlag/isControlled 默认 false（隐藏）。种子 DRUG-A/B、TREAT-1 可改。
+  - name: Dicts
+    description: |
+      轻量字典（#24g）。GET /dicts 汇总只读枚举 + 可维护码表；号别 register_sort 可维护。
+      性别/证件/支付方式等只读枚举与现契约对齐；不做大字典引擎。
+  - name: Users
+    description: |
+      轻量用户维护（#24h）。列表/新建/启停/可选重置演示口令；角色勾选预置 Role。
+      完整 RBAC 矩阵延后 #24b。演示口令策略 per #15/#16（demo default passphrase）；OpenAPI 示例禁止明文生产秘密。
 security:
   - bearerAuth: []
 paths:
@@ -1042,13 +1066,306 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '409':
           $ref: '#/components/responses/Conflict'
+  /health:
+    get:
+      tags: [Health]
+      summary: 健康检查（contractVersion 对齐 tip）
+      operationId: getHealth
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthDto'
+  /departments:
+    get:
+      tags: [Departments]
+      summary: 科室列表（可按 status 过滤）
+      operationId: listDepartments
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [ACTIVE, INACTIVE] }
+        - name: q
+          in: query
+          description: 代码/名称模糊
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DepartmentDto'
+    post:
+      tags: [Departments]
+      summary: 新建科室
+      description: |
+        deptCode 过滤唯一；冲突 → 409 DEPT_CODE_DUPLICATE。
+        权限：SYSTEM / admin:*。审计 action department.create。
+      operationId: createDepartment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDepartmentRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DepartmentDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /departments/{departmentId}:
+    get:
+      tags: [Departments]
+      summary: 科室详情
+      operationId: getDepartment
+      parameters:
+        - $ref: '#/components/parameters/DepartmentId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DepartmentDto'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Departments]
+      summary: 更新科室（含启停）
+      description: |
+        可改 deptName/sortNo/status；改 deptCode 仍须唯一。
+        停用后业务新选 → DEPARTMENT_INACTIVE（挂号/开单已有交叉引用）。
+        审计 department.update / department.deactivate。种子 dept-1/2 可改（#24i）。
+      operationId: patchDepartment
+      parameters:
+        - $ref: '#/components/parameters/DepartmentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchDepartmentRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DepartmentDto'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /doctors:
+    get:
+      tags: [Doctors]
+      summary: 医生列表（可按 departmentId/status 过滤）
+      operationId: listDoctors
+      parameters:
+        - name: departmentId
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string, enum: [ACTIVE, INACTIVE] }
+        - name: q
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DoctorDto'
+    post:
+      tags: [Doctors]
+      summary: 新建医生
+      description: |
+        doctorCode 唯一；departmentId 须存在否则 DEPARTMENT_NOT_FOUND。
+        冲突 → DOCTOR_CODE_DUPLICATE。权限 SYSTEM / admin:*。审计 doctor.create。
+      operationId: createDoctor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDoctorRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorDto'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /doctors/{doctorId}:
+    get:
+      tags: [Doctors]
+      summary: 医生详情
+      operationId: getDoctor
+      parameters:
+        - $ref: '#/components/parameters/DoctorId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorDto'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Doctors]
+      summary: 更新医生（含启停/改科）
+      description: |
+        停用后不可新选 → DOCTOR_INACTIVE。审计 doctor.update。种子 doc-1/2 可改。
+      operationId: patchDoctor
+      parameters:
+        - $ref: '#/components/parameters/DoctorId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchDoctorRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorDto'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /catalog-items:
+    get:
+      tags: [Catalog]
+      summary: 目录列表（可按 itemType/status 过滤）
+      operationId: listCatalogItems
+      parameters:
+        - name: itemType
+          in: query
+          schema: { type: string, enum: [DRUG, TREAT] }
+        - name: status
+          in: query
+          schema: { type: string, enum: [ACTIVE, INACTIVE] }
+        - name: q
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CatalogItemDto'
+    post:
+      tags: [Catalog]
+      summary: 新建目录项
+      description: |
+        itemNo 过滤唯一 → ITEM_NO_DUPLICATE；price≥0 否则 INVALID_PRICE。
+        **新建 DRUG**：契约要求同事务或紧随创建 inventory_item（qtyOnHand=0），再经 ADJUST 期初。
+        **新建 TREAT**：**不**建库存行（H09）。
+        controlledFlag/isControlled 默认 false（隐藏钩子）。审计 catalog.create。
+      operationId: createCatalogItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCatalogItemRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogItemDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /catalog-items/{catalogItemId}:
+    get:
+      tags: [Catalog]
+      summary: 目录详情
+      operationId: getCatalogItem
+      parameters:
+        - $ref: '#/components/parameters/CatalogItemId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogItemDto'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Catalog]
+      summary: 更新目录（含启停/改价）
+      description: |
+        改价**仅影响之后开单**；已开/已收快照不变。停用 → 开单不可新选（CATALOG_INACTIVE）。
+        种子 DRUG-A/B、TREAT-1 可改（#24i）。审计 catalog.update。
+      operationId: patchCatalogItem
+      parameters:
+        - $ref: '#/components/parameters/CatalogItemId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchCatalogItemRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogItemDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
   /inventory/items:
     get:
       tags: [Inventory]
-      summary: 库存查询（方案A；item_no≡skuCode 对齐 DRUG-A/B）
+      summary: 库存列表/查询（方案A；仅 DRUG）
       description: |
-        方案 A 已拍板。返回 qtyOnHand / units / status。TREAT 不在表内。
-        发药/收费前可用于 stockHint；StatusOnly 实验降级可 501（非默认）。
+        方案 A 已拍板。返回 qtyOnHand / units / status / rowVersion（乐观锁基线，base64 或十进制字符串均可，实现自定）。
+        过滤：skuCode/itemNo、status。TREAT 不在表内。
+        发药/收费前可用于 stockHint；维护页列表同源。StatusOnly 实验降级可 501（非默认）。
       operationId: listInventory
       parameters:
         - name: skuCode
@@ -1059,6 +1376,9 @@ paths:
           in: query
           description: ≡ skuCode
           schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string, enum: [ACTIVE, INACTIVE] }
       responses:
         '200':
           description: OK
@@ -1073,6 +1393,216 @@ paths:
                       $ref: '#/components/schemas/InventoryItemDto'
         '501':
           description: StatusOnly mode（非 Phase1 默认）
+  /inventory/items/{skuId}/adjust:
+    post:
+      tags: [Inventory]
+      summary: 库存总量调整（期初/盘盈/盘亏 · #24f / H09）
+      description: |
+        同事务：更新 inventory_item.qty_on_hand + 追加 inventory_ledger（biz_type=**ADJUST**）。
+        qtyDelta 可正可负；结果须 ≥0，否则 409 ADJUST_RESULT_NEGATIVE。
+        期初/盘盈/盘亏**均**走 ADJUST + remark 区分；**不新造 INIT**（H09）。
+        与发药 DISPENSE / 退药 RETURN 共写同一 qty_on_hand；ledger 只追加。
+        可选乐观锁 rowVersion（若请求携带且冲突 → 409 CONFLICT / 条件更新失败）。
+        TREAT 或无库存 SKU → 409 NOT_DRUG_SKU。
+        权限：`inventory:adjust` 或 `admin:*`。审计 action **`inventory.adjust`**（#24f / H09 强制补列）。
+        不足/负库存勿绕过；业务发药侧不足仍用 INSUFFICIENT_STOCK（本接口不发该码作成功路径）。
+      operationId: adjustInventory
+      parameters:
+        - $ref: '#/components/parameters/SkuId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdjustInventoryRequest'
+      responses:
+        '200':
+          description: OK（返回更新后库存行）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryItemDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /dicts:
+    get:
+      tags: [Dicts]
+      summary: 字典总览（只读枚举汇总 + 可维护码表类型）
+      description: |
+        返回系统只读枚举（性别/证件类型/支付方式等，与现契约对齐）+ 可维护 dictType 列表（本期 register_sort）。
+        权限：已登录可读；维护写操作需 SYSTEM / admin:*。
+      operationId: listDicts
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DictOverviewDto'
+  /dicts/{dictType}/items:
+    get:
+      tags: [Dicts]
+      summary: 某类型码表项列表
+      operationId: listDictItems
+      parameters:
+        - $ref: '#/components/parameters/DictType'
+        - name: status
+          in: query
+          schema: { type: string, enum: [ACTIVE, INACTIVE] }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DictItemDto'
+    post:
+      tags: [Dicts]
+      summary: 新建可维护码表项（如号别）
+      description: |
+        本期可维护至少 register_sort（种子 sort-normal）。只读枚举类型拒绝写入。
+        审计 dict.create。权限 SYSTEM / admin:*。
+      operationId: createDictItem
+      parameters:
+        - $ref: '#/components/parameters/DictType'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDictItemRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DictItemDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /dicts/{dictType}/items/{dictItemId}:
+    patch:
+      tags: [Dicts]
+      summary: 更新码表项（含启停）
+      operationId: patchDictItem
+      parameters:
+        - $ref: '#/components/parameters/DictType'
+        - $ref: '#/components/parameters/DictItemId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchDictItemRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DictItemDto'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /users:
+    get:
+      tags: [Users]
+      summary: 用户列表（轻量）
+      operationId: listUsers
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [ACTIVE, DISABLED, INACTIVE] }
+        - name: q
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserAdminDto'
+    post:
+      tags: [Users]
+      summary: 新建用户（演示默认口令策略）
+      description: |
+        username/loginName 唯一 → USERNAME_DUPLICATE。
+        新建默认演示口令策略「demo default passphrase per #15/#16」（契约写策略；**禁止**在 SQL/OpenAPI 示例写入可利用的明文生产秘密）。
+        角色仅预置 registrar/doctor/cashier/pharmacist/SYSTEM；完整 RBAC 延后 #24b。
+        权限 SYSTEM / admin:*。审计 user.create。
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserAdminDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /users/{userId}:
+    patch:
+      tags: [Users]
+      summary: 更新用户（含启停/显示名/角色）
+      description: |
+        停用后登录 → ACCOUNT_DISABLED（已有）。审计 user.update / user.deactivate。
+      operationId: patchUser
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchUserRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserAdminDto'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /users/{userId}/reset-password:
+    post:
+      tags: [Users]
+      summary: 重置为演示默认口令策略（可选）
+      description: |
+        重置为 demo default passphrase per #15/#16（实现哈希入库）。
+        **响应与日志禁止回显明文口令**。审计 user.reset_password。权限 SYSTEM / admin:*。
+      operationId: resetUserPassword
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '204':
+          description: No Content
+        '404':
+          $ref: '#/components/responses/NotFound'
 components:
   securitySchemes:
     bearerAuth:
@@ -1121,6 +1651,43 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    DepartmentId:
+      name: departmentId
+      in: path
+      required: true
+      schema: { type: string }
+    DoctorId:
+      name: doctorId
+      in: path
+      required: true
+      schema: { type: string }
+    CatalogItemId:
+      name: catalogItemId
+      in: path
+      required: true
+      schema: { type: string }
+    SkuId:
+      name: skuId
+      in: path
+      required: true
+      description: inventory_item.sku_id
+      schema: { type: string }
+    DictType:
+      name: dictType
+      in: path
+      required: true
+      description: 如 register_sort
+      schema: { type: string }
+    DictItemId:
+      name: dictItemId
+      in: path
+      required: true
+      schema: { type: string }
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema: { type: string }
   responses:
     NotFound:
       description: Not found
@@ -1149,7 +1716,10 @@ components:
         REFUND_EXCEEDS_REFUNDABLE, CHARGE_AMOUNT_MISMATCH,
         NOT_CHARGED, ALREADY_ABATED, ALREADY_DISPENSED（≡H02 ALREADY_FULLY_DISPENSED）,
         DISPENSE_EXCEEDS_AVAILABLE, EMPTY_DISPENSE_ITEMS, NOT_DISPENSED,
-        RETURN_EXCEEDS_DISPENSE, RETURN_REASON_REQUIRED
+        RETURN_EXCEEDS_DISPENSE, RETURN_REASON_REQUIRED,
+        DEPT_CODE_DUPLICATE, DEPARTMENT_INACTIVE, DOCTOR_CODE_DUPLICATE, DOCTOR_INACTIVE,
+        ITEM_NO_DUPLICATE, CATALOG_INACTIVE, INVALID_PRICE,
+        ADJUST_RESULT_NEGATIVE, NOT_DRUG_SKU, USERNAME_DUPLICATE
       content:
         application/json:
           schema:
@@ -1684,6 +2254,223 @@ components:
         skuCode: { type: string, description: ≡ item_no（如 DRUG-A） }
         itemNo: { type: string, description: ≡ skuCode }
         name: { type: string }
-        qtyOnHand: { type: number }
+        itemName: { type: string, description: ≡ name；冗余展示 }
+        qtyOnHand: { type: number, description: 权威可用量；≥0 }
         units: { type: string }
         status: { type: string, enum: [ACTIVE, INACTIVE] }
+        rowVersion:
+          type: string
+          description: 乐观锁令牌（实现可将 rowversion 编为 base64/十进制字符串）
+        updatedAt: { type: string, format: date-time }
+    AdjustInventoryRequest:
+      type: object
+      required: [qtyDelta, remark]
+      description: |
+        qtyDelta 可负；结果 qtyOnHand+qtyDelta ≥0。remark 建议必填（期初/盘点/纠错）。
+        biz_type 固定 ADJUST（不新造 INIT）。
+      properties:
+        qtyDelta: { type: number, description: 可正可负 }
+        remark: { type: string, minLength: 1, description: 调整原因建议必填 }
+        rowVersion:
+          type: string
+          description: 可选；携带则做乐观锁校验
+    HealthDto:
+      type: object
+      required: [status, contractVersion]
+      properties:
+        status: { type: string, enum: [UP], example: UP }
+        contractVersion:
+          type: string
+          description: 对齐 info.version
+          example: 0.3.10-draft
+        implementedVersion:
+          type: string
+          description: 实现仓版本（可选；由 H04 填）
+    DepartmentDto:
+      type: object
+      required: [departmentId, deptCode, deptName, status]
+      properties:
+        departmentId: { type: string }
+        deptCode: { type: string }
+        deptName: { type: string }
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+        sortNo: { type: integer, description: 可选排序；默认 0 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CreateDepartmentRequest:
+      type: object
+      required: [deptCode, deptName]
+      properties:
+        deptCode: { type: string, minLength: 1 }
+        deptName: { type: string, minLength: 1 }
+        status: { type: string, enum: [ACTIVE, INACTIVE], default: ACTIVE }
+        sortNo: { type: integer, default: 0 }
+    PatchDepartmentRequest:
+      type: object
+      properties:
+        deptCode: { type: string }
+        deptName: { type: string }
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+        sortNo: { type: integer }
+    DoctorDto:
+      type: object
+      required: [doctorId, doctorCode, doctorName, departmentId, status]
+      properties:
+        doctorId: { type: string }
+        doctorCode: { type: string }
+        doctorName: { type: string }
+        departmentId: { type: string }
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CreateDoctorRequest:
+      type: object
+      required: [doctorCode, doctorName, departmentId]
+      properties:
+        doctorCode: { type: string, minLength: 1 }
+        doctorName: { type: string, minLength: 1 }
+        departmentId: { type: string }
+        status: { type: string, enum: [ACTIVE, INACTIVE], default: ACTIVE }
+    PatchDoctorRequest:
+      type: object
+      properties:
+        doctorCode: { type: string }
+        doctorName: { type: string }
+        departmentId: { type: string }
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+    CatalogItemDto:
+      type: object
+      required: [catalogItemId, itemNo, itemName, itemType, units, price, status]
+      properties:
+        catalogItemId: { type: string }
+        itemNo: { type: string }
+        itemName: { type: string }
+        itemType: { type: string, enum: [DRUG, TREAT] }
+        spec: { type: string, nullable: true }
+        units: { type: string }
+        price: { type: number, description: ≥0；开单快照用 }
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+        controlledFlag:
+          type: boolean
+          description: 毒麻钩子（≡ isControlled）；默认 false；本版隐藏/不拦
+          default: false
+        isControlled:
+          type: boolean
+          description: ≡ controlledFlag
+          default: false
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CreateCatalogItemRequest:
+      type: object
+      required: [itemNo, itemName, itemType, units, price]
+      properties:
+        itemNo: { type: string, minLength: 1 }
+        itemName: { type: string, minLength: 1 }
+        itemType: { type: string, enum: [DRUG, TREAT] }
+        spec: { type: string, nullable: true }
+        units: { type: string, minLength: 1 }
+        price: { type: number, minimum: 0 }
+        status: { type: string, enum: [ACTIVE, INACTIVE], default: ACTIVE }
+        controlledFlag: { type: boolean, default: false }
+        isControlled: { type: boolean, default: false }
+    PatchCatalogItemRequest:
+      type: object
+      properties:
+        itemNo: { type: string }
+        itemName: { type: string }
+        spec: { type: string, nullable: true }
+        units: { type: string }
+        price: { type: number, minimum: 0 }
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+        controlledFlag: { type: boolean }
+        isControlled: { type: boolean }
+    DictOverviewDto:
+      type: object
+      properties:
+        readonlyEnums:
+          type: array
+          description: 只读系统枚举（与契约对齐；改枚举走发版）
+          items:
+            type: object
+            properties:
+              dictType: { type: string, example: sex }
+              values:
+                type: array
+                items: { type: string }
+                example: [M, F, U]
+        maintainableTypes:
+          type: array
+          description: 可维护码表类型
+          items:
+            type: object
+            properties:
+              dictType: { type: string, example: register_sort }
+              name: { type: string, example: 号别 }
+    DictItemDto:
+      type: object
+      required: [dictItemId, dictType, code, name, status]
+      properties:
+        dictItemId: { type: string }
+        dictType: { type: string }
+        code: { type: string }
+        name: { type: string }
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+        sortNo: { type: integer }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CreateDictItemRequest:
+      type: object
+      required: [code, name]
+      properties:
+        code: { type: string, minLength: 1 }
+        name: { type: string, minLength: 1 }
+        status: { type: string, enum: [ACTIVE, INACTIVE], default: ACTIVE }
+        sortNo: { type: integer, default: 0 }
+    PatchDictItemRequest:
+      type: object
+      properties:
+        name: { type: string }
+        status: { type: string, enum: [ACTIVE, INACTIVE] }
+        sortNo: { type: integer }
+    UserAdminDto:
+      type: object
+      required: [userId, username, displayName, status, roles]
+      description: 管理面用户 DTO；不含 password / passwordHash
+      properties:
+        userId: { type: string }
+        username: { type: string, description: ≡ loginName }
+        loginName: { type: string, description: ≡ username }
+        displayName: { type: string }
+        status:
+          type: string
+          enum: [ACTIVE, DISABLED, INACTIVE]
+          description: DISABLED/INACTIVE 均视为停用 → 登录 ACCOUNT_DISABLED
+        roles:
+          type: array
+          items: { type: string }
+          description: 预置 Role 代码（registrar/doctor/cashier/pharmacist/SYSTEM）
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CreateUserRequest:
+      type: object
+      required: [username, displayName]
+      description: |
+        新建采用演示默认口令策略（#15/#16）；勿在请求示例中写生产秘密。
+        可选显式 password 字段仅供实现期本地覆盖；契约不要求客户端传明文。
+      properties:
+        username: { type: string, minLength: 1 }
+        loginName: { type: string, description: ≡ username 别名 }
+        displayName: { type: string, minLength: 1 }
+        roles:
+          type: array
+          items: { type: string }
+          description: 预置角色；默认可空或 SYSTEM 外业务角色
+        status: { type: string, enum: [ACTIVE, DISABLED], default: ACTIVE }
+    PatchUserRequest:
+      type: object
+      properties:
+        displayName: { type: string }
+        status: { type: string, enum: [ACTIVE, DISABLED, INACTIVE] }
+        roles:
+          type: array
+          items: { type: string }
