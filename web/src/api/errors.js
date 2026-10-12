@@ -19,6 +19,8 @@ const MESSAGE_BY_CODE = {
   DOCTOR_NOT_FOUND: '医生不存在',
   REGISTER_NOT_CANCELLABLE: '当前号已使用或就诊中，不能退号',
   REGISTER_BACK_NOT_ALLOWED: '该号已退，不能再次退号',
+  // 2026-10-12 P1-H05b-REGISTER-CHECKIN-UI 报到非法状态，对齐契约示例文案。
+  ILLEGAL_STATE_TRANSITION: '当前状态不允许该操作',
 }
 
 const CODE_BY_STATUS = {

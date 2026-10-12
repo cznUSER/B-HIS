@@ -1,5 +1,6 @@
 // 2026-10-12 P1-H05-REGISTER-UI 挂号主数据与退号口径。
 // 2026-10-12 对齐 OpenAPI 0.3.6：科室键为 departmentId（dept-1 / dept-2）。
+// 2026-10-12 P1-H05b-REGISTER-CHECKIN-UI 报到：NORMAL 或 USED 可报到。
 // 号别固定占位普通号。无排班日历。
 
 export const DEPARTMENTS = [
@@ -59,6 +60,10 @@ export function statusLabel(status) {
 
 export function canCancel(status) {
   return status === 'NORMAL'
+}
+
+export function canCheckIn(status) {
+  return status === 'NORMAL' || status === 'USED'
 }
 
 export function cancelRejectMessage(status) {

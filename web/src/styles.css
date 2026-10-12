@@ -1935,6 +1935,11 @@ a.todo-card:hover {
   color: var(--ok);
 }
 
+.ticket-status[data-status='DIAGNOSING'] {
+  background: var(--teal-soft);
+  color: var(--teal);
+}
+
 .ticket-status[data-status='BACK'] {
   background: #eef1f3;
   color: #6d7c86;
@@ -1942,7 +1947,37 @@ a.todo-card:hover {
 
 .register-table td.ticket-actions {
   white-space: normal;
-  min-width: 12em;
+  min-width: 8.5em;
+}
+
+.ticket-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.ticket-actions .ticket-reject {
+  flex: 1 0 100%;
+  margin-top: 2px;
+}
+
+.checkin-demo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.register-page .checkin-demo input {
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0;
 }
 
 .ticket-actions .button {
