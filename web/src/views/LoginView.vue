@@ -1,6 +1,7 @@
 <script setup>
 // 2026-10-12 P1-H05 登录界面
 // 2026-10-12 P1-H05-LOGIN-POLISH 视觉打磨，不改 Auth 字段
+// 2026-10-12 P1-H05-LOGIN-BG 登录页全屏背景
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { login } from '../api/authApi.js'
@@ -44,7 +45,7 @@ async function onSubmit() {
 </script>
 
 <template>
-  <main class="page">
+  <main class="page login-page">
     <section class="card login-card">
       <aside class="brand-pane">
         <span class="mark" aria-hidden="true">

@@ -61,6 +61,15 @@ p {
     linear-gradient(180deg, #eef3f6 0%, #e3ebf0 100%);
 }
 
+/* 2026-10-12 P1-H05-LOGIN-BG 登录页全屏背景；首页仍用 .page */
+.login-page {
+  background-color: #d7eef2;
+  background-image: url('/bhis-login-bg.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
 .card {
   width: min(100%, 880px);
   background: var(--card);
@@ -68,6 +77,14 @@ p {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   overflow: hidden;
+}
+
+.login-page .card {
+  background: #ffffff;
+  border-color: rgba(255, 255, 255, 0.72);
+  box-shadow:
+    0 1px 2px rgba(16, 42, 56, 0.06),
+    0 24px 56px rgba(15, 55, 74, 0.22);
 }
 
 .login-card {
