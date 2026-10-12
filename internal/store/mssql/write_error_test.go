@@ -37,6 +37,11 @@ func TestClassifyWriteError(t *testing.T) {
 			want: port.ErrDuplicateBusinessNo,
 		},
 		{
+			name: "order no",
+			err:  mssql.Error{Number: 2601, Message: "Cannot insert duplicate key row in object 'dbo.order_sheet' with unique index 'ux_order_no'."},
+			want: port.ErrDuplicateBusinessNo,
+		},
+		{
 			name: "other",
 			err:  errors.New("connection reset"),
 			want: nil,
@@ -63,6 +68,15 @@ func TestDecimalCentsRoundTrip(t *testing.T) {
 		got, err := decimalToCents(centsToDecimal(cents))
 		if err != nil || got != cents {
 			t.Fatalf("%d -> %s -> %d %v", cents, centsToDecimal(cents), got, err)
+		}
+	}
+}
+
+func TestDecimalMilliRoundTrip(t *testing.T) {
+	for _, m := range []int64{0, 1, 1000, 2500, 2000} {
+		got, err := decimalToMilli(milliToDecimal(m))
+		if err != nil || got != m {
+			t.Fatalf("%d -> %s -> %d %v", m, milliToDecimal(m), got, err)
 		}
 	}
 }

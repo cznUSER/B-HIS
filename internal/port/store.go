@@ -25,6 +25,14 @@ var (
 	// ErrRegisterNotCheckIn is a check-in when status is not NORMAL or USED.
 	// 2026-10-12
 	ErrRegisterNotCheckIn = errors.New("register not check-in")
+	// ErrOrderNotEditable is a header/item change when status is not SAVE.
+	ErrOrderNotEditable = errors.New("order not editable")
+	// ErrOrderNotCommittable is a commit when status is not SAVE.
+	ErrOrderNotCommittable = errors.New("order not committable")
+	// ErrOrderChargedNotAbatable is an abate of a charged order.
+	ErrOrderChargedNotAbatable = errors.New("order charged not abatable")
+	// ErrIllegalStateTransition is a refused status change (PROC/ABATE abate, etc.).
+	ErrIllegalStateTransition = errors.New("illegal state transition")
 )
 
 // UserStore loads identity records. Phase1 default is SQL Server; memory is the local demo.
@@ -39,8 +47,8 @@ type RevocationStore interface {
 	IsRevoked(ctx context.Context, jti string) (bool, error)
 }
 
-// AuditStore appends identity events, patient.create, and register.create / register.check-in / register.cancel.
-// Implementations must not persist passwords.
+// AuditStore appends identity events, patient.create, register.create / register.check-in / register.cancel,
+// and order.create / order.commit / order.abate. Implementations must not persist passwords.
 type AuditStore interface {
 	Append(ctx context.Context, event domain.AuditEvent) error
 }
@@ -88,4 +96,32 @@ type RegisterStore interface {
 	CheckInRegister(ctx context.Context, registerID, operatorID string, at time.Time) (*domain.Register, error)
 	DepartmentExists(ctx context.Context, departmentID string) (bool, error)
 	DoctorExists(ctx context.Context, doctorID string) (bool, error)
+}
+
+// OrderQuery is an AND of the provided filters. Empty strings are ignored.
+// RegisterID, PatientID, OrderNo, and Status are exact.
+type OrderQuery struct {
+	RegisterID string
+	PatientID  string
+	OrderNo    string
+	Status     string
+	Limit      int
+}
+
+// OrderStore is the order sheet, its items, and the catalog lookup.
+// memory and sqlserver both implement it. 2026-10-12
+type OrderStore interface {
+	CreateOrder(ctx context.Context, o domain.Order) error
+	GetOrder(ctx context.Context, orderID string) (*domain.Order, error)
+	SearchOrders(ctx context.Context, q OrderQuery) ([]domain.Order, error)
+	// UpdateOrderDraft writes header fields. When replaceItems is true the item rows are replaced.
+	// Status must be SAVE; otherwise ErrOrderNotEditable.
+	UpdateOrderDraft(ctx context.Context, o domain.Order, replaceItems bool) (*domain.Order, error)
+	// CommitOrder persists SAVE→COMMIT, submittedAt, and the recomputed fees.
+	// Status must still be SAVE; otherwise ErrOrderNotCommittable.
+	CommitOrder(ctx context.Context, o domain.Order) (*domain.Order, error)
+	// AbateOrder moves SAVE/COMMIT with charged=false to ABATE.
+	// charged=true returns ErrOrderChargedNotAbatable. Other statuses return ErrIllegalStateTransition.
+	AbateOrder(ctx context.Context, orderID, operatorID string, at time.Time) (*domain.Order, error)
+	CatalogByItemNo(ctx context.Context, itemNo string) (*domain.CatalogItem, error)
 }

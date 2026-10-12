@@ -13,8 +13,9 @@ import (
 	"github.com/cznUSER/B-HIS/internal/logging"
 )
 
-// Handler serves Auth, Patients, and Registers, including check-in.
-// Complete, diagnoses, orders, and deprecated /encounters are not registered.
+// Handler serves Auth, Patients, Registers (including check-in), and Orders.
+// Complete, diagnoses, charges, and deprecated /encounters are not registered.
+// recipe-check, charge-preview, and dispense return 501. 2026-10-12
 type Handler struct {
 	svc        *app.Service
 	log        *logging.Logger
@@ -36,6 +37,16 @@ func New(svc *app.Service, log *logging.Logger, origins []string, driver string,
 	mux.HandleFunc("GET /api/v1/registers/{registerId}", h.getRegister)
 	mux.HandleFunc("POST /api/v1/registers/{registerId}/check-in", h.checkInRegister)
 	mux.HandleFunc("POST /api/v1/registers/{registerId}/cancel", h.cancelRegister)
+	mux.HandleFunc("POST /api/v1/orders", h.createOrder)
+	mux.HandleFunc("GET /api/v1/orders", h.searchOrders)
+	mux.HandleFunc("GET /api/v1/orders/{orderId}", h.getOrder)
+	mux.HandleFunc("PATCH /api/v1/orders/{orderId}", h.patchOrder)
+	mux.HandleFunc("POST /api/v1/orders/{orderId}/commit", h.commitOrder)
+	mux.HandleFunc("POST /api/v1/orders/{orderId}/submit", h.submitOrder)
+	mux.HandleFunc("POST /api/v1/orders/{orderId}/abate", h.abateOrder)
+	mux.HandleFunc("POST /api/v1/orders/{orderId}/recipe-check", h.orderNotImplemented)
+	mux.HandleFunc("GET /api/v1/orders/{orderId}/charge-preview", h.orderNotImplemented)
+	mux.HandleFunc("POST /api/v1/orders/{orderId}/dispense", h.orderNotImplemented)
 	mux.HandleFunc("GET /health", h.health)
 	return withRequestID(recoverPanic(log, accessLog(log, cors(origins, mux))))
 }
@@ -91,7 +102,7 @@ func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) health(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{
 		"status":  "ok",
-		"version": "0.3.6-draft",
+		"version": "0.3.7-draft",
 		"driver":  h.driver,
 	})
 }
