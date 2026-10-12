@@ -1,22 +1,36 @@
 openapi: 3.0.3
 info:
   title: H Phase1 Outpatient Loop API
-  version: 0.3.5-draft
+  version: 0.3.6-draft
   description: |
-    P1-H03-CORE 契约草案 v0.3.5（患者建档 address + 建档必填对齐 H02 清单）。
+    P1-H03-CORE 契约草案 v0.3.6（挂号 /registers + 科室/医生主数据；对齐 H02 挂号字段清单）。
     挂号六态、CureBill、Square Abate+新单、CanBack、卡状态已对齐。
     实现基线：Go API（可桌面 Host 托管）+ SQL Server；Store 可切换。
     库存方案 A（真实扣减）；Inventory 查询启用。
     Auth：JWT HS256 access token（默认 TTL 8h）；login/logout/me 供 H04+H05 登录页落地。
+    拍板#13：已发药须先退药（REFUND_REQUIRES_RETURN 强制）；收费须有效挂号（ENCOUNTER_REQUIRED）；
+    支付演示现金+电子字段预留不联调；毒麻精抗处方权 feature flag 默认 off。
+    v0.3.4/H08：Charge.encounterId 必填；refund 含 favourableAlloc；策略枚举 PROPORTIONAL|
+    DISCOUNT_ON_REMAIN|DISCOUNT_FIRST（H08 草稿待用户确认，非已拍板）；F=0 可硬断言 K-01～K-15；
+    错误码含 INVALID_AMOUNT；交叉引用 deliverables/h08/。
     v0.3.5/P1-H03-PATIENT：CreatePatientRequest.required=[name,sex,birthday,fareIdentity]；
-    address 选填可空；idNumber/cardNo 非空查重 → 409 DUPLICATE_*；拒绝不合并（拍板#20）；
-    迁移 sqlserver/core/002_patient；PK 实现侧 varchar(64)。Auth 路径保持不变。
+    address 选填可空；idNumber/cardNo 非空查重 → 409 DUPLICATE_*；拒绝不合并（拍板#20）。
+    v0.3.6/P1-H03-REGISTER：主路径 /registers（Encounter≡RegisterBill；encounterId≡registerId）；
+    CreateRegisterRequest.required=[patientId,departmentId,doctorId,visitDate]；registerSort 可选占位；
+    初始 status=NORMAL；退号仅 NORMAL→BACK，否则 409 REGISTER_NOT_CANCELLABLE；
+    迁移 sqlserver/core/003_register（+ seed dept-1/dept-2/doc-1/doc-2）；拍板#19。
+    旧 /encounters* 保留为 deprecated alias。订单/收费仍可用 encounterId 字段名（≡registerId）。
 servers:
   - url: /api/v1
 tags:
   - name: Auth
   - name: Patients
+  - name: Registers
+    description: |
+      挂号单（RegisterBill）。域内 Encounter ≡ RegisterBill；API 主路径 /registers。
+      订单/收费字段名可继续用 encounterId（语义 ≡ registerId）。
   - name: Encounters
+    description: Deprecated alias of Registers；请改用 /registers。
   - name: Orders
   - name: Charges
   - name: Dispenses
@@ -182,10 +196,147 @@ paths:
                 $ref: '#/components/schemas/PatientDto'
         '404':
           $ref: '#/components/responses/NotFound'
+  /registers:
+    post:
+      tags: [Registers]
+      summary: 挂号（初始 status=NORMAL；拍板#19 科室+医生）
+      description: |
+        必填 patientId + departmentId + doctorId + visitDate。
+        患者不存在 → 404 PATIENT_NOT_FOUND；科室/医生不存在 → 404 DEPARTMENT_NOT_FOUND / DOCTOR_NOT_FOUND。
+        registerSort 可选占位；registerFee 默认 0；registerCharged 默认 false。
+      operationId: createRegister
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRegisterRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterDto'
+        '404':
+          description: PATIENT_NOT_FOUND / DEPARTMENT_NOT_FOUND / DOCTOR_NOT_FOUND
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    get:
+      tags: [Registers]
+      summary: 挂号查询（按 patientId / registerNo）
+      operationId: searchRegisters
+      parameters:
+        - name: patientId
+          in: query
+          schema: { type: string }
+        - name: registerNo
+          in: query
+          schema: { type: string }
+        - name: visitDate
+          in: query
+          description: 可选就诊日过滤
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RegisterDto'
+  /registers/{registerId}:
+    get:
+      tags: [Registers]
+      summary: 挂号单详情
+      operationId: getRegister
+      parameters:
+        - $ref: '#/components/parameters/RegisterId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterDto'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /registers/{registerId}/check-in:
+    post:
+      tags: [Registers]
+      summary: 接诊 → DIAGNOSING（可延后实现）
+      operationId: checkInRegister
+      parameters:
+        - $ref: '#/components/parameters/RegisterId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /registers/{registerId}/complete:
+    post:
+      tags: [Registers]
+      summary: 就诊完成 → DIAGNOSED（可延后实现）
+      operationId: completeRegister
+      parameters:
+        - $ref: '#/components/parameters/RegisterId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /registers/{registerId}/cancel:
+    post:
+      tags: [Registers]
+      summary: 退号 → BACK（仅 NORMAL 可退；AC-03/AC-04）
+      description: |
+        默认仅 status=NORMAL → BACK；写 backOperatorId / backOperatedAt。
+        USED / DIAGNOSING / DIAGNOSED / PAUSED → 409 REGISTER_NOT_CANCELLABLE。
+        已 BACK → 409 REGISTER_BACK_NOT_ALLOWED（或 REGISTER_NOT_CANCELLABLE）。
+        一期不允许退已用号（无开关 UI）。
+      operationId: cancelRegister
+      parameters:
+        - $ref: '#/components/parameters/RegisterId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterDto'
+        '409':
+          description: REGISTER_NOT_CANCELLABLE / REGISTER_BACK_NOT_ALLOWED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
   /encounters:
     post:
       tags: [Encounters]
-      summary: 挂号（初始 status=NORMAL）
+      deprecated: true
+      summary: "[deprecated] 请改用 POST /registers"
+      description: |
+        Deprecated alias。请求/响应 schema 与 /registers 相同（CreateRegisterRequest / RegisterDto）。
+        encounterId ≡ registerId。
       operationId: createEncounter
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -194,18 +345,19 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateEncounterRequest'
+              $ref: '#/components/schemas/CreateRegisterRequest'
       responses:
         '201':
           description: Created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EncounterDto'
+                $ref: '#/components/schemas/RegisterDto'
   /encounters/{encounterId}/check-in:
     post:
       tags: [Encounters]
-      summary: 接诊 → DIAGNOSING
+      deprecated: true
+      summary: "[deprecated] 请改用 POST /registers/{registerId}/check-in"
       operationId: checkInEncounter
       parameters:
         - $ref: '#/components/parameters/EncounterId'
@@ -215,13 +367,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EncounterDto'
+                $ref: '#/components/schemas/RegisterDto'
         '409':
           $ref: '#/components/responses/Conflict'
   /encounters/{encounterId}/complete:
     post:
       tags: [Encounters]
-      summary: 就诊完成 → DIAGNOSED
+      deprecated: true
+      summary: "[deprecated] 请改用 POST /registers/{registerId}/complete"
       operationId: completeEncounter
       parameters:
         - $ref: '#/components/parameters/EncounterId'
@@ -231,13 +384,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EncounterDto'
+                $ref: '#/components/schemas/RegisterDto'
         '409':
           $ref: '#/components/responses/Conflict'
   /encounters/{encounterId}/cancel:
     post:
       tags: [Encounters]
-      summary: 退号 → BACK（已 BACK 或已用/就诊中等默认拒绝）
+      deprecated: true
+      summary: "[deprecated] 请改用 POST /registers/{registerId}/cancel"
       operationId: cancelEncounter
       parameters:
         - $ref: '#/components/parameters/EncounterId'
@@ -248,9 +402,29 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EncounterDto'
+                $ref: '#/components/schemas/RegisterDto'
         '409':
           $ref: '#/components/responses/Conflict'
+  /registers/{registerId}/diagnoses:
+    post:
+      tags: [Diagnoses]
+      summary: 创建/保存诊断（可选最小实体；挂在 registerId）
+      operationId: createDiagnoseOnRegister
+      parameters:
+        - $ref: '#/components/parameters/RegisterId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDiagnoseRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiagnoseDto'
   /encounters/{encounterId}/diagnoses:
     post:
       tags: [Diagnoses]
@@ -312,7 +486,7 @@ paths:
   /orders:
     post:
       tags: [Orders]
-      summary: 创建开单（NEW/SAVE；默认要求有效挂号）
+      summary: 创建开单（NEW/SAVE；须有效挂号，否则 ENCOUNTER_REQUIRED）
       operationId: createOrder
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -440,7 +614,7 @@ paths:
   /charges:
     post:
       tags: [Charges]
-      summary: 自已提交处方载入/创建待收 Square
+      summary: 自已提交处方载入/创建待收 Square（须有效 Encounter）
       operationId: createChargeFromOrder
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -479,7 +653,7 @@ paths:
   /charges/{chargeId}/pay:
     post:
       tags: [Charges]
-      summary: 收费确认（Square NORMAL）
+      summary: 收费确认（Square NORMAL；须有效挂号，禁止无挂号直接收费）
       operationId: payCharge
       parameters:
         - $ref: '#/components/parameters/ChargeId'
@@ -497,12 +671,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaymentDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '409':
           $ref: '#/components/responses/Conflict'
   /charges/{chargeId}/refund:
     post:
       tags: [Charges]
-      summary: 退费（Abate 原 Square + 同事务新 Square；CanBack；部分数量）
+      summary: 退费（已发药须先退药；Abate+同事务新 Square；CanBack；部分数量；favourableAlloc 预留，H08 草稿待确认）
       operationId: refundCharge
       parameters:
         - $ref: '#/components/parameters/ChargeId'
@@ -520,6 +696,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RefundResultDto'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '409':
           $ref: '#/components/responses/Conflict'
   /dispenses/{dispenseId}/return:
@@ -592,10 +770,17 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    RegisterId:
+      name: registerId
+      in: path
+      required: true
+      description: 挂号单 ID（≡ encounterId）
+      schema: { type: string, format: uuid }
     EncounterId:
       name: encounterId
       in: path
       required: true
+      description: Deprecated 路径参数；语义 ≡ registerId
       schema: { type: string, format: uuid }
     OrderId:
       name: orderId
@@ -614,12 +799,24 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorBody'
+    BadRequest:
+      description: |
+        Validation / invalid amount.
+        常见 code: VALIDATION_ERROR, INVALID_AMOUNT（对齐 H08）
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorBody'
     Conflict:
       description: |
-        Conflict / illegal state / business rule.
-        常见 code: DUPLICATE_PATIENT, REGISTER_BACK_NOT_ALLOWED, ENCOUNTER_REQUIRED,
+        Conflict / illegal state / business rule（对齐 H08 错误码清单）。
+        常见 code: DUPLICATE_PATIENT, REGISTER_NOT_CANCELLABLE,
+        REGISTER_BACK_NOT_ALLOWED, PATIENT_NOT_FOUND, DEPARTMENT_NOT_FOUND,
+        DOCTOR_NOT_FOUND, ENCOUNTER_REQUIRED（已确认：收费/开单须有效挂号）,
         ILLEGAL_STATE_TRANSITION, INSUFFICIENT_STOCK, ITEM_NOT_CAN_BACK,
-        REFUND_REQUIRES_RETURN, NOT_CHARGED, ALREADY_ABATED, ALREADY_DISPENSED
+        REFUND_REQUIRES_RETURN（已确认强制：已发药须先退药再退费）,
+        REFUND_EXCEEDS_REFUNDABLE, CHARGE_AMOUNT_MISMATCH,
+        NOT_CHARGED, ALREADY_ABATED, ALREADY_DISPENSED
       content:
         application/json:
           schema:
@@ -694,35 +891,54 @@ components:
           enum: [NOT_SENT, NORMAL, LOST, CANCELLED]
         status: { type: string, enum: [ACTIVE, INACTIVE] }
         createdAt: { type: string, format: date-time }
-    CreateEncounterRequest:
+    CreateRegisterRequest:
       type: object
-      required: [patientId, deptCode, visitDate]
+      required: [patientId, departmentId, doctorId, visitDate]
+      description: |
+        对齐 H02 挂号字段清单。号源=科室+医生（拍板#19）；无排班。
+        registerSort 可选占位；registerFee 默认 0。
       properties:
-        patientId: { type: string, format: uuid }
-        deptCode: { type: string }
-        doctorId: { type: string }
-        clinicSort: { type: string, description: '号别；号源简化时可空' }
-        visitDate: { type: string, format: date }
-        registerFee: { type: number }
-    EncounterDto:
+        patientId: { type: string, format: uuid, description: '必填；不存在 → PATIENT_NOT_FOUND' }
+        departmentId: { type: string, description: '必填；主数据科室 id（种子如 dept-1）；不存在 → DEPARTMENT_NOT_FOUND' }
+        doctorId: { type: string, description: '必填；主数据医生 id（种子如 doc-1）；不存在 → DOCTOR_NOT_FOUND' }
+        visitDate: { type: string, format: date, description: '就诊日必填' }
+        registerSort: { type: string, nullable: true, description: '号别可选占位（如 sort-normal）；可空' }
+        registerFee: { type: number, description: '挂号费；默认 0；一期可不做正式结算' }
+    RegisterDto:
       type: object
+      description: |
+        挂号单 DTO。域内 Encounter ≡ RegisterBill。
+        订单/收费若仍用 encounterId 字段名，语义 ≡ registerId。
       properties:
-        encounterId: { type: string, format: uuid }
-        encounterNo: { type: string }
+        registerId: { type: string, format: uuid, description: '≡ encounterId；实现库存 varchar(64)' }
+        registerNo: { type: string, description: '挂号单号 UK' }
         patientId: { type: string, format: uuid }
-        deptCode: { type: string }
+        departmentId: { type: string }
         doctorId: { type: string }
-        clinicSort: { type: string }
+        registerSort: { type: string, nullable: true }
         visitDate: { type: string, format: date }
         status:
           type: string
           enum: [NORMAL, USED, BACK, DIAGNOSING, DIAGNOSED, PAUSED]
-          description: 对齐 TRegisterStatus
-        registerFee: { type: number }
-        registerCharged: { type: boolean }
+          description: 对齐 TRegisterStatus；创建默认 NORMAL
+        registerFee: { type: number, description: '默认 0' }
+        registerCharged: { type: boolean, description: '默认 false' }
         registeredAt: { type: string, format: date-time }
-        backOperatorId: { type: string }
-        backOperatedAt: { type: string, format: date-time }
+        backOperatorId: { type: string, nullable: true }
+        backOperatedAt: { type: string, format: date-time, nullable: true }
+    CreateEncounterRequest:
+      allOf:
+        - $ref: '#/components/schemas/CreateRegisterRequest'
+      deprecated: true
+      description: Deprecated alias of CreateRegisterRequest（encounterId≡registerId）
+    EncounterDto:
+      allOf:
+        - $ref: '#/components/schemas/RegisterDto'
+      deprecated: true
+      description: |
+        Deprecated alias of RegisterDto。
+        兼容字段：若实现仍返回 encounterId/encounterNo/deptCode/clinicSort，
+        分别对应 registerId/registerNo/departmentId/registerSort。
     CreateDiagnoseRequest:
       type: object
       properties:
@@ -731,7 +947,7 @@ components:
       type: object
       properties:
         diagnoseId: { type: string, format: uuid }
-        encounterId: { type: string, format: uuid }
+        encounterId: { type: string, format: uuid, description: '≡ registerId' }
         status: { type: string, enum: [NEW, SAVE, COMMIT, ABATE] }
         content: { type: string }
     OrderItemInput:
@@ -751,8 +967,8 @@ components:
       type: object
       required: [encounterId, items]
       properties:
-        encounterId: { type: string, format: uuid }
-        recipeSort: { type: string }
+        encounterId: { type: string, format: uuid, description: '≡ registerId；须有效挂号 status≠BACK' }
+        recipeSort: { type: string, description: 处方分类；毒麻精抗权校验本版关闭（feature flag 默认 off） }
         items:
           type: array
           items:
@@ -793,20 +1009,34 @@ components:
         refundedQty: { type: number }
     ChargeDto:
       type: object
+      required: [chargeId, squareNo, encounterId, patientId, totalFee, squareFee, favourableFee, status]
       properties:
         chargeId: { type: string, format: uuid }
         squareNo: { type: string }
-        orderId: { type: string, format: uuid }
+        orderId: { type: string, format: uuid, nullable: true }
+        encounterId:
+          type: string
+          format: uuid
+          description: |
+            必填（C-07 / H08）。无有效 Encounter 不可创建/支付 → ENCOUNTER_REQUIRED。
         patientId: { type: string, format: uuid }
-        totalFee: { type: number }
-        squareFee: { type: number }
-        favourableFee: { type: number }
+        totalFee: { type: number, description: 毛额 G；F=0 时与 squareFee 同（K-01/K-02） }
+        squareFee: { type: number, description: 应收 R = G - F }
+        favourableFee: { type: number, description: 整单优惠 F；Phase1 演示常见 0 }
         status:
           type: string
           enum: [NORMAL, ABATE]
-          description: 对齐 TSquareStatus
-        successorSquareId: { type: string, format: uuid, nullable: true }
-        abatedFromId: { type: string, format: uuid, nullable: true }
+          description: 对齐 TSquareStatus / H08
+        successorSquareId:
+          type: string
+          format: uuid
+          nullable: true
+          description: 作废后生成的新单（未退部分）
+        abatedFromId:
+          type: string
+          format: uuid
+          nullable: true
+          description: 若本单由退费生成，指向被作废原单
         items:
           type: array
           items:
@@ -819,14 +1049,35 @@ components:
         payType:
           type: string
           enum: [CASH, OTHER_E, WECHAT, ALIPAY, OTHER]
-          description: Phase1 主用 CASH；可选一种电子；WX/ZFB 全链路延后
+          description: |
+            Phase1（拍板#13/C-08）：演示主用 CASH；
+            OTHER_E/WECHAT/ALIPAY 字段预留可落库，不联调第三方。
         amount: { type: number }
+    FavourableAlloc:
+      type: string
+      enum: [PROPORTIONAL, DISCOUNT_ON_REMAIN, DISCOUNT_FIRST]
+      default: PROPORTIONAL
+      description: |
+        部分退优惠分摊策略（H08《金额核对点》§4 **草稿待确认**，非用户已拍板）。
+        PROPORTIONAL：按退毛额占比分摊（H08 推荐草稿）。
+        DISCOUNT_ON_REMAIN：优惠留在未退。
+        DISCOUNT_FIRST：优惠优先退。
+        Phase1：F=0 时可忽略本字段，硬断言 K-01～K-15；F>0 期望值待用户经 H01 确认。
     RefundRequest:
       type: object
       required: [payType, items]
+      description: |
+        对齐 H08 交接 §1.4。
+        前置：Square=NORMAL；已发药明细必须先退药成功，否则 409 REFUND_REQUIRES_RETURN（B-08 已确认强制）。
+        结构：Abate 旧单 + 同事务新单；favourableAlloc 策略枚举可配置（H08 草稿待确认）。
       properties:
         reason: { type: string }
-        payType: { type: string }
+        payType:
+          type: string
+          enum: [CASH, OTHER_E, WECHAT, ALIPAY, OTHER]
+          description: Phase1 演示 CASH；电子枚举预留不联调
+        favourableAlloc:
+          $ref: '#/components/schemas/FavourableAlloc'
         items:
           type: array
           items:
@@ -834,7 +1085,12 @@ components:
             required: [chargeItemId, refundQty]
             properties:
               chargeItemId: { type: string, format: uuid }
-              refundQty: { type: number, description: 部分数量退；须 ≤可退且 canBack }
+              refundQty:
+                type: number
+                description: |
+                  部分数量退；须 ≤可退且 canBack。
+                  已发药明细须先退药，否则 REFUND_REQUIRES_RETURN。
+                  超额 → REFUND_EXCEEDS_REFUNDABLE；金额非法 → INVALID_AMOUNT。
     RefundResultDto:
       type: object
       properties:
@@ -849,14 +1105,26 @@ components:
           $ref: '#/components/schemas/PaymentDto'
     PaymentDto:
       type: object
+      required: [paymentId, paymentNo, chargeId, direction, payType, amount, status]
       properties:
         paymentId: { type: string, format: uuid }
         paymentNo: { type: string }
         chargeId: { type: string, format: uuid }
-        direction: { type: string, enum: [CHARGE, REFUND] }
-        payType: { type: string }
-        amount: { type: number }
-        status: { type: string, enum: [PENDING, SUCCEEDED, FAILED] }
+        direction:
+          type: string
+          enum: [CHARGE, REFUND]
+          description: 收费 CHARGE / 退款 REFUND（H08）
+        payType:
+          type: string
+          enum: [CASH, OTHER_E, WECHAT, ALIPAY, OTHER]
+          description: Phase1 演示 CASH；电子枚举预留可落库、不联调
+        amount:
+          type: number
+          description: ≥0；非法 → INVALID_AMOUNT
+        status:
+          type: string
+          enum: [PENDING, SUCCEEDED, FAILED]
+          description: 支付/退费成功须为 SUCCEEDED（H08）
         succeededAt: { type: string, format: date-time }
     DispenseRequest:
       type: object
