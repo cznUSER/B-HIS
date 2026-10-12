@@ -1,9 +1,9 @@
 openapi: 3.0.3
 info:
   title: H Phase1 Outpatient Loop API
-  version: 0.3.6-draft
+  version: 0.3.7-draft
   description: |
-    P1-H03-CORE 契约草案 v0.3.6（挂号 /registers + 科室/医生主数据；对齐 H02 挂号字段清单）。
+    P1-H03-ORDER 契约草案 v0.3.7（开单 /orders + 目录种子；对齐 H02 开单字段清单 + 拍板#21）。
     挂号六态、CureBill、Square Abate+新单、CanBack、卡状态已对齐。
     实现基线：Go API（可桌面 Host 托管）+ SQL Server；Store 可切换。
     库存方案 A（真实扣减）；Inventory 查询启用。
@@ -19,7 +19,11 @@ info:
     CreateRegisterRequest.required=[patientId,departmentId,doctorId,visitDate]；registerSort 可选占位；
     初始 status=NORMAL；退号仅 NORMAL→BACK，否则 409 REGISTER_NOT_CANCELLABLE；
     迁移 sqlserver/core/003_register（+ seed dept-1/dept-2/doc-1/doc-2）；拍板#19。
-    旧 /encounters* 保留为 deprecated alias。订单/收费仍可用 encounterId 字段名（≡registerId）。
+    v0.3.7/P1-H03-ORDER：主字段 registerId（encounterId≡registerId 别名）；save+commit+abate；
+    强制有效挂号（status≠BACK）否则 ENCOUNTER_REQUIRED；一张挂号允许多处方；diagnoseName 不强制；
+    开单医生默认挂号医生可改；库存开单仅提示不拦；目录药品+可选治疗；毒麻钩子关；处方审核一期跳过；
+    迁移 sqlserver/core/004_order（+ seed DRUG-A/DRUG-B/TREAT-1）；状态一期 SAVE|COMMIT|PROC|ABATE。
+    旧 /encounters* 保留为 deprecated alias。
 servers:
   - url: /api/v1
 tags:
@@ -32,6 +36,10 @@ tags:
   - name: Encounters
     description: Deprecated alias of Registers；请改用 /registers。
   - name: Orders
+    description: |
+      门诊处方（order_sheet + order_item）。主字段 registerId（encounterId≡registerId）。
+      状态主路径 SAVE→COMMIT→（收费后）PROC；作废 ABATE 仅未收费。
+      拍板#21：强制有效挂号；save+commit；多处方；诊断不强制；毒麻关；审核一期跳过。
   - name: Charges
   - name: Dispenses
   - name: Diagnoses
@@ -51,9 +59,6 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/LoginRequest'
-            example:
-              username: system
-              password: "1"
       responses:
         '200':
           description: OK
@@ -486,7 +491,16 @@ paths:
   /orders:
     post:
       tags: [Orders]
-      summary: 创建开单（NEW/SAVE；须有效挂号，否则 ENCOUNTER_REQUIRED）
+      summary: 创建/暂存开单（status=SAVE；须有效挂号，否则 ENCOUNTER_REQUIRED）
+      description: |
+        创建一张门诊处方（暂存）。status 初始 SAVE，不可收费。
+        **必填 registerId**（有效挂号且 status≠BACK）；无则 409 ENCOUNTER_REQUIRED（拍板#21a / O-P1）。
+        encounterId 为同义别名（≡registerId）；若两者都传须一致。
+        patientId / departmentId / doctorId 可选：服务端默认从挂号带出；doctorId 允许改（#21b）；
+        若传入 patientId 须与挂号一致。diagnoseName 不强制（#21c）。
+        items 可空（纯草稿）；提交(commit)时至少 1 行且 amount>0。
+        一张挂号允许多张处方（#21d）。开单库存仅提示不拦（#21f）。
+        毒麻精抗校验本版关闭（feature flag 默认 off）。无 Go handler（归 H04）。
       operationId: createOrder
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -498,17 +512,61 @@ paths:
               $ref: '#/components/schemas/CreateOrderRequest'
       responses:
         '201':
-          description: Created
+          description: Created（status=SAVE）
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/OrderDto'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: |
+            ENCOUNTER_REQUIRED（无有效挂号/已退号 BACK）/
+            CATALOG_ITEM_NOT_FOUND（可选）/
+            ORDER_INVALID_AMOUNT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+    get:
+      tags: [Orders]
+      summary: 开单查询（按 registerId / patientId / status / orderNo）
+      operationId: searchOrders
+      parameters:
+        - name: registerId
+          in: query
+          description: 挂号单 ID（≡encounterId）
+          schema: { type: string }
+        - name: encounterId
+          in: query
+          description: 同义别名 ≡ registerId（deprecated 字段名，语义相同）
+          schema: { type: string }
+          deprecated: true
+        - name: patientId
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [SAVE, COMMIT, PROC, ABATE]
+        - name: orderNo
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OrderDto'
   /orders/{orderId}:
     get:
       tags: [Orders]
-      summary: 医嘱/处方详情
+      summary: 处方详情（头+明细）
       operationId: getOrder
       parameters:
         - $ref: '#/components/parameters/OrderId'
@@ -519,9 +577,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OrderDto'
+        '404':
+          $ref: '#/components/responses/NotFound'
     patch:
       tags: [Orders]
-      summary: 更新草稿明细（仅 SAVE）
+      summary: 更新草稿（仅 SAVE；全量替换 items）
+      description: |
+        仅 status=SAVE 可改头/明细；否则 409 ORDER_NOT_EDITABLE。
+        若请求体含 items，则 **全量替换** 明细行（按 lineNo）；省略 items 则仅改头字段。
+        registerId 创建后不可改。
       operationId: patchOrder
       parameters:
         - $ref: '#/components/parameters/OrderId'
@@ -530,7 +594,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateOrderRequest'
+              $ref: '#/components/schemas/PatchOrderRequest'
       responses:
         '200':
           description: OK
@@ -539,45 +603,118 @@ paths:
               schema:
                 $ref: '#/components/schemas/OrderDto'
         '409':
-          $ref: '#/components/responses/Conflict'
+          description: ORDER_NOT_EDITABLE / ORDER_INVALID_AMOUNT / ENCOUNTER_REQUIRED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+  /orders/{orderId}/commit:
+    post:
+      tags: [Orders]
+      summary: 提交开单 SAVE→COMMIT（提交后可收费）
+      description: |
+        前置：status=SAVE；至少 1 行明细；每行 amount>0；否则 ORDER_EMPTY_ITEMS / ORDER_INVALID_AMOUNT /
+        ORDER_NOT_COMMITTABLE。
+        成功：status=COMMIT；totalFee=Σ明细行 totalFee；写 submittedAt；可供收费载入。
+        挂号仍须有效（≠BACK），否则 ENCOUNTER_REQUIRED。
+        处方审核一期跳过（不经 RECIPE_CHECK）。
+      operationId: commitOrder
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: OK（status=COMMIT）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDto'
+        '409':
+          description: |
+            ORDER_NOT_COMMITTABLE / ORDER_EMPTY_ITEMS / ORDER_INVALID_AMOUNT /
+            ENCOUNTER_REQUIRED
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
   /orders/{orderId}/submit:
     post:
       tags: [Orders]
-      summary: 提交开单 → COMMIT
+      summary: 提交开单（deprecated alias → commit）
+      description: |
+        **Deprecated**：与 `POST /orders/{orderId}/commit` 同语义（SAVE→COMMIT）。
+        新客户端请改用 /commit。
       operationId: submitOrder
+      deprecated: true
       parameters:
         - $ref: '#/components/parameters/OrderId'
         - $ref: '#/components/parameters/IdempotencyKey'
       responses:
         '200':
-          description: OK
+          description: OK（同 commit）
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/OrderDto'
         '409':
           $ref: '#/components/responses/Conflict'
-  /orders/{orderId}/recipe-check:
+  /orders/{orderId}/abate:
     post:
       tags: [Orders]
-      summary: 处方审核 → RECIPE_CHECK（可选）
-      operationId: recipeCheckOrder
+      summary: 作废处方（仅未收费的 SAVE/COMMIT → ABATE）
+      description: |
+        仅 charged=false 且 status∈{SAVE,COMMIT} 可作废 → ABATE（终态）。
+        已收费（charged=true）→ 409 ORDER_CHARGED_NOT_ABATABLE（须走退费链）。
+        PROC/ABATE 不可再作废 → ORDER_NOT_EDITABLE / ILLEGAL_STATE_TRANSITION。
+      operationId: abateOrder
       parameters:
         - $ref: '#/components/parameters/OrderId'
         - $ref: '#/components/parameters/IdempotencyKey'
       responses:
         '200':
-          description: OK
+          description: OK（status=ABATE）
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/OrderDto'
+        '409':
+          description: ORDER_CHARGED_NOT_ABATABLE / ILLEGAL_STATE_TRANSITION
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+  /orders/{orderId}/recipe-check:
+    post:
+      tags: [Orders]
+      summary: 处方审核（一期跳过 / deferred）
+      description: |
+        **一期不实现**（拍板#21g / H02 O-P 审核延后）：提交(commit)后即可进收费，不经审核关卡。
+        路径保留占位；实现可返回 501 NOT_IMPLEMENTED 或直接透传当前 OrderDto。
+        毒麻精抗校验本版关闭（feature flag 默认 off）。
+      operationId: recipeCheckOrder
+      deprecated: true
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: OK（若实现透传）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDto'
+        '501':
+          description: NOT_IMPLEMENTED（一期推荐）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
         '409':
           $ref: '#/components/responses/Conflict'
   /orders/{orderId}/charge-preview:
     get:
       tags: [Orders]
-      summary: 费用预览（自已提交处方）
+      summary: 费用预览（自已提交处方 COMMIT）
       operationId: previewCharge
       parameters:
         - $ref: '#/components/parameters/OrderId'
@@ -588,6 +725,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ChargeDto'
+        '409':
+          description: 非 COMMIT 不可预览收费
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
   /orders/{orderId}/dispense:
     post:
       tags: [Dispenses]
@@ -812,7 +955,9 @@ components:
         Conflict / illegal state / business rule（对齐 H08 错误码清单）。
         常见 code: DUPLICATE_PATIENT, REGISTER_NOT_CANCELLABLE,
         REGISTER_BACK_NOT_ALLOWED, PATIENT_NOT_FOUND, DEPARTMENT_NOT_FOUND,
-        DOCTOR_NOT_FOUND, ENCOUNTER_REQUIRED（已确认：收费/开单须有效挂号）,
+        DOCTOR_NOT_FOUND, ENCOUNTER_REQUIRED（已确认：收费/开单须有效挂号，退号 BACK 拒开）,
+        ORDER_EMPTY_ITEMS, ORDER_INVALID_AMOUNT, ORDER_NOT_EDITABLE,
+        ORDER_NOT_COMMITTABLE, ORDER_CHARGED_NOT_ABATABLE, CATALOG_ITEM_NOT_FOUND,
         ILLEGAL_STATE_TRANSITION, INSUFFICIENT_STOCK, ITEM_NOT_CAN_BACK,
         REFUND_REQUIRES_RETURN（已确认强制：已发药须先退药再退费）,
         REFUND_EXCEEDS_REFUNDABLE, CHARGE_AMOUNT_MISMATCH,
@@ -952,50 +1097,129 @@ components:
         content: { type: string }
     OrderItemInput:
       type: object
-      required: [lineNo, itemNo, itemType, itemName, amount, price]
+      required: [itemNo, itemType, itemName, amount, price]
       properties:
-        lineNo: { type: integer }
-        itemNo: { type: string }
-        itemType: { type: string, enum: [DRUG, SERVICE] }
+        lineNo: { type: integer, description: 行号；创建时可省略由服务端按序生成（从 1） }
+        itemNo: { type: string, description: 目录编码（如 DRUG-A / TREAT-1） }
+        itemType: { type: string, enum: [DRUG, TREAT], description: '药品 DRUG / 治疗 TREAT（一期；原 SERVICE 改为 TREAT）' }
         itemName: { type: string }
-        amount: { type: number, description: 数量 }
-        price: { type: number, description: 单价 }
-        unit: { type: string }
-        doctorId: { type: string }
-        procDepartmentId: { type: string }
+        spec: { type: string, nullable: true, description: 规格（目录带出） }
+        units: { type: string, description: 单位（目录带出；原 unit 字段更名为 units） }
+        amount: { type: number, description: '数量；须 > 0（提交时强制；暂存建议亦 >0）' }
+        price: { type: number, description: '单价；≥ 0' }
+        totalFee: { type: number, description: '行金额；可省略由服务端 round2(amount*price)' }
+        usageText: { type: string, nullable: true, description: 用法文案（选填） }
+        frequencyText: { type: string, nullable: true, description: 频次文案（选填） }
+        dosage: { type: string, nullable: true }
+        dosageUnit: { type: string, nullable: true }
+        procDepartmentId: { type: string, nullable: true, description: 执行科室（选填） }
     CreateOrderRequest:
       type: object
-      required: [encounterId, items]
+      required: [registerId]
+      description: |
+        创建/暂存。registerId 必填且须有效（status≠BACK）。
+        encounterId 为同义别名；若同时传入须与 registerId 一致。
+        items 可空（纯草稿）；commit 时至少 1 行。
       properties:
-        encounterId: { type: string, format: uuid, description: '≡ registerId；须有效挂号 status≠BACK' }
-        recipeSort: { type: string, description: 处方分类；毒麻精抗权校验本版关闭（feature flag 默认 off） }
+        registerId:
+          type: string
+          format: uuid
+          description: '挂号单 ID；须有效且 status≠BACK，否则 ENCOUNTER_REQUIRED（#21a）'
+        encounterId:
+          type: string
+          format: uuid
+          nullable: true
+          deprecated: true
+          description: '≡ registerId（别名）；优先用 registerId'
+        patientId:
+          type: string
+          format: uuid
+          nullable: true
+          description: '可选；默认从挂号带出；若传须与挂号 patientId 一致'
+        departmentId:
+          type: string
+          format: uuid
+          nullable: true
+          description: '开单科室；默认挂号科室'
+        doctorId:
+          type: string
+          format: uuid
+          nullable: true
+          description: '开单医生；默认=挂号医生，允许改（#21b）'
+        diagnoseName:
+          type: string
+          nullable: true
+          description: '诊断简述；不强制（#21c）；UI 鼓励填写'
+        recipeSort:
+          type: string
+          nullable: true
+          description: '处方类别；默认 NORMAL；毒麻精抗权校验本版关闭（feature flag 默认 off）'
         items:
           type: array
           items:
             $ref: '#/components/schemas/OrderItemInput'
+          description: 明细；创建时可空；commit 至少 1 行
+    PatchOrderRequest:
+      type: object
+      description: |
+        仅 SAVE 可 PATCH。含 items 时全量替换明细；省略 items 则只改头。
+        不可改 registerId。
+      properties:
+        patientId: { type: string, format: uuid, nullable: true }
+        departmentId: { type: string, format: uuid, nullable: true }
+        doctorId: { type: string, format: uuid, nullable: true, description: 允许改开单医生 }
+        diagnoseName: { type: string, nullable: true }
+        recipeSort: { type: string, nullable: true }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItemInput'
+          description: 若出现则全量替换明细行
     OrderItemDto:
       allOf:
         - $ref: '#/components/schemas/OrderItemInput'
         - type: object
+          required: [orderItemId, totalFee]
           properties:
             orderItemId: { type: string, format: uuid }
-            totalFee: { type: number }
+            totalFee: { type: number, description: '行金额 round2(amount*price)' }
     OrderDto:
       type: object
+      required: [orderId, orderNo, registerId, patientId, departmentId, doctorId, status, totalFee, charged]
       properties:
         orderId: { type: string, format: uuid }
-        orderNo: { type: string }
-        encounterId: { type: string, format: uuid }
+        orderNo: { type: string, description: 系统生成处方号 }
+        registerId:
+          type: string
+          format: uuid
+          description: '挂号单 ID（主字段）'
+        encounterId:
+          type: string
+          format: uuid
+          nullable: true
+          deprecated: true
+          description: '≡ registerId（别名，响应可同时返回）'
+        patientId: { type: string, format: uuid }
+        departmentId: { type: string, format: uuid }
+        doctorId: { type: string, format: uuid }
+        diagnoseName: { type: string, nullable: true }
+        recipeSort: { type: string, nullable: true, description: 默认 NORMAL }
         status:
           type: string
-          enum: [NEW, SAVE, COMMIT, PROC, ABATE, UNDO, RECIPE_CHECK, RECIPE_UNCHECK]
-          description: 对齐 TCureBillStatus 子集
-        recipeSort: { type: string }
+          enum: [SAVE, COMMIT, PROC, ABATE]
+          description: |
+            一期四态（拍板#21 / 004_order CHECK）。
+            SAVE=暂存不可收费；COMMIT=已提交可收费；PROC=发药执行；ABATE=作废终态。
+            RECIPE_CHECK 等 CureBill 扩展态一期跳过（不入库 CHECK）。
+        totalFee: { type: number, description: 'Σ明细；commit 时强制重算' }
+        charged: { type: boolean, description: '是否已收费；true 时不可 abate' }
         items:
           type: array
           items:
             $ref: '#/components/schemas/OrderItemDto'
-        submittedAt: { type: string, format: date-time }
+        submittedAt: { type: string, format: date-time, nullable: true }
+        abatedAt: { type: string, format: date-time, nullable: true }
+        abatedBy: { type: string, nullable: true }
     ChargeItemDto:
       type: object
       properties:
