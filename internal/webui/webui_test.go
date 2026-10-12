@@ -86,8 +86,11 @@ func TestDemoBundleTalksToAPI(t *testing.T) {
 	if !strings.Contains(text, "/auth/login") && !strings.Contains(text, "/api/v1") {
 		t.Fatal("demo bundle missing API login path")
 	}
-	if !strings.Contains(text, "Admin@123") {
+	if !strings.Contains(text, "本机 API 账号") || !strings.Contains(text, "system") {
 		t.Fatal("demo bundle missing documented API demo account hint")
+	}
+	if strings.Contains(text, "Admin@123") || strings.Contains(text, "admin123") {
+		t.Fatal("demo bundle still has the old demo password")
 	}
 	css, err := fs.ReadFile(sub, findCSS(t, sub))
 	if err != nil {

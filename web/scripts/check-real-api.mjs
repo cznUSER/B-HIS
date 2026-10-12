@@ -98,20 +98,21 @@ async function expectError(fn, code, status) {
 }
 
 // 口令与仓库根 README「内存演示账号」相同，只放在请求体里。
-const demoPassword = 'Admin@123'
+const demoUser = 'system'
+const demoPassword = '1'
 
 try {
-  const ok = await login('admin', demoPassword)
+  const ok = await login(demoUser, demoPassword)
   assert(ok.tokenType === 'Bearer', 'tokenType')
   assert(typeof ok.accessToken === 'string' && ok.accessToken.length > 0, 'accessToken')
   assert(!ok.accessToken.endsWith('.mock'), 'mock token was sent to the real API')
   assert(ok.expiresIn > 0, 'expiresIn')
-  assert(ok.user.username === 'admin', 'username')
+  assert(ok.user.username === demoUser, 'username')
   assert(ok.user.displayName === '系统管理员', 'displayName')
   assert(Array.isArray(ok.user.roles) && ok.user.roles.includes('SYSTEM'), 'roles')
   console.log(`login 200 user=${ok.user.username} expiresIn=${ok.expiresIn}`)
 
-  const bad = await expectError(() => login('admin', 'wrong-password'), 'INVALID_CREDENTIALS', 401)
+  const bad = await expectError(() => login(demoUser, 'wrong-password'), 'INVALID_CREDENTIALS', 401)
   assert(bad.message === '用户名或密码错误', 'failure message')
   console.log(`login 401 code=${bad.code}`)
 

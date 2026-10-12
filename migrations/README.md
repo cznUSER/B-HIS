@@ -4,7 +4,7 @@ Phase1 只维护 SQL Server 脚本。目标库名 **BHIS**。
 
 | 文件 | 作用 |
 |------|------|
-| `sqlserver/core/001_identity.up.sql` | 创建数据库 BHIS（若无）、身份表、角色、演示账号的 bcrypt 哈希 |
+| `sqlserver/core/001_identity.up.sql` | 创建数据库 BHIS（若无）、身份表、角色、演示账号 `system` 与 `disabled` 的 bcrypt 哈希。明文不写入脚本；员工默认密码见根 README |
 | `sqlserver/core/001_identity.down.sql` | 删除身份表，不删除数据库 |
 
 脚本给 `sqlcmd` 用（含 `GO`）。密码不要写进命令行历史或仓库：让 `sqlcmd` 从环境变量 `SQLCMDPASSWORD` 读取。

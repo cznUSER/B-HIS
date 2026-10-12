@@ -34,6 +34,9 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/LoginRequest'
+            example:
+              username: system
+              password: "1"
       responses:
         '200':
           description: OK

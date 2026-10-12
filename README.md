@@ -16,9 +16,9 @@ npm run dev
 
 也可用 pnpm：`pnpm install` 然后 `pnpm dev`。浏览器打开终端里提示的本地地址（默认 http://localhost:5173）。
 
-默认是 **Mock**（`VITE_USE_MOCK=true`），不访问后端。Mock 演示账号 `admin` / `admin123`。
+默认是 **Mock**（`VITE_USE_MOCK=true`），不访问后端。Mock 与真实 API 使用同一套演示账号 `system` / `1`。员工默认密码也是 `1`。
 
-切换到 H04 真实 API 的步骤见 [web/README.md](web/README.md)「本机真 API 联调」。联调时先按下一节启动 Go API（默认 `127.0.0.1:8080`）。真实 API 的内存演示账号是 `admin` / `Admin@123`，和 Mock 口令不同。
+切换到 H04 真实 API 的步骤见 [web/README.md](web/README.md)「本机真 API 联调」。联调时先按下一节启动 Go API（默认 `127.0.0.1:8080`）。
 
 ## Go 登录 API（默认内存库，不需要 SQL Server）
 
@@ -59,7 +59,7 @@ Host 在这个构建里是 **Windows 本机演示启动器**（还不是托盘�
 
 ## Windows 双击启动
 
-一个 exe 同时提供登录页和 API，运行时不需要 Vite。默认内存库。浏览器打开 http://127.0.0.1:8080/login 。真实 API 演示账号是 `admin` / `Admin@123`（不是 Mock 的 `admin123`，也不是 SQL Server 口令）。
+一个 exe 同时提供登录页和 API，运行时不需要 Vite。默认内存库。浏览器打开 http://127.0.0.1:8080/login 。演示账号是 `system` / `1`（员工默认密码；Mock 相同；不是 SQL Server 口令）。
 
 在仓库根目录重新构建网页并打出 exe：
 
@@ -87,7 +87,7 @@ bin\b-his-host.exe logs
 | 配置放哪 | 当前目录或 exe 同目录的 `config.local.yaml`、`config.yaml`，其次才是 `config.example.yaml`。也可以 `-config` 或 `BHIS_CONFIG`。 |
 | SQL Server | 仍是可选项。在 exe 旁边放 gitignore 的 `config.local.yaml`，或设置 `BHIS_DB_DRIVER=sqlserver` 和 `BHIS_DB_DSN`。不要把 DSN 或口令提交到 Git。 |
 | 不打开浏览器 | `-no-browser`，或 `BHIS_OPEN_BROWSER=0`。 |
-| 开发时的 Mock | `cd web` 后 `npm run dev` 不变，仍是 Mock（`admin` / `admin123`）。exe 用的是 `npm run build:demo`（关闭 Mock，请求同源 `/api/v1`）。 |
+| 开发时的 Mock | `cd web` 后 `npm run dev` 不变，仍是 Mock（`system` / `1`）。exe 用的是 `npm run build:demo`（关闭 Mock，请求同源 `/api/v1`）。 |
 
 启动失败时，双击打开的窗口会停住并提示按 Enter，避免报错一闪而过。端口默认 `127.0.0.1:8080`；被占用时改 `BHIS_API_ADDR` 或配置里的 `Host.ApiAddr`。日志仍在工作目录的 `./logs`（双击时工作目录一般就是 exe 所在文件夹）。
 
@@ -97,10 +97,10 @@ bin\b-his-host.exe logs
 
 | 用户名 | 密码 | 角色 | 说明 |
 |--------|------|------|------|
-| `admin` | `Admin@123` | `SYSTEM` | 可登录 Go API |
-| `disabled` | 同上 | 无 | 密码正确时 `403 ACCOUNT_DISABLED`；密码错误仍是 `401 INVALID_CREDENTIALS` |
+| `system` | `1` | `SYSTEM` | 系统管理员，可登录 Go API。显示名「系统管理员」 |
+| `disabled` | `1` | 无 | 密码正确时 `403 ACCOUNT_DISABLED`；密码错误仍是 `401 INVALID_CREDENTIALS` |
 
-请在正式环境改掉演示口令。这不是 SQL Server 的登录口令。Vue Mock 使用另一套口令 `admin` / `admin123`，见上文。
+员工账号的默认密码是 `1`。以后新增的员工种子也用这个口令，不要再写另一套演示密码。Mock、内存库和 SQL 种子一致；SQL 脚本只存 bcrypt。请在正式环境改掉演示口令。这不是 SQL Server 的登录口令。
 
 ## curl
 
@@ -109,7 +109,7 @@ bin\b-his-host.exe logs
 ```bash
 curl -sS -D - http://127.0.0.1:8080/api/v1/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"Admin@123"}'
+  -d '{"username":"system","password":"1"}'
 ```
 
 ```json
@@ -119,7 +119,7 @@ curl -sS -D - http://127.0.0.1:8080/api/v1/auth/login \
   "expiresIn": 28800,
   "user": {
     "id": "00000000-0000-4000-8000-000000000001",
-    "username": "admin",
+    "username": "system",
     "displayName": "系统管理员",
     "roles": ["SYSTEM"]
   }
@@ -155,7 +155,7 @@ curl -sS -D - -o /dev/null -X POST http://127.0.0.1:8080/api/v1/auth/logout \
 ```bash
 curl -sS -D - http://127.0.0.1:8080/api/v1/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"wrong"}'
+  -d '{"username":"system","password":"wrong"}'
 ```
 
 ```json
