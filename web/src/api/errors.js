@@ -52,7 +52,9 @@ const MESSAGE_BY_CODE = {
   NOT_DRUG_SKU: '治疗项目无库存',
   USERNAME_DUPLICATE: '登录名已存在',
   DICT_READONLY: '该字典为系统枚举，不能维护',
+  DICT_TYPE_READONLY: '该字典为只读枚举',
   DICT_CODE_DUPLICATE: '代码已存在',
+  CONFLICT: '库存已被他人修改',
 }
 
 const CODE_BY_STATUS = {

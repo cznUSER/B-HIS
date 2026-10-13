@@ -43,7 +43,7 @@ npm run dev
 
 ## 基础数据
 
-系统账号（演示 `system` / `1`）从侧栏「系统设置 → 基础数据」进入。其他角色不显示该菜单；直接打开地址时页内提示需要管理员账号。`VITE_USE_MOCK=true`（默认）在浏览器内存里维护，不发请求。关掉 Mock 后同一页提示尚未接入，也不请求这些路径。
+系统账号（演示 `system` / `1`）从侧栏「系统设置 → 基础数据」进入。其他角色不显示该菜单；直接打开地址时页内提示需要管理员账号。`VITE_USE_MOCK=true`（默认）在浏览器内存里维护，不发请求。`VITE_USE_MOCK=false` 时同一页走已合并的基础数据接口。
 
 | 路径 | 页面 |
 | --- | --- |
@@ -56,6 +56,8 @@ npm run dev
 | `/app/settings/master/users` | 用户账号 |
 
 种子可改：科室 `dept-1` / `dept-2`，医生 `doc-1` / `doc-2`，目录 `DRUG-A` / `DRUG-B` / `TREAT-1`，库存各 100，号别 `sort-normal`，用户 `system`。科室代码重复提示 `DEPT_CODE_DUPLICATE`。新建药品会带出数量 0 的库存，治疗项目不入库存。库存只改当前量，原因必填，流水类型为调整，结果不能为负。用户新建和重置密码都是 `1`，页面不回显口令。停用的科室、医生、目录不会出现在挂号或开单的新选择里。没有权限矩阵、多院区、批次和效期。「用户与权限」仍是二期。
+
+关 Mock 联调：Go API 监听 `:8080`。在 `web/.env.local` 写 `VITE_USE_MOCK=false`、`VITE_API_BASE_URL=/api/v1`、`VITE_API_PROXY_TARGET=http://127.0.0.1:8080`，然后重新 `npm run dev`。用 `system` / `1` 登录，打开系统设置 → 基础数据。请求为 `GET/POST/PATCH /api/v1/departments`、`/doctors`、`/catalog-items`、`GET /api/v1/inventory/items` 与 `POST /api/v1/inventory/items/{skuId}/adjust`、`/dicts`、`/users`，重置密码是 `POST /api/v1/users/{userId}/reset-password`（204，不回显口令）。服务端没有库存流水列表，真接口下流水区说明暂无查询。开单价格和库存提示仍用页面本地目录，不读实时库存。
 
 ## 患者建档
 

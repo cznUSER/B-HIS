@@ -18,6 +18,21 @@ const errorCode = ref('')
 const form = reactive({ code: '', name: '', status: 'ACTIVE', sortNo: 0 })
 
 const dictType = 'register_sort'
+const DICT_TITLES = {
+  sex: '性别',
+  cardStatus: '卡状态',
+  payMethod: '支付方式',
+  registerStatus: '挂号状态',
+  orderStatus: '处方状态',
+  id_type: '证件类型',
+  pay_type: '支付方式',
+  fare_identity: '费别',
+  register_sort: '号别',
+}
+
+function dictTitle(group) {
+  return group.name || DICT_TITLES[group.dictType] || group.dictType
+}
 
 function show(message, isError = false, code = '') {
   notice.value = message
@@ -110,7 +125,7 @@ onMounted(load)
           </thead>
           <tbody>
             <tr v-for="group in overview.readonlyEnums" :key="group.dictType">
-              <td>{{ group.name }}</td>
+              <td>{{ dictTitle(group) }}</td>
               <td>
                 <span v-for="code in group.values" :key="code" class="enum-chip">{{ code }} {{ enumLabel(code) }}</span>
               </td>

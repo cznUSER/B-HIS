@@ -5,10 +5,10 @@
 import { apiError } from '../api/errors.js'
 
 export const MASTER_ROLES = [
-  { code: 'registrar', label: '建档挂号员' },
-  { code: 'doctor', label: '门诊医生' },
-  { code: 'cashier', label: '收费员' },
-  { code: 'pharmacist', label: '药师' },
+  { code: 'REGISTRAR', label: '建档挂号员' },
+  { code: 'DOCTOR', label: '门诊医生' },
+  { code: 'CASHIER', label: '收费员' },
+  { code: 'PHARMACIST', label: '药师' },
   { code: 'SYSTEM', label: '系统' },
 ]
 

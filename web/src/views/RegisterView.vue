@@ -3,7 +3,7 @@
 // 2026-10-12 可联调：POST/GET /registers，字段 departmentId。
 // 2026-10-12 P1-H05b-REGISTER-CHECKIN-UI 正常号、已用号显示报到。Mock 可模拟 409。
 // 2026-10-13 P1-H05-MASTER-UI 科室和医生下拉只列启用项。
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ApiError } from '../api/errors.js'
 import { useMock } from '../api/config.js'
@@ -11,6 +11,7 @@ import { cancelRegister, checkInRegister, createRegister, listRegisters } from '
 import { fetchPatient } from '../api/patientApi.js'
 import { sexLabel, todayInShanghai } from '../api/patientContract.js'
 import { session } from '../auth/session.js'
+import { fetchDepartments, fetchDoctors } from '../master/api.js'
 import {
   REGISTER_SORT,
   canCancel,
@@ -44,10 +45,20 @@ const simulateCheckInConflict = ref(false)
 const mockMode = useMock()
 const notice = ref('')
 const noticeError = ref(false)
+const liveDepartments = ref(null)
+const liveDoctors = ref(null)
 
 const patientId = computed(() => readQuery(route.query.patientId))
-const departments = computed(() => selectableDepartments())
-const doctors = computed(() => doctorsForDept(departmentId.value))
+const departments = computed(() => {
+  if (!liveDepartments.value) return selectableDepartments()
+  return liveDepartments.value.filter((item) => item.status === 'ACTIVE')
+})
+const doctors = computed(() => {
+  if (!liveDoctors.value) return doctorsForDept(departmentId.value)
+  const id = departmentId.value
+  if (!id) return []
+  return liveDoctors.value.filter((item) => item.departmentId === id && item.status === 'ACTIVE')
+})
 const patientEditTo = computed(() => ({
   name: 'outpatient-module',
   params: { module: 'patient' },
@@ -63,9 +74,43 @@ watch(departmentId, () => {
   if (!doctors.value.some((item) => item.doctorId === doctorId.value)) doctorId.value = ''
 })
 
+function departmentLabel(id) {
+  const found = liveDepartments.value && liveDepartments.value.find((item) => item.departmentId === id)
+  return found ? found.name : deptName(id)
+}
+
+function doctorLabel(id) {
+  const found = liveDoctors.value && liveDoctors.value.find((item) => item.doctorId === id)
+  return found ? found.name : doctorName(id)
+}
+
 watch(patientId, () => {
   load()
 }, { immediate: true })
+
+onMounted(async () => {
+  if (mockMode) return
+  try {
+    const [depts, docs] = await Promise.all([
+      fetchDepartments(session.accessToken, {}),
+      fetchDoctors(session.accessToken, {}),
+    ])
+    liveDepartments.value = depts.items.map((item) => ({
+      departmentId: item.departmentId,
+      name: item.deptName,
+      status: item.status,
+    }))
+    liveDoctors.value = docs.items.map((item) => ({
+      doctorId: item.doctorId,
+      name: item.doctorName,
+      departmentId: item.departmentId,
+      status: item.status,
+    }))
+  } catch {
+    liveDepartments.value = null
+    liveDoctors.value = null
+  }
+})
 
 async function load() {
   patient.value = null
@@ -318,8 +363,8 @@ async function onCheckIn(row) {
             <tbody>
               <tr v-for="row in tickets" :key="row.registerId">
                 <td class="mono">{{ row.registerNo || row.registerId }}</td>
-                <td>{{ deptName(row.departmentId) }}</td>
-                <td>{{ doctorName(row.doctorId) }}</td>
+                <td>{{ departmentLabel(row.departmentId) }}</td>
+                <td>{{ doctorLabel(row.doctorId) }}</td>
                 <td>{{ registerSortName(row.registerSort) }}</td>
                 <td>
                   <span class="ticket-status" :data-status="row.status">{{ statusLabel(row.status) }}</span>

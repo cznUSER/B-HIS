@@ -12,6 +12,7 @@ const loading = ref(false)
 const saving = ref(false)
 const q = ref('')
 const selectedId = ref('')
+const ledgerUnsupported = ref(false)
 const adjusting = ref(null)
 const notice = ref('')
 const noticeError = ref(false)
@@ -44,6 +45,7 @@ async function load() {
     if (selectedId.value && !rows.value.some((item) => item.skuId === selectedId.value)) {
       selectedId.value = ''
       ledger.value = []
+      ledgerUnsupported.value = false
     } else if (selectedId.value) {
       await loadLedger(selectedId.value)
     }
@@ -57,6 +59,7 @@ async function load() {
 async function loadLedger(skuId) {
   const listed = await fetchLedger(session.accessToken, skuId)
   ledger.value = listed.items
+  ledgerUnsupported.value = listed.supported === false
 }
 
 async function selectRow(row) {
@@ -88,6 +91,7 @@ async function onAdjust() {
     await adjustInventory(session.accessToken, skuId, {
       qtyDelta: form.qtyDelta,
       remark: form.remark,
+      rowVersion: adjusting.value.rowVersion,
       operatorName: session.user && session.user.displayName,
     })
     closeAdjust()
@@ -169,7 +173,8 @@ onBeforeUnmount(() => {
 
     <div v-if="selected" class="master-ledger">
       <h3>流水 · {{ selected.itemName }}</h3>
-      <p v-if="ledger.length === 0" class="result-empty">暂无流水</p>
+      <p v-if="ledgerUnsupported" class="result-empty">服务端暂无流水查询。调整已写入库存数量。</p>
+      <p v-else-if="ledger.length === 0" class="result-empty">暂无流水</p>
       <div v-else class="result-wrap">
         <table class="register-table" data-testid="ledger-list">
           <caption class="sr-only">库存流水</caption>

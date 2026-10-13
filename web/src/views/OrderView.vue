@@ -4,6 +4,7 @@
 // 2026-10-13 P1-H05-MASTER-UI 开单医生和目录下拉跳过已停用项。
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useMock } from '../api/config.js'
 import { ApiError } from '../api/errors.js'
 import {
   abateOrder,
@@ -25,6 +26,7 @@ import {
   stockWarnings,
 } from '../api/orderContract.js'
 import { session } from '../auth/session.js'
+import { fetchCatalog, fetchDepartments, fetchDoctors } from '../master/api.js'
 import { selectableDoctors } from '../register/master.js'
 
 const route = useRoute()
@@ -53,12 +55,25 @@ const committing = ref(false)
 const abating = ref(false)
 const confirmAbate = ref(false)
 let loadSeq = 0
+const mockMode = useMock()
+const remoteDoctorIds = ref(null)
+const remoteItemNos = ref(null)
 
 const busy = computed(() => saving.value || committing.value || abating.value)
 const orderableRegisters = computed(() => registers.value.filter((item) => registerIsOrderable(item)))
-const orderDoctors = computed(() => selectableDoctors())
-const drugOptions = computed(() => openCatalog().filter((item) => item.itemType === 'DRUG'))
-const treatOptions = computed(() => openCatalog().filter((item) => item.itemType === 'TREAT'))
+const orderDoctors = computed(() => {
+  const rows = selectableDoctors()
+  if (!remoteDoctorIds.value) return rows
+  return rows.filter((item) => remoteDoctorIds.value.has(item.doctorId))
+})
+const drugOptions = computed(() => listedCatalog('DRUG'))
+const treatOptions = computed(() => listedCatalog('TREAT'))
+
+function listedCatalog(itemType) {
+  const rows = openCatalog().filter((item) => item.itemType === itemType)
+  if (!remoteItemNos.value) return rows
+  return rows.filter((item) => remoteItemNos.value.has(item.itemNo))
+}
 const locked = computed(() => ['COMMIT', 'ABATE', 'PROC'].includes(status.value) || charged.value)
 const canAbate = computed(() => Boolean(orderId.value) && !charged.value && (status.value === 'SAVE' || status.value === 'COMMIT'))
 const warnings = computed(() => stockWarnings(lines.value.filter((line) => line.itemNo && Number(line.amount) > 0)))
@@ -331,6 +346,24 @@ async function changeRegister() {
 }
 
 onMounted(loadRegisters)
+onMounted(async () => {
+  if (mockMode) return
+  try {
+    const [depts, docs, catalog] = await Promise.all([
+      fetchDepartments(session.accessToken, { status: 'ACTIVE' }),
+      fetchDoctors(session.accessToken, { status: 'ACTIVE' }),
+      fetchCatalog(session.accessToken, { status: 'ACTIVE' }),
+    ])
+    const activeDept = new Set(depts.items.map((item) => item.departmentId))
+    remoteDoctorIds.value = new Set(
+      docs.items.filter((item) => activeDept.has(item.departmentId)).map((item) => item.doctorId),
+    )
+    remoteItemNos.value = new Set(catalog.items.map((item) => item.itemNo))
+  } catch {
+    remoteDoctorIds.value = null
+    remoteItemNos.value = null
+  }
+})
 
 watch(() => queryRegisterId(), (id) => {
   loadRegister(id)

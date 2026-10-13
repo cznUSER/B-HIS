@@ -1,9 +1,28 @@
 // 2026-10-13 P1-H05-MASTER-UI 基础数据 Mock：种子可改，错误码与下拉过滤。
+// 2026-10-13 关 Mock 时用本地 HTTP 假服务核对路径、状态码和请求体。
 import { readFileSync } from 'node:fs'
+import http from 'node:http'
 import { ApiError } from '../src/api/errors.js'
 import { mockLogin, resetMockAuth } from '../src/api/mockAuth.js'
 import { openCatalog } from '../src/api/orderContract.js'
-import { adjustInventory, fetchDepartments } from '../src/master/api.js'
+import {
+  adjustInventory,
+  fetchCatalog,
+  fetchDepartments,
+  fetchDictItems,
+  fetchDictOverview,
+  fetchDoctors,
+  fetchInventory,
+  fetchLedger,
+  fetchMasterSummary,
+  fetchUsers,
+  resetUserPassword as resetUserPasswordApi,
+  saveCatalogItem,
+  saveDepartment,
+  saveDictItem,
+  saveDoctor,
+  saveUser,
+} from '../src/master/api.js'
 import { canMaintainMaster } from '../src/master/access.js'
 import {
   activeDepartments,
@@ -168,22 +187,15 @@ const navSrc = readFileSync(new URL('../src/workbench/nav.js', import.meta.url),
 assert(navSrc.includes("label: '基础数据'"), 'nav label')
 assert(!navSrc.includes("label: '基础字典'"), 'old placeholder gone')
 const apiSrc = readFileSync(new URL('../src/master/api.js', import.meta.url), 'utf8')
-assert(!apiSrc.includes('fetch('), 'mock api does not fetch')
-assert(apiSrc.includes('基础数据接口尚未接入'), 'offline copy')
+assert(apiSrc.includes('fetch('), 'real client fetches')
+for (const path of ['/departments', '/doctors', '/catalog-items', '/inventory/items', '/dicts', '/users', 'reset-password']) {
+  assert(apiSrc.includes(path), `client path ${path}`)
+}
+assert(!apiSrc.includes('基础数据接口尚未接入'), 'offline wall removed')
+const viewSrc = readFileSync(new URL('../src/views/MasterView.vue', import.meta.url), 'utf8')
+assert(viewSrc.includes('system / 1'), 'login hint stays system')
+assert(!viewSrc.includes('基础数据接口尚未接入'), 'page mounts in real mode')
 
-process.env.VITE_USE_MOCK = 'false'
-let fetched = false
-globalThis.fetch = () => {
-  fetched = true
-  throw new Error('network')
-}
-try {
-  await fetchDepartments('token')
-  throw new Error('expected offline')
-} catch (error) {
-  assert(error instanceof ApiError && error.code === 'NOT_IMPLEMENTED' && error.status === 501, 'offline code')
-}
-assert(fetched === false, 'offline does not fetch')
 process.env.VITE_USE_MOCK = 'true'
 const online = await fetchDepartments('token')
 assert(online.items.length >= 2, 'mock list returns rows')
@@ -192,6 +204,252 @@ try {
   throw new Error('expected missing sku')
 } catch (error) {
   assert(error instanceof ApiError && error.status === 404, 'missing sku')
+}
+
+process.env.VITE_USE_MOCK = 'false'
+const originalFetch = globalThis.fetch
+globalThis.fetch = () => {
+  throw new Error('network')
+}
+try {
+  await fetchDepartments('token')
+  throw new Error('expected network')
+} catch (error) {
+  assert(error instanceof ApiError && error.status === 0, 'network status')
+  assert(error.message === '无法连接基础数据服务', 'network copy')
+}
+let ledgerHits = 0
+globalThis.fetch = (...args) => {
+  ledgerHits += 1
+  return originalFetch(...args)
+}
+const quietLedger = await fetchLedger('token', 'sku-a')
+assert(quietLedger.supported === false && quietLedger.items.length === 0, 'real ledger is local empty')
+assert(ledgerHits === 0, 'real ledger does not fetch')
+globalThis.fetch = originalFetch
+
+const calls = []
+const server = http.createServer((req, res) => {
+  const url = new URL(req.url, 'http://127.0.0.1')
+  let raw = ''
+  req.on('data', (chunk) => {
+    raw += chunk
+  })
+  req.on('end', () => {
+    calls.push({
+      method: req.method,
+      path: url.pathname,
+      search: url.search,
+      authorization: req.headers.authorization || '',
+      body: raw,
+    })
+    const json = (status, body) => {
+      res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' })
+      res.end(JSON.stringify(body))
+    }
+    if (req.method === 'GET' && url.pathname === '/api/v1/departments') {
+      json(200, { items: [{ departmentId: 'dept-9', deptCode: 'DEPT9', deptName: '测试科', status: 'ACTIVE', sortNo: 3 }] })
+      return
+    }
+    if (req.method === 'POST' && url.pathname === '/api/v1/departments') {
+      const posted = JSON.parse(raw)
+      if (String(posted.deptCode).toLowerCase() === 'dept1') {
+        json(409, { error: { code: 'DEPT_CODE_DUPLICATE', message: '科室代码已存在' } })
+        return
+      }
+      json(201, { departmentId: 'dept-new', deptCode: posted.deptCode, deptName: posted.deptName, status: 'ACTIVE', sortNo: posted.sortNo || 0 })
+      return
+    }
+    if (req.method === 'PATCH' && url.pathname === '/api/v1/departments/dept-9') {
+      json(200, { departmentId: 'dept-9', deptCode: 'DEPT9', deptName: '测试科改', status: 'INACTIVE', sortNo: 4 })
+      return
+    }
+    if (req.method === 'GET' && url.pathname === '/api/v1/doctors') {
+      json(200, { items: [{ doctorId: 'doc-9', doctorCode: 'DOC9', doctorName: '周医生', departmentId: 'dept-9', status: 'ACTIVE' }] })
+      return
+    }
+    if (req.method === 'POST' && url.pathname === '/api/v1/doctors') {
+      json(201, { doctorId: 'doc-new', doctorCode: 'DOC8', doctorName: '新医生', departmentId: 'dept-9', status: 'ACTIVE' })
+      return
+    }
+    if (req.method === 'PATCH' && url.pathname === '/api/v1/doctors/doc-9') {
+      json(200, { doctorId: 'doc-9', doctorCode: 'DOC9', doctorName: '周医生改', departmentId: 'dept-9', status: 'INACTIVE' })
+      return
+    }
+    if (req.method === 'GET' && url.pathname === '/api/v1/catalog-items') {
+      json(200, { items: [{ catalogItemId: 'cat-1', itemNo: 'DRUG-A', itemName: '药', itemType: 'DRUG', units: '盒', price: 10, status: 'ACTIVE', controlledFlag: false, isControlled: false }] })
+      return
+    }
+    if (req.method === 'POST' && url.pathname === '/api/v1/catalog-items') {
+      const posted = JSON.parse(raw)
+      json(201, {
+        catalogItemId: 'cat-c',
+        itemNo: posted.itemNo,
+        itemName: posted.itemName,
+        itemType: posted.itemType,
+        units: posted.units,
+        price: posted.price,
+        status: 'ACTIVE',
+        controlledFlag: false,
+        isControlled: false,
+      })
+      return
+    }
+    if (req.method === 'PATCH' && url.pathname === '/api/v1/catalog-items/cat-1') {
+      json(200, { catalogItemId: 'cat-1', itemNo: 'DRUG-A', itemName: '药', itemType: 'DRUG', units: '盒', price: 12, status: 'ACTIVE', controlledFlag: false, isControlled: false })
+      return
+    }
+    if (req.method === 'GET' && url.pathname === '/api/v1/inventory/items') {
+      json(200, {
+        items: [
+          { skuId: 'sku-a', skuCode: 'DRUG-A', itemNo: 'DRUG-A', name: '药A', itemName: '药A', qtyOnHand: 100, units: '盒', status: 'ACTIVE', rowVersion: '7' },
+          { skuId: 'sku-b', skuCode: 'DRUG-B', itemNo: 'DRUG-B', name: '药B', itemName: '药B', qtyOnHand: 1, units: '盒', status: 'ACTIVE', rowVersion: '1' },
+        ],
+      })
+      return
+    }
+    if (req.method === 'POST' && url.pathname === '/api/v1/inventory/items/sku-a/adjust') {
+      json(200, { skuId: 'sku-a', skuCode: 'DRUG-A', itemNo: 'DRUG-A', name: '药A', itemName: '药A', qtyOnHand: 101, units: '盒', status: 'ACTIVE', rowVersion: '8' })
+      return
+    }
+    if (req.method === 'GET' && url.pathname === '/api/v1/dicts') {
+      json(200, {
+        readonlyEnums: [{ dictType: 'sex', values: ['M', 'F', 'U'] }],
+        maintainableTypes: [{ dictType: 'register_sort', name: '号别' }],
+      })
+      return
+    }
+    if (req.method === 'GET' && url.pathname === '/api/v1/dicts/register_sort/items') {
+      json(200, { items: [{ dictItemId: 'dict-sort-normal', dictType: 'register_sort', code: 'sort-normal', name: '普通号', status: 'ACTIVE', sortNo: 1 }] })
+      return
+    }
+    if (req.method === 'POST' && url.pathname === '/api/v1/dicts/register_sort/items') {
+      json(201, { dictItemId: 'dict-new', dictType: 'register_sort', code: 'sort-expert', name: '专家号', status: 'ACTIVE', sortNo: 2 })
+      return
+    }
+    if (req.method === 'PATCH' && url.pathname === '/api/v1/dicts/register_sort/items/dict-sort-normal') {
+      json(200, { dictItemId: 'dict-sort-normal', dictType: 'register_sort', code: 'sort-normal', name: '普通号改', status: 'ACTIVE', sortNo: 1 })
+      return
+    }
+    if (req.method === 'GET' && url.pathname === '/api/v1/users') {
+      json(200, { items: [{ userId: 'u-system', username: 'system', loginName: 'system', displayName: '系统管理员', status: 'ACTIVE', roles: ['SYSTEM'] }] })
+      return
+    }
+    if (req.method === 'POST' && url.pathname === '/api/v1/users') {
+      const posted = JSON.parse(raw)
+      json(201, { userId: 'u-1', username: posted.username, loginName: posted.username, displayName: posted.displayName, status: 'ACTIVE', roles: posted.roles })
+      return
+    }
+    if (req.method === 'PATCH' && url.pathname === '/api/v1/users/u-1') {
+      json(200, { userId: 'u-1', username: 'reg1', loginName: 'reg1', displayName: '挂号甲', status: 'DISABLED', roles: ['REGISTRAR'] })
+      return
+    }
+    if (req.method === 'POST' && url.pathname === '/api/v1/users/u-1/reset-password') {
+      res.writeHead(204)
+      res.end()
+      return
+    }
+    json(404, { error: { code: 'NOT_FOUND', message: 'missing' } })
+  })
+})
+
+await new Promise((resolve) => {
+  server.listen(0, '127.0.0.1', resolve)
+})
+const { port } = server.address()
+process.env.VITE_API_BASE_URL = `http://127.0.0.1:${port}/api/v1`
+
+try {
+  const summary = await fetchMasterSummary('tok')
+  assert(summary.departments === 1 && summary.doctors === 1 && summary.catalog === 1, 'summary counts')
+  assert(summary.inventory === 2 && summary.dicts === 1 && summary.users === 1, 'summary rest')
+  assert(calls.every((item) => String(item.authorization).startsWith('Bearer tok')), 'bearer')
+
+  const duplicate = await (async () => {
+    try {
+      await saveDepartment('tok', '', { deptCode: 'dept1', deptName: '重复', sortNo: '3' })
+      return null
+    } catch (error) {
+      return error
+    }
+  })()
+  assert(duplicate instanceof ApiError && duplicate.code === 'DEPT_CODE_DUPLICATE' && duplicate.status === 409, 'dept duplicate')
+  const createdDept = await saveDepartment('tok', '', { deptCode: 'DEPT9', deptName: '测试科', sortNo: '3' })
+  assert(createdDept.departmentId === 'dept-new', 'dept create')
+  const deptPost = calls.find((item) => item.method === 'POST' && item.path === '/api/v1/departments' && item.body.includes('DEPT9'))
+  assert(JSON.parse(deptPost.body).sortNo === 3, 'sortNo integer')
+  const patchedDept = await saveDepartment('tok', 'dept-9', { deptName: '测试科改', status: 'INACTIVE', sortNo: 4 })
+  assert(patchedDept.status === 'INACTIVE', 'dept patch')
+
+  const doctors = await fetchDoctors('tok', { departmentId: 'dept-9', status: 'ACTIVE' })
+  assert(doctors.items[0].doctorId === 'doc-9', 'doctor list')
+  const doctorCall = calls.find((item) => item.method === 'GET' && item.path === '/api/v1/doctors' && item.search.includes('departmentId='))
+  assert(doctorCall && doctorCall.search.includes('departmentId=dept-9'), 'doctor query')
+  const createdDoctor = await saveDoctor('tok', '', { doctorCode: 'DOC8', doctorName: '新医生', departmentId: 'dept-9' })
+  assert(createdDoctor.doctorId === 'doc-new', 'doctor create')
+  const patchedDoctor = await saveDoctor('tok', 'doc-9', { status: 'INACTIVE' })
+  assert(patchedDoctor.status === 'INACTIVE', 'doctor patch')
+
+  const catalog = await fetchCatalog('tok', { itemType: 'DRUG', status: 'ACTIVE' })
+  assert(catalog.items[0].itemNo === 'DRUG-A', 'catalog list')
+  const savedDrug = await saveCatalogItem('tok', '', {
+    itemNo: 'DRUG-C',
+    itemName: '新药',
+    itemType: 'DRUG',
+    units: '盒',
+    price: '1.5',
+    controlledFlag: true,
+    isControlled: true,
+  })
+  assert(savedDrug.inventoryCreated === true && savedDrug.item.itemType === 'DRUG', 'drug create wraps inventory')
+  const catalogPost = calls.find((item) => item.method === 'POST' && item.path === '/api/v1/catalog-items')
+  const catalogBody = JSON.parse(catalogPost.body)
+  assert(catalogBody.price === 1.5, 'price number')
+  assert(!Object.prototype.hasOwnProperty.call(catalogBody, 'controlledFlag'), 'omit controlled')
+  assert(!Object.prototype.hasOwnProperty.call(catalogBody, 'isControlled'), 'omit isControlled')
+  const patchedCatalog = await saveCatalogItem('tok', 'cat-1', { price: 12, itemType: 'TREAT' })
+  assert(patchedCatalog.inventoryCreated === false && patchedCatalog.item.price === 12, 'catalog patch')
+  const catalogPatch = calls.find((item) => item.method === 'PATCH' && item.path === '/api/v1/catalog-items/cat-1')
+  assert(!Object.prototype.hasOwnProperty.call(JSON.parse(catalogPatch.body), 'itemType'), 'patch omits itemType')
+
+  const stock = await fetchInventory('tok', { q: '药B' })
+  assert(stock.items.length === 1 && stock.items[0].itemNo === 'DRUG-B', 'inventory client filter')
+  const stockCall = calls.find((item) => item.method === 'GET' && item.path === '/api/v1/inventory/items')
+  assert(!stockCall.search.includes('q='), 'inventory has no q')
+  const adjusted = await adjustInventory('tok', 'sku-a', { qtyDelta: '1', remark: ' 盘盈 ', rowVersion: '7', operatorName: '系统管理员' })
+  assert(adjusted.qtyOnHand === 101, 'adjust result')
+  const adjustCall = calls.find((item) => item.method === 'POST' && item.path === '/api/v1/inventory/items/sku-a/adjust')
+  const adjustBody = JSON.parse(adjustCall.body)
+  assert(adjustBody.qtyDelta === 1 && adjustBody.remark === '盘盈' && adjustBody.rowVersion === '7', 'adjust body')
+  assert(!Object.prototype.hasOwnProperty.call(adjustBody, 'operatorName'), 'adjust omits operator')
+
+  const overview = await fetchDictOverview('tok')
+  assert(overview.readonlyEnums[0].dictType === 'sex' && !overview.readonlyEnums[0].name, 'enum has no name')
+  const sorts = await fetchDictItems('tok', 'register_sort', {})
+  assert(sorts.items[0].code === 'sort-normal', 'sort items')
+  const createdSort = await saveDictItem('tok', 'register_sort', '', { code: 'sort-expert', name: '专家号', sortNo: '2' })
+  assert(createdSort.dictItemId === 'dict-new', 'dict create')
+  const patchedSort = await saveDictItem('tok', 'register_sort', 'dict-sort-normal', { name: '普通号改' })
+  assert(patchedSort.name === '普通号改', 'dict patch')
+
+  const users = await fetchUsers('tok', { q: 'sys' })
+  assert(users.items[0].username === 'system', 'user list')
+  const createdUser = await saveUser('tok', '', { username: 'reg1', displayName: '挂号甲', roles: ['REGISTRAR'], password: '1' })
+  assert(createdUser.userId === 'u-1' && !JSON.stringify(createdUser).includes('password'), 'user create hides password')
+  const userPost = calls.find((item) => item.method === 'POST' && item.path === '/api/v1/users')
+  const userBody = JSON.parse(userPost.body)
+  assert(!Object.prototype.hasOwnProperty.call(userBody, 'password'), 'user body has no password')
+  assert(userBody.roles[0] === 'REGISTRAR', 'roles upper')
+  const patchedUser = await saveUser('tok', 'u-1', { status: 'DISABLED', roles: ['REGISTRAR'] })
+  assert(patchedUser.status === 'DISABLED', 'user patch')
+  const reset = await resetUserPasswordApi('tok', 'u-1')
+  assert(reset.ok === true, 'reset ok')
+  const resetCall = calls.find((item) => item.path === '/api/v1/users/u-1/reset-password')
+  assert(resetCall && resetCall.method === 'POST', 'reset path')
+} finally {
+  await new Promise((resolve) => server.close(resolve))
+  process.env.VITE_USE_MOCK = 'true'
+  delete process.env.VITE_API_BASE_URL
 }
 
 console.log('master checks passed')

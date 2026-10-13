@@ -39,6 +39,7 @@ function tabActive(name) {
       <h1 id="master-title">基础数据</h1>
     </header>
     <p class="field-hint master-lead">演示账号 system / 1。这里维护科室、医生、目录、库存、号别和账号。完整的用户与权限仍是二期。</p>
+    <p v-if="allowed && !mockMode" class="field-hint" data-testid="master-live">当前连接基础数据接口。登录仍用 system / 1。</p>
 
     <nav class="master-tabs" aria-label="基础数据分页" data-testid="master-tabs">
       <RouterLink
@@ -57,11 +58,6 @@ function tabActive(name) {
       <h2 class="empty-lead">需要管理员账号</h2>
       <p class="muted">当前账号不能维护基础数据。请使用系统账号进入。</p>
       <RouterLink class="button button-ghost empty-back" :to="{ name: 'home' }">返回首页</RouterLink>
-    </div>
-
-    <div v-else-if="!mockMode" class="empty-panel" data-testid="master-offline">
-      <h2 class="empty-lead">基础数据接口尚未接入</h2>
-      <p class="muted">当前已关闭本地演示。本页不请求科室、医生、目录、库存、字典和用户接口。</p>
     </div>
 
     <router-view v-else />

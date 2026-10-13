@@ -30,7 +30,7 @@ function roleText(roles) {
   if (list.length === 0) return '—'
   return list
     .map((code) => {
-      const found = MASTER_ROLES.find((item) => item.code === code)
+      const found = MASTER_ROLES.find((item) => item.code.toLowerCase() === String(code).toLowerCase())
       return found ? found.label : code
     })
     .join('、')
@@ -54,7 +54,7 @@ function startCreate() {
   form.username = ''
   form.displayName = ''
   form.status = 'ACTIVE'
-  form.roles = ['registrar']
+  form.roles = ['REGISTRAR']
   show('', false)
 }
 
