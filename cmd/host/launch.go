@@ -1,11 +1,10 @@
 // 2026-10-12 Windows 本机演示启动：找配置、打开浏览器、缺省 JWT 占位符。
+// 2026-10-13 浏览器改走 ShellExecute，避免 rundll32 占住控制台。
 package main
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/cznUSER/B-HIS/internal/config"
@@ -96,15 +95,37 @@ func browserEnabled(noBrowser bool) bool {
 	}
 }
 
-func openBrowser(rawURL string) error {
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
+// Windows console-creation flags. CREATE_NEW_CONSOLE would leave another black window.
+const (
+	createNoWindow   = 0x08000000
+	createNewConsole = 0x00000010
+)
+
+// browserPlan is how openBrowser starts the OS handler for rawURL.
+// On Windows the primary path is ShellExecute (no console child). Fallback is
+// rundll32 with CREATE_NO_WINDOW so it cannot keep the host console alive.
+type browserPlan struct {
+	UseShellExecute bool
+	Args            []string
+	Fallback        []string
+	CreationFlags   uint32
+}
+
+func planBrowser(goos, rawURL string) browserPlan {
+	switch goos {
 	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", rawURL)
+		return browserPlan{
+			UseShellExecute: true,
+			Fallback:        []string{"rundll32", "url.dll,FileProtocolHandler", rawURL},
+			CreationFlags:   createNoWindow,
+		}
 	case "darwin":
-		cmd = exec.Command("open", rawURL)
+		return browserPlan{Args: []string{"open", rawURL}}
 	default:
-		cmd = exec.Command("xdg-open", rawURL)
+		return browserPlan{Args: []string{"xdg-open", rawURL}}
 	}
-	return cmd.Start()
+}
+
+func openBrowser(rawURL string) error {
+	return openBrowserOS(rawURL)
 }
