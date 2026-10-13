@@ -18,6 +18,26 @@ func TestLoginURL(t *testing.T) {
 	}
 }
 
+func TestPlanBrowser(t *testing.T) {
+	const page = "http://127.0.0.1:8080/login"
+	win := planBrowser("windows", page)
+	if !win.UseShellExecute || len(win.Args) != 0 {
+		t.Fatal("windows must open the browser via ShellExecute, not a console child")
+	}
+	if win.CreationFlags&createNoWindow == 0 || win.CreationFlags&createNewConsole != 0 {
+		t.Fatalf("fallback flags %#x", win.CreationFlags)
+	}
+	if len(win.Fallback) != 3 || win.Fallback[0] != "rundll32" || win.Fallback[2] != page {
+		t.Fatal(win.Fallback)
+	}
+	if got := planBrowser("darwin", page).Args; len(got) != 2 || got[0] != "open" || got[1] != page {
+		t.Fatal(got)
+	}
+	if got := planBrowser("linux", page).Args; len(got) != 2 || got[0] != "xdg-open" || got[1] != page {
+		t.Fatal(got)
+	}
+}
+
 func TestBrowserEnabled(t *testing.T) {
 	t.Setenv("BHIS_OPEN_BROWSER", "")
 	if !browserEnabled(false) || browserEnabled(true) {

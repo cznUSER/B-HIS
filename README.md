@@ -69,7 +69,7 @@ Host 在这个构建里是 **Windows 本机演示启动器**（还不是托盘�
 powershell -ExecutionPolicy Bypass -File scripts\build-windows.ps1
 ```
 
-产物：`bin\b-his-host.exe`。双击它，或在该目录打开命令行直接运行。窗口要留着；关掉窗口或按 Ctrl+C 即停止。登录页和 `/api/v1` 在同一个进程。
+产物：`bin\b-his-host.exe`。双击它，或在该目录打开命令行直接运行。窗口要留着；关掉窗口或按 Ctrl+C 即停止，监听端口和黑控制台一并退出，不留后台进程。登录页和 `/api/v1` 在同一个进程。
 
 Linux 上交叉编译同样用 `scripts/build-windows.sh`（需要 Node 与 Go），得到同一个 `bin/b-his-host.exe`。
 

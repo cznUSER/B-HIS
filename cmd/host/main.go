@@ -77,6 +77,8 @@ func main() {
 }
 
 func start(configFlag string, open bool) error {
+	// 2026-10-13 关控制台窗口时结束本进程，并让 Job 带走残留子进程。
+	prepareHostExit()
 	cfg, err := loadDemo(discoverConfig(configFlag))
 	if err != nil {
 		return err
