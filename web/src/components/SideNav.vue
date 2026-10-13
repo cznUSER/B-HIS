@@ -1,6 +1,7 @@
 <script setup>
 // 2026-10-12 P1-H05-HOME-DASH 左侧导航。延后项不进入页面。
-import { computed, ref } from 'vue'
+// 2026-10-13 P1-H05-MASTER-UI 系统账号显示「基础数据」。
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { session } from '../auth/session.js'
 import { decorateModules } from '../workbench/catalog.js'
@@ -20,7 +21,7 @@ const groups = computed(() =>
     ...group,
     children: (group.children || []).map((child) => ({
       ...child,
-      ...resolveNavChild(child, modules.value),
+      ...resolveNavChild(child, modules.value, session.user),
     })),
   })),
 )
@@ -31,8 +32,22 @@ function toggle(key) {
   open.value = { ...open.value, [key]: !open.value[key] }
 }
 
+watch(
+  () => route.path,
+  (path) => {
+    if (path.startsWith('/app/settings/master')) {
+      open.value = { ...open.value, settings: true }
+    }
+  },
+  { immediate: true },
+)
+
 function childActive(child) {
-  return route.name === 'outpatient-module' && String(route.params.module || '') === child.module
+  if (child.module) {
+    return route.name === 'outpatient-module' && String(route.params.module || '') === child.module
+  }
+  if (child.to && child.to.name === 'master') return route.path.startsWith('/app/settings/master')
+  return Boolean(child.to && route.name === child.to.name)
 }
 
 function overviewActive(group) {
@@ -64,19 +79,21 @@ function overviewActive(group) {
 
       <div v-show="open[group.key]" class="nav-children">
         <template v-for="child in group.children" :key="child.key">
-          <RouterLink
-            v-if="child.enabled"
-            class="nav-sublink"
-            :to="child.to"
-            :class="{ 'is-active': childActive(child) }"
-            :aria-current="childActive(child) ? 'page' : undefined"
-          >
-            {{ child.label }}
-          </RouterLink>
-          <span v-else class="nav-sublink is-disabled" :title="child.reason">
-            <span>{{ child.label }}</span>
-            <span class="nav-tag">{{ child.reason }}</span>
-          </span>
+          <template v-if="!child.hidden">
+            <RouterLink
+              v-if="child.enabled"
+              class="nav-sublink"
+              :to="child.to"
+              :class="{ 'is-active': childActive(child) }"
+              :aria-current="childActive(child) ? 'page' : undefined"
+            >
+              {{ child.label }}
+            </RouterLink>
+            <span v-else class="nav-sublink is-disabled" :title="child.reason">
+              <span>{{ child.label }}</span>
+              <span class="nav-tag">{{ child.reason }}</span>
+            </span>
+          </template>
         </template>
 
         <p v-if="group.key === 'outpatient'" class="nav-tip">

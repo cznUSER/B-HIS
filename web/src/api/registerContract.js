@@ -1,8 +1,10 @@
 // 2026-10-12 P1-H05-REGISTER-UI 挂号请求对齐 OpenAPI 0.3.6 Register。
 // 必填 patientId、departmentId、doctorId、visitDate。不使用 deptCode。
 
+import { useMock } from './config.js'
 import { apiError } from './errors.js'
-import { DEPARTMENTS, DOCTORS, REGISTER_SORT } from '../register/master.js'
+import { findDepartment, findDoctor } from '../master/store.js'
+import { REGISTER_SORT } from '../register/master.js'
 
 const STATUSES = new Set(['NORMAL', 'USED', 'BACK', 'DIAGNOSING', 'DIAGNOSED', 'PAUSED'])
 
@@ -16,13 +18,19 @@ export function assertCreateRegisterRequest(input) {
   if (!patientId) throw apiError(400, 'VALIDATION_ERROR', '请先选择或建档患者')
 
   const departmentId = asText(src.departmentId)
-  if (!DEPARTMENTS.some((item) => item.departmentId === departmentId)) {
-    throw apiError(400, 'VALIDATION_ERROR', '请选择科室')
-  }
-
   const doctorId = asText(src.doctorId)
-  const doctor = DOCTORS.find((item) => item.doctorId === doctorId)
-  if (!doctor || doctor.departmentId !== departmentId) {
+  if (useMock()) {
+    const department = findDepartment(departmentId)
+    if (!department || department.status !== 'ACTIVE') {
+      throw apiError(400, 'VALIDATION_ERROR', '请选择科室')
+    }
+    const doctor = findDoctor(doctorId)
+    if (!doctor || doctor.status !== 'ACTIVE' || doctor.departmentId !== departmentId) {
+      throw apiError(400, 'VALIDATION_ERROR', '请选择医生')
+    }
+  } else if (!departmentId) {
+    throw apiError(400, 'VALIDATION_ERROR', '请选择科室')
+  } else if (!doctorId) {
     throw apiError(400, 'VALIDATION_ERROR', '请选择医生')
   }
 

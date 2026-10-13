@@ -35,11 +35,29 @@ npm run dev
 
 顶栏：产品名 B-HIS（回到首页）、环境标签（Mock 为「演示」，真实 API 为「开发」）、机构「演示机构」（占位，没有机构码）、人员显示名和角色、通知铃铛（角标固定 0，占位）、用户菜单、「退出登录」、本机时钟。用户菜单里「个人设置」为二期，不能点。显示名和角色来自登录结果或 `GET /auth/me`，页面不写死账号。没有患者搜索框。
 
-左侧栏：首页；档案管理（患者建档进入 `/app/outpatient/patient`，就诊卡/账户为二期灰项）；门诊业务下建档、挂号、开单、收费、发药、退药/退费，以及一条「六步总览」；系统设置里的用户与权限、基础字典都是二期灰项，不打开空白页。无权限的门诊项灰显，原因是「无权限」。没有住院、病历、报表、采购这些一级菜单。
+左侧栏：首页；档案管理（患者建档进入 `/app/outpatient/patient`，就诊卡/账户为二期灰项）；门诊业务下建档、挂号、开单、收费、发药、退药/退费，以及一条「六步总览」；系统设置里「基础数据」给系统账号进入 `/app/settings/master`，「用户与权限」仍是二期灰项。其他角色不显示「基础数据」。无权限的门诊项灰显，原因是「无权限」。没有住院、病历、报表、采购这些一级菜单。
 
 首页主区是工作台：待办一行（待收费、待发药为 0，分别进入收费页和发药页；进销存未上传、未贯标提醒为二期，不能点；库存预警为 0 的弱占位）、经营概况（今天 / 昨天 / 本周 / 本月、日期按钮二期、刷新）、收费行和客流行、两张等分圆环（收入来源、支付方式，图例都是 0）。页上标明「演示 / 占位」。切换时间和刷新不会改数字，也不请求经营接口。
 
 `/app/outpatient` 仍是六张卡的总览，不是登录落地页。顺序不变：患者建档、挂号、开单、收费、发药、退药/退费。患者建档、挂号、开单、收费徽标是「可用」。建档进入 `/app/outpatient/patient`（档案管理里的「患者建档」同一条路由）。挂号进入 `/app/outpatient/register`，没有 `patientId` 时提示先建档。开单进入 `/app/outpatient/order`。收费进入 `/app/outpatient/charge`。发药徽标是「可用」，进入 `/app/outpatient/dispense`。退药/退费仍是「开发中」，有权限时打开空态「接口就绪后开放」。无权限的卡保持原位、灰显。顶上有一条可关闭的闭环提示。
+
+## 基础数据
+
+系统账号（演示 `system` / `1`）从侧栏「系统设置 → 基础数据」进入。其他角色不显示该菜单；直接打开地址时页内提示需要管理员账号。`VITE_USE_MOCK=true`（默认）在浏览器内存里维护，不发请求。`VITE_USE_MOCK=false` 时同一页走已合并的基础数据接口。
+
+| 路径 | 页面 |
+| --- | --- |
+| `/app/settings/master` | 总览 |
+| `/app/settings/master/departments` | 科室 |
+| `/app/settings/master/doctors` | 医生 |
+| `/app/settings/master/catalog` | 收费/药品目录 |
+| `/app/settings/master/inventory` | 药品库存 |
+| `/app/settings/master/dicts` | 基础字典 |
+| `/app/settings/master/users` | 用户账号 |
+
+种子可改：科室 `dept-1` / `dept-2`，医生 `doc-1` / `doc-2`，目录 `DRUG-A` / `DRUG-B` / `TREAT-1`，库存各 100，号别 `sort-normal`，用户 `system`。科室代码重复提示 `DEPT_CODE_DUPLICATE`。新建药品会带出数量 0 的库存，治疗项目不入库存。库存只改当前量，原因必填，流水类型为调整，结果不能为负。用户新建和重置密码都是 `1`，页面不回显口令。停用的科室、医生、目录不会出现在挂号或开单的新选择里。没有权限矩阵、多院区、批次和效期。「用户与权限」仍是二期。
+
+关 Mock 联调：Go API 监听 `:8080`。在 `web/.env.local` 写 `VITE_USE_MOCK=false`、`VITE_API_BASE_URL=/api/v1`、`VITE_API_PROXY_TARGET=http://127.0.0.1:8080`，然后重新 `npm run dev`。用 `system` / `1` 登录，打开系统设置 → 基础数据。请求为 `GET/POST/PATCH /api/v1/departments`、`/doctors`、`/catalog-items`、`GET /api/v1/inventory/items` 与 `POST /api/v1/inventory/items/{skuId}/adjust`、`/dicts`、`/users`，重置密码是 `POST /api/v1/users/{userId}/reset-password`（204，不回显口令）。服务端没有库存流水列表，真接口下流水区说明暂无查询。开单价格和库存提示仍用页面本地目录，不读实时库存。
 
 ## 患者建档
 

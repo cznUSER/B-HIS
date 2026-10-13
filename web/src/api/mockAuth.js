@@ -1,10 +1,12 @@
 // 2026-10-12 P1-H05 登录界面
 // 2026-10-12 演示账号 system / 1；员工默认密码为 1
+// 2026-10-13 P1-H05-MASTER-UI 基础数据里维护的账号优先于内置表。
 // 本地 Mock，响应形状与 OpenAPI 0.3.2 login / logout / me 一致。
 // accessToken 只是演示用的 JWT 三段结构，签名固定为 mock，不是服务端 HS256。
 
 import { apiError } from './errors.js'
 import { assertLoginRequest, assertLoginResponse, assertUserDto } from './contract.js'
+import { loginAccountFromMaster } from '../master/store.js'
 
 const REVOKED_KEY = 'bhis.revoked.v1'
 const TOKEN_TTL_SECONDS = 28800
@@ -132,7 +134,7 @@ export function mockLogin(request) {
     })
   }
 
-  const account = ACCOUNTS[username]
+  const account = loginAccountFromMaster(username) || ACCOUNTS[username]
   if (!account || account.password !== password) {
     failureCount.set(username, attempts + 1)
     throw apiError(401, 'INVALID_CREDENTIALS', '用户名或密码错误', {

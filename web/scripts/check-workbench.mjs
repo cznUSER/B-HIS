@@ -117,7 +117,15 @@ assert(
 assert(outpatient.children.map((item) => item.module).join(',') === keys.join(','), 'sidebar modules')
 assert(outpatient.overview.to.name === 'workbench', 'overview route name')
 const settings = NAV.find((item) => item.key === 'settings')
-assert(settings.children.every((item) => item.phase === '二期' && !item.module && !item.to), 'settings stay closed')
+const masterNav = settings.children.find((item) => item.key === 'settings-master')
+const rbacNav = settings.children.find((item) => item.key === 'settings-users')
+assert(masterNav && masterNav.label === '基础数据' && masterNav.to.name === 'master', 'master nav')
+assert(!settings.children.some((item) => item.label === '基础字典'), 'dict placeholder replaced')
+assert(rbacNav && rbacNav.phase === '二期' && rbacNav.label === '用户与权限', 'full rbac stays closed')
+assert(resolveNavChild(masterNav, system, { username: 'system', roles: ['SYSTEM'] }).enabled === true, 'system opens master')
+assert(resolveNavChild(masterNav, system, { username: 'system', roles: ['SYSTEM'] }).to.name === 'master', 'master route')
+assert(resolveNavChild(masterNav, registrar, { username: 'reg', roles: ['REGISTRAR'] }).hidden === true, 'registrar hides master')
+assert(resolveNavChild(rbacNav, system).to === null, 'rbac item has no route')
 
 const labels = []
 for (const item of NAV) {
@@ -139,7 +147,7 @@ assert(resolveNavChild(archivePatient, systemNav).to.params.module === 'patient'
 assert(resolveNavChild(chargeChild, registrarNav).enabled === false, 'registrar cannot open charge from nav')
 assert(resolveNavChild(chargeChild, systemNav).enabled === true, 'system can open charge from nav')
 assert(resolveNavChild(archive.children[1], systemNav).to === null, 'phase item has no route')
-assert(resolveNavChild(settings.children[0], systemNav).to === null, 'settings item has no route')
+assert(resolveNavChild(rbacNav, systemNav).to === null, 'settings rbac has no route')
 
 const uiFiles = [
   '../src/components/AppShell.vue',
