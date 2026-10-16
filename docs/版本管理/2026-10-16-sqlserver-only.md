@@ -5,7 +5,7 @@
 | 版本 | `2026.10.16-sqlserver-only` |
 | 时间 | 2026-10-16 17:51（Asia/Shanghai） |
 | 基线提交 | `73b50bbfb081b457c11de2475207a58fecd8e166` |
-| 本次提交 | `38f227b` (`feat: require sqlserver runtime and reserve dameng adapter`) |
+| 本次提交 | `38f227b` (`feat: require sqlserver runtime and reserve dameng adapter`); `53b0482` (`docs: record sqlserver-only version`); `2fd4d08` (`chore: refresh embedded web assets`) |
 | 分支 | `codex/website-usability-2026-10-14` |
 | 需求 | 网站与启动器移除内存库运行模式；SQL Server 为唯一启用的运行时数据库；保留达梦切换接口；文件改动纳入 Git 并通知 H01 |
 
@@ -16,6 +16,7 @@
 - `cmd/host`、`config.example.yaml`、根 README：启动、配置和故障语义改为 SQL Server 必需。
 - `web/.env`、`web/src/api/config.js`：产品构建固定真实 HTTP API；仅测试进程可通过 `BHIS_WEB_TEST_MODE=1` 使用隔离契约替身。
 - `web/scripts/check-real-only.mjs`、`check-suite.mjs`：增加运行模式守卫并隔离既有契约脚本。
+- `internal/webui/assets`：用当前真实 API 构建刷新宿主静态资源，`index.html` 指向本轮 demo 构建。
 - 测试：验证 memory 运行入口被拒绝、Dameng 预留接口显式失败、嵌入 UI 无 DSN 不启动。
 
 ## 文件版本规则
@@ -30,3 +31,4 @@
 - `go test ./internal/config ./internal/store ./internal/store/mssql ./internal/bootstrap ./cmd/host`：通过。
 - `npm run check`（`web/`）：通过，真实 API 守卫和既有前端契约检查均通过。
 - `go test ./...`：现有 `internal/app/TestChargePayAndRefundIdempotencySurvivesServiceRestart` 仍失败，错误为 `ILLEGAL_STATE_TRANSITION`；该测试未由本次数据库边界改动触及，已保留为待修项。
+- `npm run build:demo`：通过；宿主 `internal/webui/assets` 已提交当前真实 API 构建入口、脚本、样式和 favicon。
