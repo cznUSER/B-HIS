@@ -5,6 +5,7 @@
 | 版本 | `2026.10.16-sqlserver-only` |
 | 时间 | 2026-10-16 17:51（Asia/Shanghai） |
 | 基线提交 | `73b50bbfb081b457c11de2475207a58fecd8e166` |
+| 本次提交 | `38f227b` (`feat: require sqlserver runtime and reserve dameng adapter`) |
 | 分支 | `codex/website-usability-2026-10-14` |
 | 需求 | 网站与启动器移除内存库运行模式；SQL Server 为唯一启用的运行时数据库；保留达梦切换接口；文件改动纳入 Git 并通知 H01 |
 
