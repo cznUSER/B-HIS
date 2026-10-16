@@ -32,3 +32,4 @@
 - `npm run check`（`web/`）：通过，真实 API 守卫和既有前端契约检查均通过。
 - `go test ./...`：现有 `internal/app/TestChargePayAndRefundIdempotencySurvivesServiceRestart` 仍失败，错误为 `ILLEGAL_STATE_TRANSITION`；该测试未由本次数据库边界改动触及，已保留为待修项。
 - `npm run build:demo`：通过；宿主 `internal/webui/assets` 已提交当前真实 API 构建入口、脚本、样式和 favicon。
+- 2026-10-16 18:xx 启动故障修复：本机忽略配置 `.env.local` 的 DSN 从 `localhost:1433` 校正为代码 A `192.168.1.138:53151`；未提交口令或本地配置，`bin\\b-his-host.exe -no-browser` 实测 `/login` 与 `/health` 均返回 200。
