@@ -71,13 +71,13 @@ func TestSearchConfigOrder(t *testing.T) {
 	}
 }
 
-func TestLoadDemoUsesPlaceholderWithoutConfig(t *testing.T) {
+func TestLoadDemoRequiresSQLServerDSN(t *testing.T) {
 	dir := t.TempDir()
 	chdir(t, dir)
 	t.Setenv("BHIS_JWT_SECRET", "")
 	t.Setenv("BHIS_CONFIG", "")
-	t.Setenv("BHIS_DB_DRIVER", "memory")
-	t.Setenv("BHIS_DB_DSN", "")
+	t.Setenv("BHIS_DB_DRIVER", "sqlserver")
+	t.Setenv("BHIS_DB_DSN", "sqlserver://user:pass@db:1433?database=BHIS")
 	cfg, err := loadDemo("")
 	if err != nil {
 		t.Fatal(err)
@@ -85,11 +85,11 @@ func TestLoadDemoUsesPlaceholderWithoutConfig(t *testing.T) {
 	if cfg.Auth.JWTSecret != config.DemoJWTPlaceholder || !cfg.PlaceholderSecret() {
 		t.Fatalf("secret %q", cfg.Auth.JWTSecret)
 	}
-	if cfg.Database.Driver != "memory" {
+	if cfg.Database.Driver != "sqlserver" {
 		t.Fatal(cfg.Database.Driver)
 	}
-	if cfg.Database.DSN != "" {
-		t.Fatal("demo load must not invent a DSN")
+	if cfg.Database.DSN == "" {
+		t.Fatal("demo load must preserve the configured DSN")
 	}
 }
 
@@ -97,8 +97,8 @@ func TestLoadDemoKeepsEnvSecret(t *testing.T) {
 	dir := t.TempDir()
 	chdir(t, dir)
 	t.Setenv("BHIS_JWT_SECRET", "env-secret-must-be-at-least-16")
-	t.Setenv("BHIS_DB_DRIVER", "memory")
-	t.Setenv("BHIS_DB_DSN", "")
+	t.Setenv("BHIS_DB_DRIVER", "sqlserver")
+	t.Setenv("BHIS_DB_DSN", "sqlserver://user:pass@db:1433?database=BHIS")
 	cfg, err := loadDemo("")
 	if err != nil {
 		t.Fatal(err)

@@ -13,10 +13,10 @@ Logging:
   Dir: "./logs"
   Level: info
 Database:
-  # memory: default, no SQL Server required.
-  # sqlserver: set BHIS_DB_DRIVER=sqlserver and BHIS_DB_DSN in the environment
-  # or in gitignored config.local.yaml. Database name: BHIS.
-  Driver: memory
+  # sqlserver is the only enabled runtime backend. Set BHIS_DB_DSN in the
+  # environment or in gitignored config.local.yaml. Database name: BHIS.
+  # dameng is reserved for a future adapter and fails closed today.
+  Driver: sqlserver
   # Placeholder shape only (do not commit a filled-in DSN):
   # sqlserver://<user>:<password>@<host>:1433?database=BHIS&encrypt=disable
   DSN: ""
@@ -26,3 +26,5 @@ CORS:
     - "http://127.0.0.1:5173"
     - "http://localhost:4173"
     - "http://127.0.0.1:4173"
+# Optional outpatient registration validity. Zero (or omitted) disables expiry.
+RegisterExpireHours: 0

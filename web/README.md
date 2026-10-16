@@ -1,6 +1,6 @@
 # B-HIS Web 登录
 
-Vue 3 + Vue Router + Vite。登录页对接 H03 OpenAPI **0.3.2** 的 Auth；登录成功进入首页看板 `/app`。侧栏仍在。患者建档可保存和查询。挂号在 `VITE_USE_MOCK=false` 时走 `POST/GET /api/v1/registers` 与退号。开单在同一开关下走 `POST/GET/PATCH /api/v1/orders` 与提交、作废。收费在同一开关下走预览、创建、现金支付、查询和退费。发药在 `VITE_USE_MOCK=false` 时走 `POST/GET /api/v1/dispenses` 与退药，Mock 打开时仍用本地演示。退药/退费入口仍是空态：
+Vue 3 + Vue Router + Vite。登录页对接当前 Auth 契约（0.3.10-draft）；登录成功进入首页看板 `/app`。侧栏仍在。患者建档可保存和查询。挂号、开单、收费、发药和退费页面固定通过真实 HTTP API 工作，业务数据由 SQL Server 持久化；Mock 只在隔离契约脚本中启用。退药成功后可从收费页的 `charge_id` 上下文继续退费：
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
@@ -39,11 +39,11 @@ npm run dev
 
 首页主区是工作台：待办一行（待收费、待发药为 0，分别进入收费页和发药页；进销存未上传、未贯标提醒为二期，不能点；库存预警为 0 的弱占位）、经营概况（今天 / 昨天 / 本周 / 本月、日期按钮二期、刷新）、收费行和客流行、两张等分圆环（收入来源、支付方式，图例都是 0）。页上标明「演示 / 占位」。切换时间和刷新不会改数字，也不请求经营接口。
 
-`/app/outpatient` 仍是六张卡的总览，不是登录落地页。顺序不变：患者建档、挂号、开单、收费、发药、退药/退费。患者建档、挂号、开单、收费徽标是「可用」。建档进入 `/app/outpatient/patient`（档案管理里的「患者建档」同一条路由）。挂号进入 `/app/outpatient/register`，没有 `patientId` 时提示先建档。开单进入 `/app/outpatient/order`。收费进入 `/app/outpatient/charge`。发药徽标是「可用」，进入 `/app/outpatient/dispense`。退药/退费仍是「开发中」，有权限时打开空态「接口就绪后开放」。无权限的卡保持原位、灰显。顶上有一条可关闭的闭环提示。
+`/app/outpatient` 仍是六张卡的总览，不是登录落地页。顺序不变：患者建档、挂号、开单、收费、发药、退药/退费。六个入口徽标均为「可用」。建档进入 `/app/outpatient/patient`（档案管理里的「患者建档」同一条路由）。挂号进入 `/app/outpatient/register`，没有 `patientId` 时提示先建档。开单进入 `/app/outpatient/order`。收费进入 `/app/outpatient/charge`。发药进入 `/app/outpatient/dispense`；退药成功后可回到 `/app/outpatient/charge?charge_id=` 退费。无权限的卡保持原位、灰显。顶上有一条可关闭的闭环提示。
 
 ## 基础数据
 
-系统账号（演示 `system` / `1`）从侧栏「系统设置 → 基础数据」进入。其他角色不显示该菜单；直接打开地址时页内提示需要管理员账号。`VITE_USE_MOCK=true`（默认）在浏览器内存里维护，不发请求。`VITE_USE_MOCK=false` 时同一页走已合并的基础数据接口。
+系统账号（演示 `system` / `1`）从侧栏「系统设置 → 基础数据」进入。其他角色不显示该菜单；直接打开地址时页内提示需要管理员账号。网站固定通过 HTTP 调用 Go API，业务数据由 SQL Server 持久化。
 
 | 路径 | 页面 |
 | --- | --- |
@@ -57,7 +57,7 @@ npm run dev
 
 种子可改：科室 `dept-1` / `dept-2`，医生 `doc-1` / `doc-2`，目录 `DRUG-A` / `DRUG-B` / `TREAT-1`，库存各 100，号别 `sort-normal`，用户 `system`。科室代码重复提示 `DEPT_CODE_DUPLICATE`。新建药品会带出数量 0 的库存，治疗项目不入库存。库存只改当前量，原因必填，流水类型为调整，结果不能为负。用户新建和重置密码都是 `1`，页面不回显口令。停用的科室、医生、目录不会出现在挂号或开单的新选择里。没有权限矩阵、多院区、批次和效期。「用户与权限」仍是二期。
 
-关 Mock 联调：Go API 监听 `:8080`。在 `web/.env.local` 写 `VITE_USE_MOCK=false`、`VITE_API_BASE_URL=/api/v1`、`VITE_API_PROXY_TARGET=http://127.0.0.1:8080`，然后重新 `npm run dev`。用 `system` / `1` 登录，打开系统设置 → 基础数据。请求为 `GET/POST/PATCH /api/v1/departments`、`/doctors`、`/catalog-items`、`GET /api/v1/inventory/items` 与 `POST /api/v1/inventory/items/{skuId}/adjust`、`/dicts`、`/users`，重置密码是 `POST /api/v1/users/{userId}/reset-password`（204，不回显口令）。服务端没有库存流水列表，真接口下流水区说明暂无查询。开单价格和库存提示仍用页面本地目录，不读实时库存。
+关 Mock 联调：Go API 监听 `:8080`。在 `web/.env.local` 写 `VITE_USE_MOCK=false`、`VITE_API_BASE_URL=/api/v1`、`VITE_API_PROXY_TARGET=http://127.0.0.1:8080`，然后重新 `npm run dev`。用 `system` / `1` 登录，打开系统设置 → 基础数据。请求为 `GET/POST/PATCH /api/v1/departments`、`/doctors`、`/catalog-items`、`GET /api/v1/inventory/items` 与 `POST /api/v1/inventory/items/{skuId}/adjust`、`/dicts`、`/users`，重置密码是 `POST /api/v1/users/{userId}/reset-password`（204，不回显口令）。服务端没有库存流水列表，真接口下开单会读取实时目录和库存；基础数据读失败显示错误并禁用维护或处方写入，成功写入后即使刷新列表失败也保留服务端结果并提供重试。
 
 ## 患者建档
 
@@ -81,7 +81,7 @@ npm run dev
 
 没有当日挂号时显示「请先挂号」。有挂号但没有已提交处方时显示「请先提交处方」。支付方式默认现金；微信、支付宝可见但禁用，并标「预留」。优惠只读，主路径为 0；实收只读且等于应收。目录库存不足时不能确认收费。已发药未退药时退费提示「已发药，请先退药再退费」。全额退费后不展示金额为 0 的新收费单。收费页不能作废已收费处方。
 
-`VITE_USE_MOCK=true` 时不请求上述接口，改用本地演示患者：
+患者数据始终从真实 API 查询；本地演示患者已从网站运行链路移除：
 
 | 患者 | 页面 |
 |------|------|
@@ -98,9 +98,9 @@ npm run dev
 
 `/app/outpatient/dispense` 在侧栏「发药」。与收费、开单共用 `VITE_USE_MOCK`。页面没有采购、调拨、盘点或批次选择。登录账号 `system` / `1`。退药成功后「去退费」进入 `/app/outpatient/charge?charge_id=`。
 
-`VITE_USE_MOCK=true`（`web/.env` 默认）不请求网络。演示检索：王全发（可全发）、李部分（可改小数量）、赵缺货（库存不足）、陈未收（未收费，不能发药）、孙已发（已发，可退药）。
+发药页面始终请求真实 API；原有演示检索数据仅保留给隔离契约脚本，不进入产品构建。
 
-`VITE_USE_MOCK=false` 时走真实 HTTP。`web/.env.local` 可写 `VITE_API_BASE_URL=http://localhost:8080/api/v1`，或写 `VITE_API_BASE_URL=/api/v1` 且 `VITE_API_PROXY_TARGET=http://localhost:8080`，然后重新 `npm run dev`。Go API 监听 `:8080`。
+网站固定走真实 HTTP。`web/.env.local` 可写 `VITE_API_BASE_URL=http://localhost:8080/api/v1`，或写 `VITE_API_BASE_URL=/api/v1` 且 `VITE_API_PROXY_TARGET=http://localhost:8080`，然后重新 `npm run dev`。Go API 监听 `:8080`。
 
 | 操作 | 方法 | 路径 |
 |------|------|------|
@@ -121,7 +121,7 @@ npm run dev
 | `GET` | `/api/v1/patients` | `{ items: PatientDto[] }`，查询参数 `name`、`idNumber` |
 | `GET` | `/api/v1/patients/{patientId}` | 一条 `PatientDto` |
 
-切换方式和登录相同：仓库里的 `web/.env` 默认 `VITE_USE_MOCK=true`。联调真接口时在 `web/.env.local` 写 `VITE_USE_MOCK=false`，`VITE_API_BASE_URL=/api/v1`，`VITE_API_PROXY_TARGET=http://127.0.0.1:8080`，然后重新 `npm run dev`。演示账号 `system` / `1`。Go API 需已启动。
+网站已固定使用真实接口：`web/.env` 中 `VITE_USE_MOCK=false`，`VITE_API_BASE_URL=/api/v1`，`VITE_API_PROXY_TARGET=http://127.0.0.1:8080`。启动 Go API 并连接 SQL Server 后执行 `npm run dev`。账号 `system` / `1`。
 
 ## 挂号
 
@@ -129,13 +129,13 @@ npm run dev
 
 必填：患者、科室、医生。科室是内科 `dept-1`、外科 `dept-2`；张医生 `doc-1` 只在内科，李医生 `doc-2` 只在外科。号别固定占位「普通号」。就诊日期为当天，只读。没有排班日历。挂号费默认 0，页面不展示。
 
-Mock 与真实接口共用同一套页面。`web/.env` 默认 `VITE_USE_MOCK=true`，不访问网络，方便没有 API 时看页面。联调时在 `web/.env.local` 写 `VITE_USE_MOCK=false`（与建档相同），请求走本机 Go。
+页面只走真实接口。契约脚本可以单独启用隔离 Mock 以验证前端形状，但产品构建不会启用该模式。
 
 保存后列表出现该单，状态为「正常号」。退号按钮只在正常号上可点，成功后变为「退号」，并提示「已退号」。已用、就诊中、就诊完成、挂起若被退号，提示「当前号已使用或就诊中，不能退号」（`409 REGISTER_NOT_CANCELLABLE`）；已退提示「该号已退，不能再次退号」（`409 REGISTER_BACK_NOT_ALLOWED`）。状态不变。
 
 「报到」只出现在正常号和已用号上。成功后状态变为「就诊中」，提示「已报到」，该行不再显示报到。真实接口是 `POST /api/v1/registers/{registerId}/check-in`（H04b 已合并）：`NORMAL` 或 `USED` → `DIAGNOSING`，不需要请求体。其它状态为 `409 ILLEGAL_STATE_TRANSITION`，服务端文案「当前状态不允许该操作」；页面优先显示该文案，没有 message 时也用这一句。找不到号时显示服务端「资源不存在」。5xx 且没有服务端文案时为「报到失败，请稍后重试」。
 
-`web/.env` 默认 `VITE_USE_MOCK=true`，报到不访问网络，方便离线演示。列表上方有「模拟报到冲突」：勾选后再点报到，返回 409，号仍是原来的状态。不勾选则 Mock 报到成功。在 `web/.env.local` 写 `VITE_USE_MOCK=false` 并重启 `npm run dev` 后，同一按钮改打真实 `POST /api/v1/registers/{registerId}/check-in`，不再显示模拟勾选。`simulateConflict` 不会发给服务端。
+报到固定调用真实 `POST /api/v1/registers/{registerId}/check-in`；`simulateConflict` 只存在于隔离契约脚本，不会发给服务端。
 
 提交字段对齐 OpenAPI 0.3.6，使用 `departmentId`，不用 `deptCode`：
 
@@ -158,7 +158,7 @@ Mock 与真实接口共用同一套页面。`web/.env` 默认 `VITE_USE_MOCK=tru
 
 「暂存」为 `SAVE`，不能收费。「提交」调用 commit，状态变为 `COMMIT` 后只读，可供收费；未收费可以作废。已收费不能改，也不能作废。同一挂号可以再开一张。
 
-字段对齐 OpenAPI **0.3.7-draft**：主字段是 `registerId`（`encounterId` 只是同义别名，请求里不传）。状态只有 `SAVE`、`COMMIT`、`PROC`、`ABATE`。`web/.env` 默认 `VITE_USE_MOCK=true`，开单走本地 Mock，不访问网络。联调时在 `web/.env.local` 写 `VITE_USE_MOCK=false`（与建档、挂号相同），请求经 Vite 代理到 `127.0.0.1:8080`。没有 `registerId` 时仍是「请先挂号」，并可选择当日未退号的挂号。开单医生可以改，诊断可以不填，库存不足只提示。本页不调用挂号接诊。
+字段对齐 OpenAPI **0.3.7-draft**：主字段是 `registerId`（`encounterId` 只是同义别名，请求里不传）。状态只有 `SAVE`、`COMMIT`、`PROC`、`ABATE`。开单固定经 Vite 代理请求 `127.0.0.1:8080`。没有 `registerId` 时仍是「请先挂号」，并可选择当日未退号的挂号。开单医生可以改，诊断可以不填，库存不足只提示。本页不调用挂号接诊。
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
@@ -197,7 +197,7 @@ npm run build       # 生产构建
 
 ## Mock
 
-默认 **Mock**（仓库里的 `web/.env` 已设 `VITE_USE_MOCK=true`），不访问网络。
+网站构建固定使用真实 API（`web/.env` 中 `VITE_USE_MOCK=false`）；不再把内存 Mock 作为运行模式。
 
 | 用户名 | 密码 | 结果 |
 |--------|------|------|
@@ -212,7 +212,7 @@ Mock 的 `accessToken` 是三段 JWT 外形，签名固定为 `mock`，**不是*
 
 ## 本机真 API 联调
 
-Mock 关掉之后，页面不再出现「本地演示模式」，改为「本机 API 账号」`system` / `1`。登录口令只在表单里输入，不要写进 `web/.env.local`。员工默认密码是 `1`。
+页面使用「本机 API 账号」`system` / `1`。登录口令只在表单里输入，不要写进 `web/.env.local`。员工默认密码是 `1`。
 
 ### 1. 启动 Go API
 
@@ -236,18 +236,18 @@ go run ./cmd/api
 curl -sS http://127.0.0.1:8080/health
 ```
 
-应看到 `"status":"ok"` 且 `"driver":"memory"`（未改数据库驱动时）。监听地址若被 `BHIS_API_ADDR` 改掉，下面的 `VITE_API_BASE_URL` 要跟着改。
+应看到 `"status":"ok"` 且 `"driver":"sqlserver"`。监听地址若被 `BHIS_API_ADDR` 改掉，下面的 `VITE_API_BASE_URL` 要跟着改。
 
-内存演示账号以仓库根 [README](../README.md)「内存演示账号」为准，和 Mock 是同一套口令。员工默认密码是 `1`。
+SQL Server 种子账号以仓库根 [README](../README.md) 的账号说明为准。员工默认密码是 `1`。
 
 | 用户名 | 密码 | 结果 |
 |--------|------|------|
 | `system` | `1` | 200，显示名「系统管理员」，角色 `SYSTEM` |
 | `disabled` | `1` | 密码正确时 403 `ACCOUNT_DISABLED`；密码错误仍是 401 `INVALID_CREDENTIALS` |
 
-同一 IP 或用户名失败次数默认 **8 次 / 15 分钟** 后 429 `AUTH_RATE_LIMITED`（`config.example.yaml` 的 `Auth.RateLimit`）。这和 Mock 的「连续 5 次、刷新清零」不同。正式环境请改掉演示口令。这不是 SQL Server 的登录口令，也不要写进前端仓库。
+同一 IP 或用户名失败次数默认 **8 次 / 15 分钟** 后 429 `AUTH_RATE_LIMITED`（`config.example.yaml` 的 `Auth.RateLimit`）。正式环境请改掉演示口令。这不是 SQL Server 的登录口令，也不要写进前端仓库。
 
-### 2. 关掉 Mock
+### 2. 配置真实 API
 
 在 `web/` 新建 **`web/.env.local`**（把 `.env.example` 复制过去最省事）。该文件已被 gitignore。**不要提交 `.env.local`，不要把口令、JWT、数据库连接串写进任何会进 Git 的文件。** 前端这几个变量里也不需要密钥。
 
@@ -294,7 +294,7 @@ npm run check:api
 
 ## Windows 演示 exe
 
-`npm run dev` 保持 Mock。给双击 exe 用的是另一条构建，关闭 Mock，接口走同源 `/api/v1`，登录页带仓库里的全屏背景：
+`npm run dev` 和双击 exe 均使用真实 API；接口走同源 `/api/v1`，登录页带仓库里的全屏背景：
 
 ```bash
 npm run build:demo

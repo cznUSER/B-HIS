@@ -1,7 +1,7 @@
 # Build the Vue login UI and a Windows amd64 launcher exe.
 # Run from anywhere:  powershell -ExecutionPolicy Bypass -File scripts\build-windows.ps1
 # Output: bin\b-his-host.exe
-# Double-click that exe. Demo account: system / 1 (staff default password; memory API).
+# Double-click that exe. Demo account: system / 1 (staff default password; SQL Server API).
 
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot

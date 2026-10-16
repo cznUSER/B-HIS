@@ -18,6 +18,9 @@ type Config struct {
 	Logging  LoggingConfig  `yaml:"Logging"`
 	Database DatabaseConfig `yaml:"Database"`
 	CORS     CORSConfig     `yaml:"CORS"`
+	// RegisterExpireHours controls optional outpatient registration validity.
+	// Zero disables expiry so existing local deployments retain their behavior.
+	RegisterExpireHours int `yaml:"RegisterExpireHours"`
 }
 
 type HostConfig struct {
@@ -62,7 +65,8 @@ func IsMissingJWT(err error) bool {
 	return errors.Is(err, ErrJWTRequired)
 }
 
-// Defaults are safe for a local memory demo except JWTSecret, which must be supplied.
+// Defaults require a real SQL Server connection. The website and host never
+// start against a process-local store.
 func Defaults() Config {
 	return Config{
 		Host: HostConfig{ApiAddr: "127.0.0.1:8080"},
@@ -71,7 +75,7 @@ func Defaults() Config {
 			RateLimit:      RateLimitConfig{MaxFailures: 8, Window: "15m"},
 		},
 		Logging:  LoggingConfig{Dir: "./logs", Level: "info"},
-		Database: DatabaseConfig{Driver: "memory"},
+		Database: DatabaseConfig{Driver: "sqlserver"},
 		CORS: CORSConfig{AllowedOrigins: []string{
 			"http://localhost:5173",
 			"http://127.0.0.1:5173",
@@ -140,6 +144,12 @@ func applyEnv(cfg *Config) {
 	}
 	if v := os.Getenv("BHIS_CORS_ORIGINS"); v != "" {
 		cfg.CORS.AllowedOrigins = splitCSV(v)
+	}
+	if v := os.Getenv("BHIS_REGISTER_EXPIRE_HOURS"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err == nil {
+			cfg.RegisterExpireHours = n
+		}
 	}
 	if v := os.Getenv("BHIS_AUTH_MAX_FAILURES"); v != "" {
 		n, err := strconv.Atoi(v)
@@ -217,12 +227,12 @@ func (c *Config) normalize() error {
 		return err
 	}
 	switch c.Database.Driver {
-	case "memory", "sqlserver":
+	case "sqlserver", "dameng":
 	default:
-		return fmt.Errorf("Database.Driver must be memory or sqlserver")
+		return fmt.Errorf("Database.Driver must be sqlserver or dameng")
 	}
 	c.Database.DSN = strings.TrimSpace(c.Database.DSN)
-	if c.Database.Driver == "sqlserver" {
+	if c.Database.Driver == "sqlserver" || c.Database.Driver == "dameng" {
 		if c.Database.DSN == "" {
 			return fmt.Errorf("BHIS_DB_DSN or Database.DSN is required when Driver is sqlserver")
 		}
@@ -235,6 +245,9 @@ func (c *Config) normalize() error {
 	}
 	if c.Logging.Level == "" {
 		c.Logging.Level = "info"
+	}
+	if c.RegisterExpireHours < 0 {
+		return fmt.Errorf("RegisterExpireHours must be zero or positive")
 	}
 	return nil
 }

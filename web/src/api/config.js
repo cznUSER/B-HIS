@@ -33,9 +33,13 @@ function configured(name, fallback) {
 }
 
 export function useMock() {
-  if (import.meta.env && import.meta.env.MODE === 'demo') return false
-  const flag = configured('VITE_USE_MOCK', 'true').toLowerCase()
-  return flag !== 'false' && flag !== '0' && flag !== 'no'
+  // Product builds always use HTTP. The opt-in test flag exists only for the
+  // repository's isolated contract scripts and is never committed to web/.env.
+  if (typeof process !== 'undefined' && process.env?.BHIS_WEB_TEST_MODE === '1') {
+    const flag = configured('VITE_USE_MOCK', 'false').toLowerCase()
+    return flag !== 'false' && flag !== '0' && flag !== 'no'
+  }
+  return false
 }
 
 export function apiBaseUrl() {

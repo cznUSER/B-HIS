@@ -16,13 +16,14 @@ func TestDriverEnvOverridesFile(t *testing.T) {
 	if err := os.WriteFile(path, []byte(yaml), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("BHIS_DB_DRIVER", "memory")
+	t.Setenv("BHIS_DB_DRIVER", "sqlserver")
+	t.Setenv("BHIS_DB_DSN", "sqlserver://env-user:env-pass@db:1433?database=BHIS")
 	t.Setenv("BHIS_JWT_SECRET", "env-secret-must-be-at-least-16")
 	cfg, err := Load(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Database.Driver != "memory" {
+	if cfg.Database.Driver != "sqlserver" {
 		t.Fatalf("driver %s", cfg.Database.Driver)
 	}
 	if cfg.Auth.JWTSecret != "env-secret-must-be-at-least-16" {
@@ -30,6 +31,46 @@ func TestDriverEnvOverridesFile(t *testing.T) {
 	}
 	if strings.Contains(cfg.Database.DSN, "S3cret-value") {
 		t.Fatal("unexpected secret")
+	}
+}
+
+func TestDefaultsUseSQLServer(t *testing.T) {
+	cfg := Defaults()
+	if cfg.Database.Driver != "sqlserver" {
+		t.Fatalf("default driver = %q, want sqlserver", cfg.Database.Driver)
+	}
+}
+
+func TestMemoryDriverRejected(t *testing.T) {
+	t.Setenv("BHIS_DB_DRIVER", "memory")
+	t.Setenv("BHIS_DB_DSN", "")
+	t.Setenv("BHIS_JWT_SECRET", "env-secret-must-be-at-least-16")
+	if _, err := Load(""); err == nil || !strings.Contains(err.Error(), "must be sqlserver or dameng") {
+		t.Fatalf("memory driver should be rejected, got %v", err)
+	}
+}
+
+func TestRegisterExpireHoursEnvAndValidation(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "local.yaml")
+	if err := os.WriteFile(path, []byte("Auth:\n  JWTSecret: file-secret\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("BHIS_DB_DRIVER", "sqlserver")
+	t.Setenv("BHIS_DB_DSN", "sqlserver://user:pass@db:1433?database=BHIS")
+	t.Setenv("BHIS_JWT_SECRET", "env-secret-must-be-at-least-16")
+	t.Setenv("BHIS_REGISTER_EXPIRE_HOURS", "6")
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.RegisterExpireHours != 6 {
+		t.Fatalf("register expiry hours = %d, want 6", cfg.RegisterExpireHours)
+	}
+
+	t.Setenv("BHIS_REGISTER_EXPIRE_HOURS", "-1")
+	if _, err := Load(path); err == nil || !strings.Contains(err.Error(), "RegisterExpireHours") {
+		t.Fatalf("negative register expiry should be rejected, got %v", err)
 	}
 }
 
@@ -53,7 +94,7 @@ func TestExampleHasNoRealDSN(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(example)
-	if !strings.Contains(text, "Driver: memory") || !strings.Contains(text, "database=BHIS") {
+	if !strings.Contains(text, "Driver: sqlserver") || !strings.Contains(text, "database=BHIS") {
 		t.Fatalf("example missing driver/database placeholder:\n%s", text)
 	}
 	if !strings.Contains(text, "<user>") || !strings.Contains(text, "<password>") || !strings.Contains(text, "<host>") {

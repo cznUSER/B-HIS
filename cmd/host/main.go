@@ -1,5 +1,5 @@
 // Command host is the local demo launcher. Double-click the Windows exe to
-// start the API (memory by default), serve the login page, and open a browser.
+// start the API (SQL Server required), serve the login page, and open a browser.
 // 2026-10-12 无参数即启动；cmd/api 仍是无头入口。
 package main
 
@@ -127,7 +127,7 @@ func usage() {
 	fmt.Fprintf(os.Stderr, `b-his-host serves the login page and the API in one process.
 
 Double-click bin\b-his-host.exe (or run it with no arguments). A browser opens
-the local login page. Default database is memory. Demo account: %s / %s
+the local login page. SQL Server is required. Demo account: %s / %s
 (staff default password; this is not a SQL Server password).
 
   b-his-host.exe
@@ -137,9 +137,10 @@ the local login page. Default database is memory. Demo account: %s / %s
   b-his-host.exe logs
 
 Flags belong before the subcommand. BHIS_OPEN_BROWSER=0 skips the browser.
-No config file is required for the memory demo. Optional config.local.yaml
-(next to the exe, or in the working directory) can set sqlserver via
-BHIS_DB_DSN. Do not commit that file.
+The executable reads config.local.yaml (next to the exe or in the working
+directory) or BHIS_DB_DRIVER/BHIS_DB_DSN. Database.Driver=dameng is reserved
+for a future adapter and fails closed until implemented. Do not commit local
+configuration or credentials.
 
 Headless API, without the login page:
 

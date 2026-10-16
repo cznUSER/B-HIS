@@ -4,10 +4,33 @@ package port
 import (
 	"context"
 	"errors"
+	"io"
 	"time"
 
 	"github.com/cznUSER/B-HIS/internal/domain"
 )
+
+// StoreSet is the application-facing collection opened by a database driver.
+// Keeping this contract in port lets SQL Server and the reserved Dameng
+// adapter plug into the same composition root without leaking driver details.
+type StoreSet struct {
+	Users       UserStore
+	Revocations RevocationStore
+	Audit       AuditStore
+	Patients    PatientStore
+	Registers   RegisterStore
+	Orders      OrderStore
+	Charges     ChargeStore
+	Dispenses   DispenseStore
+	Closer      io.Closer
+}
+
+// DatabaseDriver is the boundary for a persistent backend. The application
+// layer depends only on StoreSet; individual drivers own connection details.
+type DatabaseDriver interface {
+	Name() string
+	Open(dsn string) (StoreSet, error)
+}
 
 var (
 	// ErrNotFound is returned when a record does not exist (or is soft-deleted).
@@ -25,6 +48,8 @@ var (
 	// ErrRegisterNotCheckIn is a check-in when status is not NORMAL or USED.
 	// 2026-10-12
 	ErrRegisterNotCheckIn = errors.New("register not check-in")
+	// ErrRegisterNotComplete is a completion when status is not DIAGNOSING.
+	ErrRegisterNotComplete = errors.New("register not complete")
 	// ErrOrderNotEditable is a header/item change when status is not SAVE.
 	ErrOrderNotEditable = errors.New("order not editable")
 	// ErrOrderNotCommittable is a commit when status is not SAVE.
@@ -60,7 +85,11 @@ var (
 	// ErrDuplicateItemNo is a live catalog item_no or inventory item_no clash.
 	ErrDuplicateItemNo = errors.New("duplicate item no")
 	// ErrDuplicateUsername is a live app_user.username clash.
-	ErrDuplicateUsername = errors.New("duplicate username")
+	ErrDuplicateUsername         = errors.New("duplicate username")
+	ErrDuplicateAccessPermission = errors.New("duplicate access permission")
+	ErrDuplicateAccessCatalog    = errors.New("duplicate access catalog entry")
+	ErrInvalidUserRoleScope      = errors.New("invalid user role scope")
+	ErrDuplicateUserRoleScope    = errors.New("duplicate user role scope")
 	// ErrDuplicateDictCode is a live dict_item (dict_type, code) clash.
 	ErrDuplicateDictCode = errors.New("duplicate dict code")
 	// ErrAdjustNegative is an inventory adjust whose result would be below zero.
@@ -69,14 +98,32 @@ var (
 	ErrNotDrugSKU = errors.New("not drug sku")
 	// ErrConflict is an optimistic row_version mismatch.
 	ErrConflict = errors.New("conflict")
+	// ErrLastSystemAdmin protects the final active SYSTEM administrator.
+	ErrLastSystemAdmin = errors.New("last system administrator")
+	// ErrAuditUnavailable means a successful mutation could not be durably audited.
+	ErrAuditUnavailable = errors.New("audit unavailable")
+	// ErrIdempotencyConflict means a key was reused with a different request hash.
+	ErrIdempotencyConflict = errors.New("idempotency key conflict")
+	// ErrIdempotencyInProgress means another request currently owns the key.
+	ErrIdempotencyInProgress = errors.New("idempotency key in progress")
+	// ErrUserAdminBusy means the serialized administrator mutation could not acquire its lock.
+	ErrUserAdminBusy = errors.New("user administration busy")
 	// ErrDictTypeReadonly is a write to a system enum that is not a maintainable code table.
 	ErrDictTypeReadonly = errors.New("dict type readonly")
+	// ErrDiagnoseNotCommittable is a diagnosis transition outside SAVE -> COMMIT.
+	ErrDiagnoseNotCommittable = errors.New("diagnosis not committable")
+	// ErrDiagnoseNotAbatable is a diagnosis transition outside SAVE/COMMIT -> ABATE.
+	ErrDiagnoseNotAbatable = errors.New("diagnosis not abatable")
 )
 
-// UserStore loads identity records. Phase1 default is SQL Server; memory is the local demo.
+// UserStore loads identity records. Production wiring uses SQL Server; the
+// memory implementation is reserved for isolated unit tests.
 type UserStore interface {
 	FindByUsername(ctx context.Context, username string) (*domain.User, error)
 	FindByID(ctx context.Context, id string) (*domain.User, error)
+	RecordLoginFailure(ctx context.Context, id string, at time.Time, threshold int, lockDuration time.Duration) (bool, error)
+	RecordSuccessfulLogin(ctx context.Context, id, clientIP string, at time.Time) error
+	ChangePassword(ctx context.Context, id, passwordHash, operatorID string, at time.Time) error
 }
 
 // RevocationStore is the JWT jti blacklist. Entries live at least until token exp.
@@ -92,21 +139,30 @@ type AuditStore interface {
 }
 
 // PatientQuery is an AND of the provided filters. Empty strings are ignored by the store.
-// Name and Address are substring matches; CardNo, IDNumber, and HospPkNo are exact.
+// Name and Address are substring matches; PatientNo, CardNo, IDNumber, and HospPkNo are exact.
 type PatientQuery struct {
-	CardNo   string
-	IDNumber string
-	Name     string
-	HospPkNo string
-	Address  string
-	Limit    int
+	PatientNo string
+	CardNo    string
+	IDNumber  string
+	Name      string
+	HospPkNo  string
+	Address   string
+	Limit     int
 }
 
-// PatientStore is the MPI port. memory and sqlserver both implement it.
+// PatientStore is the MPI port. Persistent drivers implement it; memory is
+// kept only as a test double.
 type PatientStore interface {
 	Create(ctx context.Context, p domain.Patient) error
 	Get(ctx context.Context, patientID string) (*domain.Patient, error)
 	Search(ctx context.Context, q PatientQuery) ([]domain.Patient, error)
+}
+
+// AtomicPatientIdempotencyStore creates a patient and its idempotency record in
+// one store transaction. Replayed is true when an already completed key is
+// returned; the method must never create a second patient for that key.
+type AtomicPatientIdempotencyStore interface {
+	CreateWithIdempotency(ctx context.Context, p domain.Patient, scope, key, requestHash string, expiresAt time.Time) (patient domain.Patient, replayed bool, err error)
 }
 
 // RegisterQuery is an AND of the provided filters. Empty strings are ignored.
@@ -119,7 +175,8 @@ type RegisterQuery struct {
 }
 
 // RegisterStore is the register bill plus department/doctor master data.
-// Method names differ from PatientStore because memory and sqlserver implement both.
+// Method names differ from PatientStore because persistent drivers implement
+// both register and master-data operations.
 type RegisterStore interface {
 	CreateRegister(ctx context.Context, r domain.Register) error
 	GetRegister(ctx context.Context, registerID string) (*domain.Register, error)
@@ -132,12 +189,37 @@ type RegisterStore interface {
 	// Any other status returns ErrRegisterNotCheckIn and leaves the row unchanged.
 	// 2026-10-12
 	CheckInRegister(ctx context.Context, registerID, operatorID string, at time.Time) (*domain.Register, error)
+	// CompleteRegister moves DIAGNOSING → DIAGNOSED and writes updated_by.
+	// Any other status returns ErrRegisterNotComplete and leaves the row unchanged.
+	CompleteRegister(ctx context.Context, registerID, operatorID string, at time.Time) (*domain.Register, error)
 	DepartmentExists(ctx context.Context, departmentID string) (bool, error)
 	DoctorExists(ctx context.Context, doctorID string) (bool, error)
 	// GetDepartment and GetDoctor return inactive rows. Missing or soft-deleted rows are ErrNotFound.
 	// Callers that open a new register or order must reject status != ACTIVE. 2026-10-13
 	GetDepartment(ctx context.Context, departmentID string) (*domain.Department, error)
 	GetDoctor(ctx context.Context, doctorID string) (*domain.Doctor, error)
+}
+
+// AtomicRegisterIdempotencyStore creates a register bill and its idempotency
+// record in one store transaction. Replayed is true when an already completed
+// key is returned; the method must never create a second register for a key.
+type AtomicRegisterIdempotencyStore interface {
+	CreateRegisterWithIdempotency(ctx context.Context, r domain.Register, scope, key, requestHash string, expiresAt time.Time) (register domain.Register, replayed bool, err error)
+}
+
+// DiagnoseQuery filters diagnoses by their owning register.
+type DiagnoseQuery struct {
+	RegisterID string
+	Limit      int
+}
+
+// DiagnoseStore persists the optional diagnosis lifecycle.
+type DiagnoseStore interface {
+	CreateDiagnose(ctx context.Context, d domain.Diagnose) error
+	GetDiagnose(ctx context.Context, diagnoseID string) (*domain.Diagnose, error)
+	ListDiagnoses(ctx context.Context, q DiagnoseQuery) ([]domain.Diagnose, error)
+	CommitDiagnose(ctx context.Context, diagnoseID, operatorID string, at time.Time) (*domain.Diagnose, error)
+	AbateDiagnose(ctx context.Context, diagnoseID, operatorID string, at time.Time) (*domain.Diagnose, error)
 }
 
 // OrderQuery is an AND of the provided filters. Empty strings are ignored.
@@ -151,7 +233,7 @@ type OrderQuery struct {
 }
 
 // OrderStore is the order sheet, its items, and the catalog lookup.
-// memory and sqlserver both implement it. 2026-10-12
+// Persistent drivers implement it. 2026-10-12
 type OrderStore interface {
 	CreateOrder(ctx context.Context, o domain.Order) error
 	GetOrder(ctx context.Context, orderID string) (*domain.Order, error)
@@ -168,6 +250,22 @@ type OrderStore interface {
 	CatalogByItemNo(ctx context.Context, itemNo string) (*domain.CatalogItem, error)
 }
 
+// AtomicOrderIdempotencyStore creates an order sheet, all of its item rows, and
+// the idempotency record in one store transaction. Replayed is true when an
+// already completed key is returned; the method must never create a second
+// order for that key.
+type AtomicOrderIdempotencyStore interface {
+	CreateOrderWithIdempotency(ctx context.Context, o domain.Order, scope, key, requestHash string, expiresAt time.Time) (order domain.Order, replayed bool, err error)
+}
+
+// AtomicChargeIdempotencyStore creates a charge, all of its item rows, and the
+// idempotency record in one store transaction. Replayed is true when an
+// already completed key is returned; the method must never create a second
+// charge for that key.
+type AtomicChargeIdempotencyStore interface {
+	CreateChargeWithIdempotency(ctx context.Context, c domain.Charge, scope, key, requestHash string, expiresAt time.Time) (charge domain.Charge, replayed bool, err error)
+}
+
 // ChargeQuery is an AND of the provided filters. Empty strings are ignored.
 // FromDate and ToDate are inclusive Asia/Shanghai calendar days (YYYY-MM-DD)
 // matched against charge.created_at, not the register visit date. 2026-10-12
@@ -181,7 +279,7 @@ type ChargeQuery struct {
 }
 
 // ChargeStore is the square, its items, and its payments.
-// memory and sqlserver both implement it. Pay and refund are one transaction each.
+// Persistent drivers implement it. Pay and refund are one transaction each.
 // DrugOnHandMilli reads inventory_item.qty_on_hand (006). Charge never decrements it.
 // DispenseLedger is net dispensed for one charge item (real slips, else the test stub). 2026-10-12
 type ChargeStore interface {
@@ -201,6 +299,16 @@ type ChargeStore interface {
 	DispenseLedger(ctx context.Context, chargeItemID string) (dispensedMilli, returnedMilli int64, ok bool, err error)
 }
 
+// AtomicChargePaymentIdempotencyStore atomically persists a cash payment and
+// the charge/order state it mutates. It is separate from ChargeStore so legacy
+// adapters can continue to support the non-idempotent method.
+type AtomicChargePaymentIdempotencyStore interface {
+	LookupPayIdempotency(ctx context.Context, scope, key, requestHash string) (*domain.Charge, *domain.Payment, bool, error)
+	LookupRefundIdempotency(ctx context.Context, scope, key, requestHash string) (*domain.Charge, *domain.Charge, *domain.Payment, bool, error)
+	PayChargeWithIdempotency(ctx context.Context, chargeID string, payment domain.Payment, scope, key, requestHash string, expiresAt time.Time) (*domain.Charge, *domain.Payment, bool, error)
+	RefundChargeWithIdempotency(ctx context.Context, old domain.Charge, newCharge *domain.Charge, payment domain.Payment, scope, key, requestHash string, expiresAt time.Time) (*domain.Charge, *domain.Charge, *domain.Payment, bool, error)
+}
+
 // DispenseQuery filters are AND-ed. Empty strings are ignored.
 // FromDate and ToDate are inclusive Asia/Shanghai days (YYYY-MM-DD) on dispensed_at.
 type DispenseQuery struct {
@@ -211,6 +319,20 @@ type DispenseQuery struct {
 	FromDate   string
 	ToDate     string
 	Limit      int
+}
+
+// InventoryLedgerQuery uses a half-open time range in UTC. Cursor order is newest first.
+type InventoryLedgerQuery struct {
+	SkuCode        string
+	BizType        string
+	FromAt         time.Time
+	ToAt           time.Time
+	HasFrom        bool
+	HasTo          bool
+	CursorAt       time.Time
+	CursorLedgerID string
+	HasCursor      bool
+	Limit          int
 }
 
 // ReturnLine is one return inside a single return transaction.
@@ -228,8 +350,19 @@ type DispenseStore interface {
 	GetDispense(ctx context.Context, dispenseID string) (*domain.Dispense, error)
 	SearchDispenses(ctx context.Context, q DispenseQuery) ([]domain.Dispense, error)
 	ListInventory(ctx context.Context, itemNo string) ([]domain.InventoryItem, error)
+	ListInventoryLedger(ctx context.Context, query InventoryLedgerQuery) ([]domain.InventoryLedgerEntry, error)
 	QtyOnHandMilli(ctx context.Context, itemNo string) (int64, error)
 	OrderHasDispense(ctx context.Context, orderID string) (bool, error)
 	NetByChargeItem(ctx context.Context, chargeItemID string) (dispensedMilli, returnedMilli int64, ok bool, err error)
 	NetByOrderItem(ctx context.Context, orderItemID string) (dispensedMilli, returnedMilli int64, ok bool, err error)
+}
+
+// AtomicDispenseIdempotencyStore keeps the idempotency record in the same
+// transaction as the dispense slip/items, stock quantity, and inventory ledger.
+// Replays return the original dispense resource; a changed request hash is a
+// conflict and a pending key is reported as in progress.
+type AtomicDispenseIdempotencyStore interface {
+	LookupDispenseIdempotency(ctx context.Context, scope, key, requestHash string) (*domain.Dispense, bool, error)
+	CreateDispenseWithIdempotency(ctx context.Context, d domain.Dispense, scope, key, requestHash string, expiresAt time.Time) (domain.Dispense, bool, error)
+	ReturnDispenseWithIdempotency(ctx context.Context, dispenseID, reason, operatorID string, at time.Time, lines []ReturnLine, scope, key, requestHash string, expiresAt time.Time) (domain.Dispense, bool, error)
 }

@@ -16,16 +16,16 @@ npm run dev
 
 也可用 pnpm：`pnpm install` 然后 `pnpm dev`。浏览器打开终端里提示的本地地址（默认 http://localhost:5173）。
 
-登录成功进入首页看板 `/app`（待办、经营概况、两张分布图都是演示占位，数字为 0）。左侧「门诊业务」是建档、挂号、开单、收费、发药、退药/退费；「档案管理」里的患者建档走同一条建档路由。患者建档页可以新建和查询。挂号页可选科室和医生；没有患者时提示先建档。默认仍是 Mock；`web/.env.local` 里把 `VITE_USE_MOCK` 设为 `false` 后，建档走 `POST/GET /api/v1/patients`，挂号走 `POST/GET /api/v1/registers` 与 `POST /api/v1/registers/{id}/cancel`（字段 `departmentId`），开单走 `POST/PATCH/GET /api/v1/orders` 与 `/commit`、`/abate`（主字段 `registerId`），收费走 `GET /orders/{orderId}/charge-preview`、`POST /charges`、`POST /charges/{chargeId}/pay`、`GET /charges` 和 `POST /charges/{chargeId}/refund`。没有挂号时开单和收费页是空态。发药在同一开关下走 `POST/GET /api/v1/dispenses`、`POST /api/v1/dispenses/{id}/return` 和库存查询；Mock 打开时仍用本地待发、部分发和退药演示。退药/退费入口仍是空态。六张入口卡只在 `/app/outpatient`，不是登录后的默认页。
+登录成功进入首页看板 `/app`（待办、经营概况、两张分布图都是演示占位，数字为 0）。左侧「门诊业务」是建档、挂号、开单、收费、发药、退药/退费；「档案管理」里的患者建档走同一条建档路由。患者建档页可以新建和查询。挂号页可选科室和医生；没有患者时提示先建档。网站固定通过真实 API 访问 `POST/GET /api/v1/patients`、`/registers`、`/orders`、`/charges`、`/dispenses` 等接口，业务数据全部由 SQL Server 持久化。六张入口卡只在 `/app/outpatient`，不是登录后的默认页。
 
-默认是 **Mock**（`VITE_USE_MOCK=true`），不访问后端。Mock 与真实 API 使用同一套演示账号 `system` / `1`。员工默认密码也是 `1`。
+网站默认访问真实 Go API，不启用浏览器内存 Mock。Go API 必须连接 SQL Server；前端不保存业务数据。
 
 切换到 H04 真实 API 的步骤见 [web/README.md](web/README.md)「本机真 API 联调」。联调时先按下一节启动 Go API（默认 `127.0.0.1:8080`）。
 
-## Go 登录 API（默认内存库，不需要 SQL Server）
+## Go 登录 API（SQL Server 必需）
 
 - Go **1.22+**
-- 默认 `Database.Driver: memory`
+- 默认 `Database.Driver: sqlserver`
 - 监听 `127.0.0.1:8080`
 
 ```bash
@@ -39,7 +39,7 @@ go run ./cmd/api -config config.example.yaml
 | `BHIS_API_ADDR` | 监听地址，默认 `127.0.0.1:8080` |
 | `BHIS_JWT_SECRET` | HS256 密钥 |
 | `BHIS_ACCESS_TOKEN_TTL` | access token 寿命，默认 `8h`（28800 秒）。Phase1 没有 refresh |
-| `BHIS_DB_DRIVER` | `memory`（默认，CI）或 `sqlserver` |
+| `BHIS_DB_DRIVER` | `sqlserver`（默认且唯一启用的运行时驱动）；`dameng` 仅作预留接口 |
 | `BHIS_DB_DSN` | 仅 `sqlserver` 需要。见下方占位形状 |
 | `BHIS_LOG_DIR` | 日志目录，默认 `./logs` |
 | `BHIS_LOG_LEVEL` | `debug` / `info` / `warn` / `error` |
@@ -57,11 +57,11 @@ go run ./cmd/host -config config.example.yaml health
 go run ./cmd/host -config config.example.yaml logs
 ```
 
-Host 在这个构建里是 **Windows 本机演示启动器**（还不是托盘窗）。无参数会启动内存库 API、同源托管登录页，并打开浏览器。验收用的无头进程仍是 `cmd/api`。
+Host 在这个构建里是 **Windows 本机启动器**（还不是托盘窗）。无参数会启动 SQL Server API、同源托管登录页，并打开浏览器。未配置数据库或连接失败会直接退出。
 
 ## Windows 双击启动
 
-一个 exe 同时提供登录页和 API，运行时不需要 Vite。默认内存库。浏览器打开 http://127.0.0.1:8080/login 。演示账号是 `system` / `1`（员工默认密码；Mock 相同；不是 SQL Server 口令）。
+一个 exe 同时提供登录页和 API，运行时不需要 Vite。数据库必须是 SQL Server。浏览器打开 http://127.0.0.1:8080/login 。演示账号是 `system` / `1`（员工默认密码；不是 SQL Server 口令）。
 
 在仓库根目录重新构建网页并打出 exe：
 
@@ -85,9 +85,9 @@ bin\b-his-host.exe logs
 
 | 项 | 说明 |
 |----|------|
-| 不必带配置文件 | 没有 YAML、也没有 `BHIS_JWT_SECRET` 时，用 `config.example.yaml` 里的 JWT 占位符，数据库为 memory。日志会警告这是占位符。 |
+| 不必带配置文件 | 没有 YAML、也没有 `BHIS_JWT_SECRET` 时，用 `config.example.yaml` 里的 JWT 占位符；数据库仍要求 SQL Server DSN。日志会警告这是占位符。 |
 | 配置放哪 | 当前目录或 exe 同目录的 `config.local.yaml`、`config.yaml`，其次才是 `config.example.yaml`。也可以 `-config` 或 `BHIS_CONFIG`。 |
-| SQL Server | 仍是可选项。在 exe 旁边放 gitignore 的 `config.local.yaml`，或设置 `BHIS_DB_DRIVER=sqlserver` 和 `BHIS_DB_DSN`。不要把 DSN 或口令提交到 Git。 |
+| SQL Server | 运行必需。在 exe 旁边放 gitignore 的 `config.local.yaml`，或设置 `BHIS_DB_DRIVER=sqlserver` 和 `BHIS_DB_DSN`。不要把 DSN 或口令提交到 Git。 |
 | 不打开浏览器 | `-no-browser`，或 `BHIS_OPEN_BROWSER=0`。 |
 | 开发时的 Mock | `cd web` 后 `npm run dev` 不变，仍是 Mock（`system` / `1`）。exe 用的是 `npm run build:demo`（关闭 Mock，请求同源 `/api/v1`）。 |
 
@@ -102,7 +102,7 @@ bin\b-his-host.exe logs
 | `system` | `1` | `SYSTEM` | 系统管理员，可登录 Go API。显示名「系统管理员」 |
 | `disabled` | `1` | 无 | 密码正确时 `403 ACCOUNT_DISABLED`；密码错误仍是 `401 INVALID_CREDENTIALS` |
 
-员工账号的默认密码是 `1`。以后新增的员工种子也用这个口令，不要再写另一套演示密码。Mock、内存库和 SQL 种子一致；SQL 脚本只存 bcrypt。请在正式环境改掉演示口令。这不是 SQL Server 的登录口令。
+员工账号的默认密码是 `1`。以后新增的员工种子也用这个口令，不要再写另一套演示密码。SQL 脚本只存 bcrypt。请在正式环境改掉演示口令。这不是 SQL Server 的登录口令。
 
 ## curl
 
@@ -208,11 +208,15 @@ curl -sS -D - http://127.0.0.1:8080/api/v1/patients \
 
 `POST /api/v1/registers` 返回 `201` `RegisterDto`，初始 `status=NORMAL`。必填 `patientId`、`departmentId`、`doctorId`、`visitDate`。缺字段为 `400 VALIDATION_ERROR`。`registerSort` 可选；`registerFee` 默认 `0`；`registerCharged` 默认 `false`。患者不存在 `404 PATIENT_NOT_FOUND`；科室不存在 `404 DEPARTMENT_NOT_FOUND`；医生不存在 `404 DOCTOR_NOT_FOUND`。`registerId` 与 `registerNo` 由服务生成。`registeredAt` 为创建时间。
 
-内存库种子与 `003_register_seed.up.sql` 一致：`dept-1` 内科、`dept-2` 外科、`doc-1` 张医生、`doc-2` 李医生。
+SQL Server 种子与 `003_register_seed.up.sql` 一致：`dept-1` 内科、`dept-2` 外科、`doc-1` 张医生、`doc-2` 李医生。
 
 `GET /api/v1/registers` 的查询参数 `patientId`、`registerNo`、`visitDate` 均可选，精确匹配，条件之间为 AND。不带任何条件时返回 `{"items":[]}`，与患者查询相同。未知 `registerId` 为 `404 NOT_FOUND`。
 
 `POST /api/v1/registers/{registerId}/check-in`：`NORMAL` 或 `USED` → `DIAGNOSING`。`BACK` / `DIAGNOSING` / `DIAGNOSED` / `PAUSED` 为 `409 ILLEGAL_STATE_TRANSITION`，状态与退号留痕不变。不要求请求体。未知 `registerId` 为 `404 NOT_FOUND`。
+
+用户与权限整屏保存：`POST /api/v1/users` 或 `PATCH /api/v1/users/{userId}` 显式带 `permissionOverrides` 数组时，用户资料、角色、完整权限例外集合和成功审计在 SQL Server 中同一事务提交；审计失败整体回滚。省略该字段时保持既有权限例外。
+
+可通过 `BHIS_REGISTER_EXPIRE_HOURS`（或配置项 `RegisterExpireHours`）启用挂号有效期；默认 `0` 为关闭。启用后，超过有效小时数的挂号在报到及开单/收费等后续就诊操作返回 `409 REGISTER_EXPIRED`，不会推进状态或写入业务数据。
 
 `POST /api/v1/registers/{registerId}/cancel`：仅 `NORMAL` → `BACK`，并写入 `backOperatorId` / `backOperatedAt`（当前用户）。`USED` / `DIAGNOSING` / `DIAGNOSED` / `PAUSED` 为 `409 REGISTER_NOT_CANCELLABLE`，状态不变。已是 `BACK` 再退为 `409 REGISTER_BACK_NOT_ALLOWED`，退号留痕不覆盖。
 
@@ -229,11 +233,11 @@ curl -sS -D - http://127.0.0.1:8080/api/v1/registers \
 
 ## SQL Server（本机 Windows，可选）
 
-CI 和这台云端构建保持 **memory**。要在 Windows 开发机连 SQL Server 时：
+本项目运行和验收均使用 **SQL Server**。要在 Windows 开发机连接 SQL Server 时：
 
 1. 不要把主机、账号、口令写进 Git、拍板文档或 `config.example.yaml`。
 2. 在 `E:\B-HIS` 自建 gitignore 文件 `.env.local` 或 `config.local.yaml`。
-3. 库名 **BHIS**。按顺序执行 `001_identity`、`002_patient`、`003_register` 与种子、`004_order` 与种子、`005_charge` 与空种子、`006_inventory` 与种子、`007_dispense`（见 `migrations/README.md`）。Windows 身份脚本优先用 `scripts/apply-migration.ps1`（已带 `sqlcmd -I`）。不要改官方 DDL。`sqlcmd` 的口令用环境变量 `SQLCMDPASSWORD`，不要写进脚本。
+3. 库名 **BHIS**。按 `migrations/README.md` 执行身份、门诊、基础资料迁移；用户与权限功能还需要 `002_access_control` 和 `009_user_operations_audit`。Windows 身份脚本优先用 `scripts/apply-migration.ps1`（已带 `sqlcmd -I`）。不要改官方 DDL。`sqlcmd` 的口令用环境变量 `SQLCMDPASSWORD`，不要写进脚本。
 4. 启动前设置：
 
 ```text
