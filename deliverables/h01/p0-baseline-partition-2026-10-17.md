@@ -57,10 +57,12 @@ GitLab 远端：`http://192.168.1.138:8929/root/b-his.git`（凭据隐藏）
 
 - H06 已完成本轮独立验收准备并提交 BLOCKED 报告：Code A SQL 目标可达且只读 `DB_NAME()` 守卫返回 `BHIS_PHASE2_TEST_20261015`；独立 API 端口 `18081/18082` 空闲；API 启动命令三次在进程创建前被执行环境策略拒绝。未取得 API PID、未发请求、未写数据库、未建立 fixture；没有业务数据需清理。
 - `expires_at` 恰等于应用主机 UTC 检查时刻的边界未运行实测。H06 仅从 `expiresAt.After(time.Now().UTC())` 判断推得等于时已过期；不得将其记录为实测。
-- 本轮文档记录提交 `749dc55438bd2f4e75c3792d9df1cd64ad84967b` 已推送至 GitLab `codex/website-usability-2026-10-14`，远端 SHA 与本地一致。最新 push pipeline `#36` 为 `pending`：`diff:check`、`go:test`、`go:vet` 为 `pending`，`web:quality` 为 `created`；SQL 手动作业未出现在该 pipeline。
-- 2026-10-17 后续只读排障确认：Code A `192.168.1.138` 可通过 SSH 管理，Docker 正在运行 GitLab CE `19.5.0-ce.0` 容器；Code A 上没有 Windows GitLab Runner 服务、进程或配置。GitLab API 未认证请求返回 `401/404`，本轮没有取得 Runner 注册凭据，也没有改动 GitLab 或安装/启动服务。Runner 可使用 Code A Docker 执行器并锁定到 `root/b-his`，但须由有 GitLab 项目权限的维护者创建/提供项目 Runner 授权后才能注册。
+- 本轮文档记录提交 `749dc55438bd2f4e75c3792d9df1cd64ad84967b` 已推送至 GitLab `codex/website-usability-2026-10-14`，远端 SHA 与本地一致。其 push pipeline `#36` 为 `pending`：`diff:check`、`go:test`、`go:vet` 为 `pending`，`web:quality` 为 `created`；SQL 手动作业未出现在该 pipeline。
+- 2026-10-17 后续排障确认：Code A `192.168.1.138` 可通过 SSH 管理，Docker 正运行 GitLab CE `19.5.0-ce.0`；Code A 上没有 Windows GitLab Runner 服务、进程或配置。当前 GitLab 项目 Runner 列表为 0；本机认证账号拥有该项目 Owner 权限。提交 `64b456e44bd6c7ce5f0fbc97a8d6e8b48c785ec6` 的服务器 CI Lint 返回 `valid=true`、0 个错误，模拟出 `diff:check`、`go:test`、`go:vet`、`web:quality` 四个默认 job。对应 push pipeline `#37` 为 `pending`，四个 job 均未分配 Runner；这说明 CI 配置有效，阻塞点是没有可接单执行器。
+- 容量检查显示 Code A 物理内存约 `15.7 GiB`、当时可用约 `1.3 GiB`；Docker Desktop Linux 引擎上限 `7.63 GiB`，GitLab 容器占用约 `6.305 GiB`（82.64%）。`vmms` 服务未安装，未发现可用 Hyper-V VM 环境。基于当前余量，不在 Code A 同一 Docker 引擎启动 Runner，避免挤压 GitLab/SQL 资源；建议另配专用 Linux Runner 主机/VM，并将项目限制在该 Runner。项目 Runner 创建可由当前 Owner 账号完成，但 Runner token 仅应保存在 Runner 的私有配置中。
 - 本机 H06 执行器对独立 API 子进程的 `CreateProcess` 请求持续返回 `blocked by policy`。该执行限制不能靠仓库改动解除；真实 API 重启验收需要经批准的执行环境。GitLab Runner 建成后也不能自动替代此验收卡，除非验收命令被纳入受控 Runner 作业并验证目标库守卫。
-- 当前 P1 仍进行中。下一步是取得 GitLab 项目 Runner 授权并配置受控 Docker Runner，同时提供获准运行独立 API 验收的环境；在两项条件满足前不关闭 P1，不进入 P2-5，不改业务源码、不触碰 `BHIS` 或 `HospDataV9`。
+- 本机 H06 执行器对独立 API 子进程的 `CreateProcess` 请求持续返回 `blocked by policy`。该执行限制不能靠仓库改动解除；真实 API 重启验收需在获准执行环境运行，并先把验收命令纳入受控作业、验证目标库守卫。
+- 当前 P1 仍进行中。下一步需选定并提供有足够资源的专用 Linux Runner 主机/VM，创建项目锁定的 Docker Runner；之后先跑默认 CI，再评估如何安全启用 Code A 隔离库集成测试和真实 API 重启验收。在 Runner 与验收环境就绪前不关闭 P1，不进入 P2-5，不改业务源码、不触碰 `BHIS` 或 `HospDataV9`。
 
 ## 暂缓的用户决策项
 
