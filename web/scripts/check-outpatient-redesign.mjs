@@ -39,12 +39,18 @@ if (!steps.includes('data-testid="outpatient-step-nav"')) throw new Error('missi
 
 const boardPath = path.resolve(root, '..', '.codex', '实时进度', '任务看板.json')
 const boardHtmlPath = path.resolve(root, '..', '.codex', '实时进度', '任务看板.html')
-const board = JSON.parse(fs.readFileSync(boardPath, 'utf8'))
-if (!Array.isArray(board.tasks) || board.tasks.length < 1) throw new Error('task board has no tasks')
-if (!board.counts || board.counts.total !== board.tasks.length) throw new Error('task board counts do not match tasks')
-const boardHtml = fs.readFileSync(boardHtmlPath, 'utf8')
-for (const token of ['任务进程看板', '任务看板.json', 'setInterval(load, 5000)', '当前任务']) {
-  if (!boardHtml.includes(token)) throw new Error(`task board is missing ${token}`)
+let boardStatus = 'external'
+let boardTasks = 0
+if (fs.existsSync(boardPath) && fs.existsSync(boardHtmlPath)) {
+  const board = JSON.parse(fs.readFileSync(boardPath, 'utf8'))
+  if (!Array.isArray(board.tasks) || board.tasks.length < 1) throw new Error('task board has no tasks')
+  if (!board.counts || board.counts.total !== board.tasks.length) throw new Error('task board counts do not match tasks')
+  const boardHtml = fs.readFileSync(boardHtmlPath, 'utf8')
+  for (const token of ['任务进程看板', '任务看板.json', 'setInterval(load, 5000)', '当前任务']) {
+    if (!boardHtml.includes(token)) throw new Error(`task board is missing ${token}`)
+  }
+  boardStatus = 'local'
+  boardTasks = board.tasks.length
 }
 
-console.log(`REDESIGN_CHECK_OK modules=${expectedKeys.length} boardTasks=${board.tasks.length} sharedAnchors=9`)
+console.log(`REDESIGN_CHECK_OK modules=${expectedKeys.length} board=${boardStatus} boardTasks=${boardTasks} sharedAnchors=9`)
