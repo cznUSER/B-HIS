@@ -75,9 +75,9 @@ func TestOrderHTTP(t *testing.T) {
 	t.Run("health version", func(t *testing.T) {
 		code, body := getAuth(t, ts.URL+"/health", "")
 		if code != 200 ||
-			!strings.Contains(string(body), `"version":"0.3.10-draft"`) ||
-			!strings.Contains(string(body), `"contractVersion":"0.3.10-draft"`) ||
-			!strings.Contains(string(body), `"implementedVersion":"0.3.10-draft"`) {
+			!strings.Contains(string(body), `"version":"0.3.11-draft"`) ||
+			!strings.Contains(string(body), `"contractVersion":"0.3.11-draft"`) ||
+			!strings.Contains(string(body), `"implementedVersion":"0.3.11-draft"`) {
 			t.Fatalf("%d %s", code, body)
 		}
 	})
@@ -113,6 +113,14 @@ func TestOrderHTTP(t *testing.T) {
 		code, body = getAuth(t, base+"?registerId="+registerID, regTok)
 		if code != 200 {
 			t.Fatalf("list %d %s", code, body)
+		}
+	})
+
+	t.Run("doctor must belong to selected department on create", func(t *testing.T) {
+		body := `{"registerId":"` + registerID + `","departmentId":"dept-1","doctorId":"doc-2"}`
+		code, raw, _ := postJSON(t, base, body, authHdr(tok))
+		if code != 409 || decodeErr(t, raw).Error.Code != "DOCTOR_DEPARTMENT_MISMATCH" {
+			t.Fatalf("mismatched doctor %d %s", code, raw)
 		}
 	})
 
@@ -218,24 +226,31 @@ func TestOrderHTTP(t *testing.T) {
 	})
 
 	t.Run("patch save replaces items", func(t *testing.T) {
-		code, body := patchJSON(t, base+"/"+created.OrderID, `{"diagnoseName":"上感","doctorId":"doc-2","items":[`+drugB(1)+`]}`, authHdr(tok))
+		code, body := patchJSON(t, base+"/"+created.OrderID, `{"diagnoseName":"上感","departmentId":"dept-2","doctorId":"doc-2","items":[`+drugB(1)+`]}`, authHdr(tok))
 		if code != 200 {
 			t.Fatalf("%d %s", code, body)
 		}
 		dto := decodeOrder(t, body)
-		if dto.Status != "SAVE" || dto.DoctorID != "doc-2" || dto.DiagnoseName == nil || *dto.DiagnoseName != "上感" {
+		if dto.Status != "SAVE" || dto.DepartmentID != "dept-2" || dto.DoctorID != "doc-2" || dto.DiagnoseName == nil || *dto.DiagnoseName != "上感" {
 			t.Fatalf("%+v", dto)
 		}
 		if len(dto.Items) != 1 || dto.Items[0].ItemNo != "DRUG-B" || !near(dto.TotalFee, 8) || !near(dto.Items[0].TotalFee, 8) {
 			t.Fatalf("%+v", dto)
 		}
-		code, body = patchJSON(t, base+"/"+created.OrderID, `{"items":[`+drugA(2)+`]}`, authHdr(tok))
+		code, body = patchJSON(t, base+"/"+created.OrderID, `{"departmentId":"dept-1","doctorId":"doc-1","items":[`+drugA(2)+`]}`, authHdr(tok))
 		if code != 200 {
 			t.Fatalf("restore %d %s", code, body)
 		}
 		dto = decodeOrder(t, body)
 		if len(dto.Items) != 1 || !near(dto.TotalFee, 20) || dto.Items[0].ItemNo != "DRUG-A" {
 			t.Fatalf("%+v", dto)
+		}
+	})
+
+	t.Run("doctor must belong to selected department on patch", func(t *testing.T) {
+		code, raw := patchJSON(t, base+"/"+created.OrderID, `{"doctorId":"doc-2"}`, authHdr(tok))
+		if code != 409 || decodeErr(t, raw).Error.Code != "DOCTOR_DEPARTMENT_MISMATCH" {
+			t.Fatalf("mismatched doctor %d %s", code, raw)
 		}
 	})
 

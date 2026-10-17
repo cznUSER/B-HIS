@@ -16,30 +16,39 @@ import (
 
 // Charge API (OpenAPI 0.3.8). Money stays in cents (decimal 18,2). No float arithmetic. 2026-10-12
 const (
-	CodeInsufficientStock       = "INSUFFICIENT_STOCK"
-	CodeInvalidAmount           = "INVALID_AMOUNT"
-	CodeItemNotCanBack          = "ITEM_NOT_CAN_BACK"
-	CodeRefundRequiresReturn    = "REFUND_REQUIRES_RETURN"
-	CodeRefundExceedsRefundable = "REFUND_EXCEEDS_REFUNDABLE"
-	CodeAlreadyAbated           = "ALREADY_ABATED"
-	CodeNotCharged              = "NOT_CHARGED"
-	CodeChargeAmountMismatch    = "CHARGE_AMOUNT_MISMATCH"
+	CodeInsufficientStock                = "INSUFFICIENT_STOCK"
+	CodeInvalidAmount                    = "INVALID_AMOUNT"
+	CodeItemNotCanBack                   = "ITEM_NOT_CAN_BACK"
+	CodeRefundRequiresReturn             = "REFUND_REQUIRES_RETURN"
+	CodeRefundExceedsRefundable          = "REFUND_EXCEEDS_REFUNDABLE"
+	CodePartialRefundDiscountUnsupported = "PARTIAL_REFUND_DISCOUNT_UNSUPPORTED"
+	CodeAlreadyAbated                    = "ALREADY_ABATED"
+	CodeNotCharged                       = "NOT_CHARGED"
+	CodeChargeAmountMismatch             = "CHARGE_AMOUNT_MISMATCH"
+	CodeRegisterFeeNotChargeable         = "REGISTER_FEE_NOT_CHARGEABLE"
+	CodeRegisterFeeAlreadyCharged        = "REGISTER_FEE_ALREADY_CHARGED"
 
-	msgInsufficientStock       = "库存不足"
-	msgInvalidAmount           = "数量或金额非法"
-	msgItemNotCanBack          = "该明细不可退"
-	msgRefundRequiresReturn    = "已发药须先退药"
-	msgRefundExceedsRefundable = "退费数量超过可退数量"
-	msgAlreadyAbated           = "结算单已作废"
-	msgNotCharged              = "尚未收费"
-	msgChargeAmountMismatch    = "实收必须等于应收"
-	msgChargeNotCommitted      = "仅已提交处方可收费"
-	msgChargeExists            = "该处方已有结算单"
-	msgChargeAlreadyPaid       = "结算单已支付"
+	msgInsufficientStock                = "库存不足"
+	msgInvalidAmount                    = "数量或金额非法"
+	msgItemNotCanBack                   = "该明细不可退"
+	msgRefundRequiresReturn             = "已发药须先退药"
+	msgRefundExceedsRefundable          = "退费数量超过可退数量"
+	msgPartialRefundDiscountUnsupported = "含优惠收费单暂不支持部分退费"
+	msgAlreadyAbated                    = "结算单已作废"
+	msgNotCharged                       = "尚未收费"
+	msgChargeAmountMismatch             = "实收必须等于应收"
+	msgChargeNotCommitted               = "仅已提交处方可收费"
+	msgChargeExists                     = "该处方已有结算单"
+	msgChargeAlreadyPaid                = "结算单已支付"
+	msgRegisterFeeNotChargeable         = "当前挂号单没有待收挂号费"
+	msgRegisterFeeAlreadyCharged        = "挂号费已收费"
 
 	idemScopeChargeCreate = "charge.create"
 	idemScopeChargePay    = "charge.pay"
 	idemScopeChargeRefund = "charge.refund"
+	// Durable stores validate expiry against wall-clock UTC, so this TTL must
+	// not depend on the injectable business clock used for document timestamps.
+	chargeIdempotencyTTL  = 24 * time.Hour
 	chargeSearchLimit     = 100
 )
 
@@ -47,6 +56,149 @@ const (
 type CreateChargeInput struct {
 	OrderID        string `json:"orderId"`
 	IdempotencyKey string `json:"-"`
+}
+
+// CreateRegisterFeeCharge creates the standalone charge for a register fee.
+// It intentionally has no order_id; the normal charge/pay/refund lifecycle is
+// reused while the register row is marked by the charge store transaction.
+func (s *Service) CreateRegisterFeeCharge(ctx context.Context, claims *auth.Claims, registerID, idempotencyKey, requestID, ip string) (*ChargeDTO, error) {
+	start := time.Now()
+	user, err := s.actor(ctx, claims)
+	if err != nil {
+		return nil, err
+	}
+	registerID = strings.TrimSpace(registerID)
+	idempotencyKey = strings.TrimSpace(idempotencyKey)
+	var fields []string
+	if registerID == "" || len(registerID) > 64 {
+		fields = append(fields, "registerId")
+	}
+	if idempotencyKey != "" && !validIdempotencyKey(idempotencyKey) {
+		fields = append(fields, "idempotencyKey")
+	}
+	if len(fields) > 0 {
+		return nil, validationFields(fields)
+	}
+	if s.Registers == nil || s.Charges == nil {
+		return nil, errors.New("charge store is not configured")
+	}
+	reg, err := s.Registers.GetRegister(ctx, registerID)
+	if errors.Is(err, port.ErrNotFound) {
+		return nil, notFound()
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !hasPermScope(user, domain.PermChargePay, "outpatient", reg.DepartmentID) {
+		e := forbidden()
+		s.auditCharge(ctx, start, user, domain.ActionChargeCreate, registerID, domain.OutcomeFail, e.Code, requestID, ip)
+		return nil, e
+	}
+	if _, err := s.requireOpenRegister(ctx, registerID); err != nil {
+		return nil, err
+	}
+	if reg.RegisterFeeCents <= 0 {
+		e := &Error{Status: 409, Code: CodeRegisterFeeNotChargeable, Message: msgRegisterFeeNotChargeable}
+		s.auditChargeErr(ctx, start, user, domain.ActionChargeCreate, registerID, requestID, ip, e)
+		return nil, e
+	}
+	if reg.RegisterCharged {
+		e := &Error{Status: 409, Code: CodeRegisterFeeAlreadyCharged, Message: msgRegisterFeeAlreadyCharged}
+		s.auditChargeErr(ctx, start, user, domain.ActionChargeCreate, registerID, requestID, ip, e)
+		return nil, e
+	}
+	hash := hashJSON(map[string]string{"registerId": registerID})
+	atomicStore, atomic := s.Charges.(port.AtomicChargeIdempotencyStore)
+	// A pending or paid fee charge must be unique for one open registration.
+	if !atomic || idempotencyKey == "" {
+		rows, err := s.Charges.SearchCharges(ctx, port.ChargeQuery{RegisterID: registerID, Limit: chargeSearchLimit})
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			if row.OrderID == "" && registerFeeCharge(row) && row.Status != domain.ChargeStatusAbate {
+				e := &Error{Status: 409, Code: CodeRegisterFeeAlreadyCharged, Message: msgRegisterFeeAlreadyCharged}
+				s.auditChargeErr(ctx, start, user, domain.ActionChargeCreate, registerID, requestID, ip, e)
+				return nil, e
+			}
+		}
+	}
+	if idempotencyKey != "" && !atomic {
+		var prev ChargeDTO
+		found, err := s.takeIdem(idemScopeChargeCreate, idempotencyKey, hash, &prev)
+		if err != nil || found {
+			return &prev, err
+		}
+	}
+	now := s.now().UTC()
+	var saved domain.Charge
+	var replayed bool
+	for attempt := 0; attempt < 5; attempt++ {
+		id, err := newUUID()
+		if err != nil {
+			return nil, err
+		}
+		no, err := newBusinessNo("S", now)
+		if err != nil {
+			return nil, err
+		}
+		ch := chargeFromRegisterFee(*reg, id, no, user.ID, now)
+		if atomic && idempotencyKey != "" {
+			saved, replayed, err = atomicStore.CreateChargeWithIdempotency(ctx, ch, idemScopeChargeCreate, idempotencyKey, hash, time.Now().UTC().Add(chargeIdempotencyTTL))
+		} else {
+			err = s.Charges.CreateCharge(ctx, ch)
+			if err == nil {
+				saved = ch
+			}
+		}
+		if errors.Is(err, port.ErrDuplicateBusinessNo) {
+			continue
+		}
+		if errors.Is(err, port.ErrChargeExists) {
+			e := &Error{Status: 409, Code: CodeRegisterFeeAlreadyCharged, Message: msgRegisterFeeAlreadyCharged}
+			s.auditChargeErr(ctx, start, user, domain.ActionChargeCreate, registerID, requestID, ip, e)
+			return nil, e
+		}
+		if err != nil {
+			e := mapChargeErr(err)
+			s.auditChargeErr(ctx, start, user, domain.ActionChargeCreate, registerID, requestID, ip, e)
+			return nil, e
+		}
+		break
+	}
+	if saved.ChargeID == "" {
+		return nil, errors.New("charge number allocation failed")
+	}
+	dto := toChargeDTO(saved)
+	if replayed {
+		return &dto, nil
+	}
+	if idempotencyKey != "" && !atomic {
+		if err := s.putIdem(idemScopeChargeCreate, idempotencyKey, hash, dto); err != nil {
+			return nil, err
+		}
+	}
+	s.auditCharge(ctx, start, user, domain.ActionChargeCreate, dto.ChargeID, domain.OutcomeSuccess, "", requestID, ip)
+	return &dto, nil
+}
+
+func chargeFromRegisterFee(reg domain.Register, chargeID, squareNo, userID string, now time.Time) domain.Charge {
+	itemID, _ := newUUID()
+	item := domain.ChargeItem{
+		ChargeItemID: itemID, ChargeID: chargeID, LineNo: 1, ItemNo: "REGISTER-FEE",
+		ItemName: "挂号费", ItemType: domain.ItemTypeTreat, QtyMilli: 1000,
+		UnitPriceCents: reg.RegisterFeeCents, TotalFeeCents: reg.RegisterFeeCents, CanBack: true,
+	}
+	return domain.Charge{
+		ChargeID: chargeID, SquareNo: squareNo, RegisterID: reg.RegisterID, PatientID: reg.PatientID,
+		TotalFeeCents: reg.RegisterFeeCents, SquareFeeCents: reg.RegisterFeeCents,
+		Status: domain.ChargeStatusNormal, Items: []domain.ChargeItem{item},
+		CreatedAt: now, CreatedBy: userID, UpdatedAt: now, UpdatedBy: userID,
+	}
+}
+
+func registerFeeCharge(c domain.Charge) bool {
+	return len(c.Items) == 1 && c.Items[0].ItemNo == "REGISTER-FEE"
 }
 
 // PayInput is PayRequest. amount must equal squareFee.
@@ -151,12 +303,16 @@ type stockLine struct {
 // PreviewCharge builds an unsaved ChargeDto from a COMMIT order.
 // It does not check stock and does not write a row. F=0 ⇒ totalFee=squareFee. 2026-10-12
 func (s *Service) PreviewCharge(ctx context.Context, claims *auth.Claims, orderID string) (*ChargeDTO, error) {
-	if _, err := s.actor(ctx, claims); err != nil {
+	user, err := s.actor(ctx, claims)
+	if err != nil {
 		return nil, err
 	}
 	order, err := s.loadBillableOrder(ctx, orderID)
 	if err != nil {
 		return nil, err
+	}
+	if !hasPermScope(user, domain.PermChargePay, "outpatient", order.DepartmentID) {
+		return nil, forbidden()
 	}
 	ch, err := chargeFromOrder(*order, "", "", "", time.Time{})
 	if err != nil {
@@ -182,11 +338,6 @@ func (s *Service) CreateCharge(ctx context.Context, claims *auth.Claims, in Crea
 	if err != nil {
 		return nil, err
 	}
-	if !hasPerm(user, domain.PermChargePay) {
-		e := forbidden()
-		s.auditCharge(ctx, start, user, domain.ActionChargeCreate, "", domain.OutcomeFail, e.Code, requestID, ip)
-		return nil, e
-	}
 	orderID := strings.TrimSpace(in.OrderID)
 	var fields []string
 	if orderID == "" || len(orderID) > 64 {
@@ -199,37 +350,46 @@ func (s *Service) CreateCharge(ctx context.Context, claims *auth.Claims, in Crea
 		return nil, validationFields(fields)
 	}
 	hash := hashJSON(map[string]string{"orderId": orderID})
-	if in.IdempotencyKey != "" {
+	if s.Charges == nil || s.Orders == nil || s.Registers == nil {
+		return nil, errors.New("charge store is not configured")
+	}
+	atomicIdemStore, atomicIdem := s.Charges.(port.AtomicChargeIdempotencyStore)
+	if in.IdempotencyKey != "" && !atomicIdem {
 		var prev ChargeDTO
 		found, err := s.takeIdem(idemScopeChargeCreate, in.IdempotencyKey, hash, &prev)
 		if err != nil || found {
 			return &prev, err
 		}
 	}
-	if s.Charges == nil || s.Orders == nil || s.Registers == nil {
-		return nil, errors.New("charge store is not configured")
-	}
 	order, err := s.loadBillableOrder(ctx, orderID)
 	if err != nil {
 		s.auditChargeErr(ctx, start, user, domain.ActionChargeCreate, orderID, requestID, ip, err)
 		return nil, err
+	}
+	if !hasPermScope(user, domain.PermChargePay, "outpatient", order.DepartmentID) {
+		e := forbidden()
+		s.auditCharge(ctx, start, user, domain.ActionChargeCreate, orderID, domain.OutcomeFail, e.Code, requestID, ip)
+		return nil, e
 	}
 	// 拍板#13/#22 C-09：受控处方权校验默认关闭，收费不因处方权拒绝。
 	if err := s.ensureStock(ctx, orderStock(*order)); err != nil {
 		s.auditChargeErr(ctx, start, user, domain.ActionChargeCreate, orderID, requestID, ip, err)
 		return nil, err
 	}
-	existing, err := s.Charges.SearchCharges(ctx, port.ChargeQuery{OrderID: order.OrderID, Limit: 1})
-	if err != nil {
-		return nil, err
-	}
-	if len(existing) > 0 {
-		e := &Error{Status: 409, Code: CodeIllegalStateTransition, Message: msgChargeExists}
-		s.auditChargeErr(ctx, start, user, domain.ActionChargeCreate, orderID, requestID, ip, e)
-		return nil, e
+	if !atomicIdem || in.IdempotencyKey == "" {
+		existing, err := s.Charges.SearchCharges(ctx, port.ChargeQuery{OrderID: order.OrderID, Limit: 1})
+		if err != nil {
+			return nil, err
+		}
+		if len(existing) > 0 {
+			e := &Error{Status: 409, Code: CodeIllegalStateTransition, Message: msgChargeExists}
+			s.auditChargeErr(ctx, start, user, domain.ActionChargeCreate, orderID, requestID, ip, e)
+			return nil, e
+		}
 	}
 	now := s.now().UTC()
 	var saved domain.Charge
+	var replayed bool
 	for attempt := 0; attempt < 5; attempt++ {
 		id, err := newUUID()
 		if err != nil {
@@ -243,7 +403,14 @@ func (s *Service) CreateCharge(ctx context.Context, claims *auth.Claims, in Crea
 		if err != nil {
 			return nil, err
 		}
-		err = s.Charges.CreateCharge(ctx, ch)
+		if atomicIdem && in.IdempotencyKey != "" {
+			saved, replayed, err = atomicIdemStore.CreateChargeWithIdempotency(ctx, ch, idemScopeChargeCreate, in.IdempotencyKey, hash, time.Now().UTC().Add(chargeIdempotencyTTL))
+		} else {
+			err = s.Charges.CreateCharge(ctx, ch)
+			if err == nil {
+				saved = ch
+			}
+		}
 		if errors.Is(err, port.ErrDuplicateBusinessNo) {
 			continue
 		}
@@ -252,14 +419,16 @@ func (s *Service) CreateCharge(ctx context.Context, claims *auth.Claims, in Crea
 			s.auditChargeErr(ctx, start, user, domain.ActionChargeCreate, orderID, requestID, ip, mapped)
 			return nil, mapped
 		}
-		saved = ch
 		break
 	}
 	if saved.ChargeID == "" {
 		return nil, errors.New("charge number allocation failed")
 	}
 	dto := toChargeDTO(saved)
-	if in.IdempotencyKey != "" {
+	if replayed {
+		return &dto, nil
+	}
+	if in.IdempotencyKey != "" && !atomicIdem {
 		if err := s.putIdem(idemScopeChargeCreate, in.IdempotencyKey, hash, dto); err != nil {
 			return nil, err
 		}
@@ -277,11 +446,6 @@ func (s *Service) PayCharge(ctx context.Context, claims *auth.Claims, chargeID s
 		return nil, err
 	}
 	chargeID = strings.TrimSpace(chargeID)
-	if !hasPerm(user, domain.PermChargePay) {
-		e := forbidden()
-		s.auditCharge(ctx, start, user, domain.ActionChargePay, chargeID, domain.OutcomeFail, e.Code, requestID, ip)
-		return nil, e
-	}
 	if chargeID == "" {
 		return nil, notFound()
 	}
@@ -307,19 +471,42 @@ func (s *Service) PayCharge(ctx context.Context, claims *auth.Claims, chargeID s
 		return nil, validationFields(fields)
 	}
 	hash := hashJSON(map[string]any{"chargeId": chargeID, "payType": payType, "amountCents": cents})
-	if in.IdempotencyKey != "" {
+	if s.Charges == nil || s.Registers == nil {
+		return nil, errors.New("charge store is not configured")
+	}
+	atomicIdemStore, atomicIdem := s.Charges.(port.AtomicChargePaymentIdempotencyStore)
+	if in.IdempotencyKey != "" && !atomicIdem {
 		var prev PaymentDTO
 		found, err := s.takeIdem(idemScopeChargePay, in.IdempotencyKey, hash, &prev)
 		if err != nil || found {
 			return &prev, err
 		}
 	}
-	if s.Charges == nil || s.Registers == nil {
-		return nil, errors.New("charge store is not configured")
-	}
 	cur, err := s.loadCharge(ctx, chargeID)
 	if err != nil {
 		return nil, err
+	}
+	reg, err := s.Registers.GetRegister(ctx, cur.RegisterID)
+	if errors.Is(err, port.ErrNotFound) {
+		return nil, &Error{Status: 409, Code: CodeEncounterRequired, Message: msgEncounterRequired}
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !hasPermScope(user, domain.PermChargePay, "outpatient", reg.DepartmentID) {
+		e := forbidden()
+		s.auditCharge(ctx, start, user, domain.ActionChargePay, chargeID, domain.OutcomeFail, e.Code, requestID, ip)
+		return nil, e
+	}
+	if in.IdempotencyKey != "" && atomicIdem {
+		_, savedPayment, found, err := atomicIdemStore.LookupPayIdempotency(ctx, idemScopeChargePay, in.IdempotencyKey, hash)
+		if err != nil {
+			return nil, mapChargeErr(err)
+		}
+		if found {
+			dto := toPaymentDTO(*savedPayment)
+			return &dto, nil
+		}
 	}
 	if cur.Status == domain.ChargeStatusAbate {
 		e := &Error{Status: 409, Code: CodeAlreadyAbated, Message: msgAlreadyAbated}
@@ -375,7 +562,22 @@ func (s *Service) PayCharge(ctx context.Context, claims *auth.Claims, chargeID s
 			Status: domain.PaymentStatusSucceeded, PaidAt: now, OperatorID: user.ID,
 			CreatedAt: now, CreatedBy: user.ID, UpdatedAt: now, UpdatedBy: user.ID,
 		}
-		_, payment, err = s.Charges.PayCharge(ctx, cur.ChargeID, pay)
+		if atomicIdem && in.IdempotencyKey != "" {
+			var replayed bool
+			_, payment, replayed, err = atomicIdemStore.PayChargeWithIdempotency(ctx, cur.ChargeID, pay, idemScopeChargePay, in.IdempotencyKey, hash, time.Now().UTC().Add(chargeIdempotencyTTL))
+			if replayed {
+				if payment == nil {
+					return nil, errors.New("idempotent payment replay missing payment")
+				}
+				dto := toPaymentDTO(*payment)
+				return &dto, nil
+			}
+			if err == nil {
+				break
+			}
+		} else {
+			_, payment, err = s.Charges.PayCharge(ctx, cur.ChargeID, pay)
+		}
 		if errors.Is(err, port.ErrDuplicateBusinessNo) {
 			continue
 		}
@@ -393,7 +595,7 @@ func (s *Service) PayCharge(ctx context.Context, claims *auth.Claims, chargeID s
 		return nil, errors.New("charge fee invariant")
 	}
 	dto := toPaymentDTO(*payment)
-	if in.IdempotencyKey != "" {
+	if in.IdempotencyKey != "" && !atomicIdem {
 		if err := s.putIdem(idemScopeChargePay, in.IdempotencyKey, hash, dto); err != nil {
 			return nil, err
 		}
@@ -404,7 +606,7 @@ func (s *Service) PayCharge(ctx context.Context, claims *auth.Claims, chargeID s
 
 // RefundCharge abates a paid NORMAL square in one store transaction.
 // A full refund leaves newSquare null. F=0 conserves refund + remainder = squareFee.
-// favourableAlloc defaults to PROPORTIONAL; F>0 is computed but not hard-asserted. 2026-10-12
+// Discounted charges can only be fully refunded until partial allocation is supported.
 func (s *Service) RefundCharge(ctx context.Context, claims *auth.Claims, chargeID string, in RefundInput, requestID, ip string) (*RefundResultDTO, error) {
 	start := time.Now()
 	user, err := s.actor(ctx, claims)
@@ -412,11 +614,6 @@ func (s *Service) RefundCharge(ctx context.Context, claims *auth.Claims, chargeI
 		return nil, err
 	}
 	chargeID = strings.TrimSpace(chargeID)
-	if !hasPerm(user, domain.PermChargeRefund) {
-		e := forbidden()
-		s.auditCharge(ctx, start, user, domain.ActionChargeRefund, chargeID, domain.OutcomeFail, e.Code, requestID, ip)
-		return nil, e
-	}
 	if chargeID == "" {
 		return nil, notFound()
 	}
@@ -424,19 +621,46 @@ func (s *Service) RefundCharge(ctx context.Context, claims *auth.Claims, chargeI
 		return nil, validationFields([]string{"idempotencyKey"})
 	}
 	hash := hashJSON(in)
-	if in.IdempotencyKey != "" {
+	if s.Charges == nil || s.Registers == nil {
+		return nil, errors.New("charge store is not configured")
+	}
+	atomicIdemStore, atomicIdem := s.Charges.(port.AtomicChargePaymentIdempotencyStore)
+	if in.IdempotencyKey != "" && !atomicIdem {
 		var prev RefundResultDTO
 		found, err := s.takeIdem(idemScopeChargeRefund, in.IdempotencyKey, hash, &prev)
 		if err != nil || found {
 			return &prev, err
 		}
 	}
-	if s.Charges == nil {
-		return nil, errors.New("charge store is not configured")
-	}
 	cur, err := s.loadCharge(ctx, chargeID)
 	if err != nil {
 		return nil, err
+	}
+	reg, err := s.Registers.GetRegister(ctx, cur.RegisterID)
+	if errors.Is(err, port.ErrNotFound) {
+		return nil, &Error{Status: 409, Code: CodeEncounterRequired, Message: msgEncounterRequired}
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !hasPermScope(user, domain.PermChargeRefund, "outpatient", reg.DepartmentID) {
+		e := forbidden()
+		s.auditCharge(ctx, start, user, domain.ActionChargeRefund, chargeID, domain.OutcomeFail, e.Code, requestID, ip)
+		return nil, e
+	}
+	if in.IdempotencyKey != "" && atomicIdem {
+		savedOld, savedNew, savedPay, found, err := atomicIdemStore.LookupRefundIdempotency(ctx, idemScopeChargeRefund, in.IdempotencyKey, hash)
+		if err != nil {
+			return nil, mapChargeErr(err)
+		}
+		if found {
+			result := &RefundResultDTO{AbatedCharge: toChargeDTO(*savedOld), RefundPayment: toPaymentDTO(*savedPay)}
+			if savedNew != nil {
+				n := toChargeDTO(*savedNew)
+				result.NewSquare = &n
+			}
+			return result, nil
+		}
 	}
 	if cur.Status != domain.ChargeStatusNormal {
 		e := &Error{Status: 409, Code: CodeAlreadyAbated, Message: msgAlreadyAbated}
@@ -458,12 +682,19 @@ func (s *Service) RefundCharge(ctx context.Context, claims *auth.Claims, chargeI
 	}
 	now := s.now().UTC()
 	var result *RefundResultDTO
+	var replayed bool
 	for attempt := 0; attempt < 5; attempt++ {
 		old, next, pay, err := s.materializeRefund(*cur, plan, user.ID, now, in.PayType)
 		if err != nil {
 			return nil, err
 		}
-		savedOld, savedNew, savedPay, err := s.Charges.RefundCharge(ctx, old, next, pay)
+		var savedOld, savedNew *domain.Charge
+		var savedPay *domain.Payment
+		if atomicIdem && in.IdempotencyKey != "" {
+			savedOld, savedNew, savedPay, replayed, err = atomicIdemStore.RefundChargeWithIdempotency(ctx, old, next, pay, idemScopeChargeRefund, in.IdempotencyKey, hash, time.Now().UTC().Add(chargeIdempotencyTTL))
+		} else {
+			savedOld, savedNew, savedPay, err = s.Charges.RefundCharge(ctx, old, next, pay)
+		}
 		if errors.Is(err, port.ErrDuplicateBusinessNo) {
 			continue
 		}
@@ -471,6 +702,9 @@ func (s *Service) RefundCharge(ctx context.Context, claims *auth.Claims, chargeI
 			mapped := mapChargeErr(err)
 			s.auditChargeErr(ctx, start, user, domain.ActionChargeRefund, chargeID, requestID, ip, mapped)
 			return nil, mapped
+		}
+		if replayed && savedOld == nil {
+			return nil, errors.New("idempotent refund replay missing charge")
 		}
 		dto := RefundResultDTO{
 			AbatedCharge:  toChargeDTO(*savedOld),
@@ -495,23 +729,32 @@ func (s *Service) RefundCharge(ctx context.Context, claims *auth.Claims, chargeI
 			return nil, errors.New("refund fee invariant")
 		}
 	}
-	if in.IdempotencyKey != "" {
+	if in.IdempotencyKey != "" && !atomicIdem {
 		if err := s.putIdem(idemScopeChargeRefund, in.IdempotencyKey, hash, result); err != nil {
 			return nil, err
 		}
 	}
-	s.auditCharge(ctx, start, user, domain.ActionChargeRefund, chargeID, domain.OutcomeSuccess, "", requestID, ip)
+	if !replayed {
+		s.auditCharge(ctx, start, user, domain.ActionChargeRefund, chargeID, domain.OutcomeSuccess, "", requestID, ip)
+	}
 	return result, nil
 }
 
 // GetCharge returns one square or 404.
 func (s *Service) GetCharge(ctx context.Context, claims *auth.Claims, chargeID string) (*ChargeDTO, error) {
-	if _, err := s.actor(ctx, claims); err != nil {
+	user, err := s.actor(ctx, claims)
+	if err != nil {
 		return nil, err
+	}
+	if !hasAnyPermModule(user, "outpatient", domain.PermChargePay, domain.PermChargeRefund) {
+		return nil, forbidden()
 	}
 	cur, err := s.loadCharge(ctx, chargeID)
 	if err != nil {
 		return nil, err
+	}
+	if !chargeScopeAllowed(ctx, s.Registers, user, *cur, domain.PermChargePay, domain.PermChargeRefund) {
+		return nil, forbidden()
 	}
 	dto := toChargeDTO(*cur)
 	return &dto, nil
@@ -519,8 +762,12 @@ func (s *Service) GetCharge(ctx context.Context, claims *auth.Claims, chargeID s
 
 // SearchCharges lists squares. encounterId is an alias of registerId.
 func (s *Service) SearchCharges(ctx context.Context, claims *auth.Claims, q ChargeSearch) (*ChargeListDTO, error) {
-	if _, err := s.actor(ctx, claims); err != nil {
+	user, err := s.actor(ctx, claims)
+	if err != nil {
 		return nil, err
+	}
+	if !hasAnyPermModule(user, "outpatient", domain.PermChargePay, domain.PermChargeRefund) {
+		return nil, forbidden()
 	}
 	q.PatientID = strings.TrimSpace(q.PatientID)
 	q.RegisterID = strings.TrimSpace(q.RegisterID)
@@ -580,9 +827,23 @@ func (s *Service) SearchCharges(ctx context.Context, claims *auth.Claims, q Char
 	}
 	items := make([]ChargeDTO, 0, len(rows))
 	for _, row := range rows {
+		if !chargeScopeAllowed(ctx, s.Registers, user, row, domain.PermChargePay, domain.PermChargeRefund) {
+			continue
+		}
 		items = append(items, toChargeDTO(row))
 	}
 	return &ChargeListDTO{Items: items}, nil
+}
+
+func chargeScopeAllowed(ctx context.Context, registers port.RegisterStore, user *domain.User, charge domain.Charge, permissions ...string) bool {
+	if registers == nil {
+		return false
+	}
+	register, err := registers.GetRegister(ctx, charge.RegisterID)
+	if err != nil || register == nil {
+		return false
+	}
+	return hasAnyPermScope(user, "outpatient", register.DepartmentID, permissions...)
 }
 
 func (s *Service) loadBillableOrder(ctx context.Context, orderID string) (*domain.Order, error) {
@@ -690,7 +951,7 @@ func (s *Service) planRefund(ctx context.Context, cur domain.Charge, in RefundIn
 	if !validPayType(payType) {
 		fields = addField(fields, "payType")
 	}
-	if alloc != domain.FavourableAllocProportional && alloc != domain.FavourableAllocDiscountOnRemain && alloc != domain.FavourableAllocDiscountFirst {
+	if alloc != domain.FavourableAllocProportional {
 		fields = addField(fields, "favourableAlloc")
 	}
 	if utf8.RuneCountInString(strings.TrimSpace(in.Reason)) > 200 {
@@ -796,6 +1057,9 @@ func (s *Service) planRefund(ctx context.Context, cur domain.Charge, in RefundIn
 		// Lines omitted from a partial request still contribute their full total via the milli==0 branch.
 		// A mismatch here means the portions did not conserve the stored gross.
 		return zero, invalidAmount()
+	}
+	if cur.FavourableFeeCents > 0 && !full {
+		return zero, &Error{Status: 409, Code: CodePartialRefundDiscountUnsupported, Message: msgPartialRefundDiscountUnsupported}
 	}
 	_, frem, payRef, rnew, ok := allocFavourable(alloc, cur.TotalFeeCents, cur.FavourableFeeCents, gref)
 	if !ok {
@@ -963,6 +1227,11 @@ func orderStock(order domain.Order) []stockLine {
 }
 
 func (s *Service) chargeStockLines(ctx context.Context, c domain.Charge) ([]stockLine, error) {
+	// SQL charge_item does not retain the transient ItemType. The dedicated
+	// registration fee has no prescription or drug stock to validate.
+	if c.OrderID == "" && registerFeeCharge(c) {
+		return nil, nil
+	}
 	var order *domain.Order
 	if c.OrderID != "" && s.Orders != nil {
 		o, err := s.Orders.GetOrder(ctx, c.OrderID)
@@ -1130,12 +1399,7 @@ func portionCents(total, part, whole int64) (int64, bool) {
 }
 
 func validPayType(s string) bool {
-	switch s {
-	case domain.PayTypeCash, domain.PayTypeOtherE, domain.PayTypeWechat, domain.PayTypeAlipay, domain.PayTypeOther:
-		return true
-	default:
-		return false
-	}
+	return s == domain.PayTypeCash
 }
 
 func validDay(s string) bool {
@@ -1204,6 +1468,10 @@ func mapChargeErr(err error) error {
 		return &Error{Status: 409, Code: CodeAlreadyAbated, Message: msgAlreadyAbated}
 	case errors.Is(err, port.ErrChargeNotPaid):
 		return &Error{Status: 409, Code: CodeNotCharged, Message: msgNotCharged}
+	case errors.Is(err, port.ErrIdempotencyConflict):
+		return &Error{Status: 409, Code: CodeIdempotencyConflict, Message: msgIdempotencyConflict}
+	case errors.Is(err, port.ErrIdempotencyInProgress):
+		return &Error{Status: 409, Code: CodeIdempotencyInProgress, Message: msgIdempotencyInProgress}
 	default:
 		return err
 	}
@@ -1269,10 +1537,11 @@ func (s *Service) auditCharge(ctx context.Context, start time.Time, user *domain
 	if outcome != domain.OutcomeSuccess {
 		level = "warn"
 	}
-	s.record(ctx, start, domain.AuditEvent{
+	event := s.enrichBusinessAudit(ctx, domain.AuditEvent{
 		ActorID: actor, ActorRoles: roles, Action: action, ResourceType: "Charge",
 		ResourceID: resourceID, Outcome: outcome, ErrorCode: errorCode, RequestID: requestID, ClientIP: ip,
-	}, level)
+	})
+	s.record(ctx, start, event, level)
 }
 
 func (s *Service) auditChargeErr(ctx context.Context, start time.Time, user *domain.User, action, resourceID, requestID, ip string, err error) {

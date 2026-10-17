@@ -14,6 +14,10 @@ import (
 func (s *Store) CreateRegister(_ context.Context, r domain.Register) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.createRegisterLocked(r)
+}
+
+func (s *Store) createRegisterLocked(r domain.Register) error {
 	if _, ok := s.registers[r.RegisterID]; ok {
 		return port.ErrDuplicateBusinessNo
 	}
@@ -27,6 +31,41 @@ func (s *Store) CreateRegister(_ context.Context, r domain.Register) error {
 	}
 	s.registers[r.RegisterID] = r
 	return nil
+}
+
+// CreateRegisterWithIdempotency keeps the idempotency record and register
+// mutation under the same memory lock, matching the SQL transaction contract.
+func (s *Store) CreateRegisterWithIdempotency(_ context.Context, r domain.Register, scope, key, requestHash string, expiresAt time.Time) (domain.Register, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	mapKey := idempotencyMapKey(scope, key)
+	now := time.Now().UTC()
+	if record, ok := s.idempotency[mapKey]; ok {
+		if !record.expiresAt.IsZero() && !now.Before(record.expiresAt) {
+			delete(s.idempotency, mapKey)
+		} else {
+			if record.requestHash != requestHash {
+				return domain.Register{}, false, port.ErrIdempotencyConflict
+			}
+			switch record.state {
+			case idempotencyPending:
+				return domain.Register{}, false, port.ErrIdempotencyInProgress
+			case idempotencyCompleted:
+				existing, ok := s.registers[record.resourceID]
+				if !ok || existing.IsDeleted {
+					return domain.Register{}, false, port.ErrNotFound
+				}
+				return existing, true, nil
+			}
+		}
+	}
+	s.idempotency[mapKey] = idempotencyRecord{scope: scope, key: key, requestHash: requestHash, state: idempotencyPending, expiresAt: expiresAt.UTC()}
+	if err := s.createRegisterLocked(r); err != nil {
+		delete(s.idempotency, mapKey)
+		return domain.Register{}, false, err
+	}
+	s.idempotency[mapKey] = idempotencyRecord{scope: scope, key: key, requestHash: requestHash, state: idempotencyCompleted, resourceID: r.RegisterID, expiresAt: expiresAt.UTC()}
+	return r, false, nil
 }
 
 func (s *Store) GetRegister(_ context.Context, registerID string) (*domain.Register, error) {
@@ -127,6 +166,25 @@ func (s *Store) CheckInRegister(_ context.Context, registerID, operatorID string
 	default:
 		return nil, port.ErrRegisterNotCheckIn
 	}
+}
+
+// CompleteRegister accepts only DIAGNOSING. Other statuses leave the row unchanged.
+func (s *Store) CompleteRegister(_ context.Context, registerID, operatorID string, at time.Time) (*domain.Register, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r, ok := s.registers[registerID]
+	if !ok || r.IsDeleted {
+		return nil, port.ErrNotFound
+	}
+	if r.Status != domain.RegisterStatusDiagnosing {
+		return nil, port.ErrRegisterNotComplete
+	}
+	r.Status = domain.RegisterStatusDiagnosed
+	r.UpdatedAt = at.UTC()
+	r.UpdatedBy = operatorID
+	s.registers[registerID] = r
+	c := r
+	return &c, nil
 }
 
 func (s *Store) DepartmentExists(_ context.Context, departmentID string) (bool, error) {

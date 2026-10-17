@@ -29,6 +29,7 @@ func DemoUser() domain.User {
 		DisplayName:  DemoDisplayName,
 		PasswordHash: DemoPasswordHash,
 		Roles:        []domain.Role{domain.RoleSystem},
+		Developer:    true,
 		Status:       domain.StatusActive,
 	}
 }

@@ -5,19 +5,21 @@ import { useRoute } from 'vue-router'
 import { useMock } from '../api/config.js'
 import { session } from '../auth/session.js'
 import { canMaintainMaster } from '../master/access.js'
+import MasterSymbol from './master/MasterSymbol.vue'
+import './master/master-design.css'
 
 const route = useRoute()
 const allowed = computed(() => canMaintainMaster(session.user))
 const mockMode = useMock()
 
 const tabs = [
-  { name: 'master', label: '总览' },
-  { name: 'master-departments', label: '科室' },
-  { name: 'master-doctors', label: '医生' },
-  { name: 'master-catalog', label: '收费/药品目录' },
-  { name: 'master-inventory', label: '药品库存' },
-  { name: 'master-dicts', label: '基础字典' },
-  { name: 'master-users', label: '用户账号' },
+  { name: 'master', label: '总览', icon: 'overview' },
+  { name: 'master-departments', label: '科室', icon: 'departments' },
+  { name: 'master-doctors', label: '医生', icon: 'doctors' },
+  { name: 'master-catalog', label: '收费/药品目录', icon: 'catalog' },
+  { name: 'master-inventory', label: '药品库存', icon: 'inventory' },
+  { name: 'master-dicts', label: '基础字典', icon: 'dicts' },
+  { name: 'master-users', label: '用户账号', icon: 'users' },
 ]
 
 function tabActive(name) {
@@ -35,11 +37,21 @@ function tabActive(name) {
       <span>基础数据</span>
     </p>
 
-    <header class="panel-head">
-      <h1 id="master-title">基础数据</h1>
+    <header class="master-page-header">
+      <div>
+        <p class="master-eyebrow">SYSTEM MANAGEMENT / 系统设置</p>
+        <h1 id="master-title">基础数据</h1>
+        <p class="master-page-description">维护诊疗业务的基础信息，让每个工作环节有据可依。</p>
+      </div>
+      <div class="master-access-tag"><span></span>{{ allowed ? '管理员工作区' : '管理权限受限' }}</div>
     </header>
-    <p class="field-hint master-lead">演示账号 system / 1。这里维护科室、医生、目录、库存、号别和账号。完整的用户与权限仍是二期。</p>
-    <p v-if="allowed && !mockMode" class="field-hint" data-testid="master-live">当前连接基础数据接口。登录仍用 system / 1。</p>
+    <div class="master-scope-note">
+      <MasterSymbol name="overview" />
+      <div>
+        <p class="field-hint master-lead">演示账号 system / 1。这里维护科室、医生、目录、库存与号别；完整的用户与权限请进入独立工作区。</p>
+        <p v-if="allowed && !mockMode" class="field-hint" data-testid="master-live">当前连接基础数据接口。登录仍用 system / 1。</p>
+      </div>
+    </div>
 
     <nav class="master-tabs" aria-label="基础数据分页" data-testid="master-tabs">
       <RouterLink
@@ -50,7 +62,7 @@ function tabActive(name) {
         :to="{ name: tab.name }"
         :aria-current="tabActive(tab.name) ? 'page' : undefined"
       >
-        {{ tab.label }}
+        <MasterSymbol :name="tab.icon" /><span>{{ tab.label }}</span>
       </RouterLink>
     </nav>
 
@@ -60,6 +72,10 @@ function tabActive(name) {
       <RouterLink class="button button-ghost empty-back" :to="{ name: 'home' }">返回首页</RouterLink>
     </div>
 
-    <router-view v-else />
+    <router-view v-else v-slot="{ Component, route: panelRoute }">
+      <Transition name="master-page-change" mode="out-in">
+        <component :is="Component" :key="panelRoute.name" />
+      </Transition>
+    </router-view>
   </section>
 </template>

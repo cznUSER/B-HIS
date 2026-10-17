@@ -13,5 +13,5 @@ cd "$root"
 mkdir -p "$root/bin"
 CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o "$root/bin/b-his-host.exe" ./cmd/host
 echo "Built $root/bin/b-his-host.exe"
-echo "On Windows, double-click it. Login: http://127.0.0.1:8080/login"
+echo "On Windows, double-click it. Login: http://127.0.0.1:8888/login (API: 127.0.0.1:9999)"
 echo "Demo account: system / 1"

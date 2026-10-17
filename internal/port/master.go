@@ -69,3 +69,27 @@ type MasterStore interface {
 	UpdateUser(ctx context.Context, u domain.User, replaceRoles bool) (*domain.User, error)
 	ResetPassword(ctx context.Context, userID, passwordHash, operatorID string, at time.Time) error
 }
+
+// AtomicUserWriteStore commits a user mutation and its success audit as one unit.
+// Implementations also enforce the last active SYSTEM administrator invariant.
+type AtomicUserWriteStore interface {
+	UpdateUserWithAudit(ctx context.Context, u domain.User, replaceRoles bool, event domain.AuditEvent) (*domain.User, error)
+}
+
+// AtomicPasswordResetStore commits a password reset and its success audit as one unit.
+type AtomicPasswordResetStore interface {
+	ResetPasswordWithAudit(ctx context.Context, userID, passwordHash, operatorID string, event domain.AuditEvent) error
+}
+
+// AtomicUserCreateStore commits a newly created user, its roles, and its success audit as one unit.
+type AtomicUserCreateStore interface {
+	CreateUserWithAudit(ctx context.Context, u domain.User, event domain.AuditEvent) (*domain.User, error)
+}
+
+// AtomicUserAccessBundleStore commits a user's profile/roles, role scopes,
+// permission overrides, and the successful audit row as one unit. Presence
+// flags distinguish omission (preserve) from a present empty slice (clear).
+type AtomicUserAccessBundleStore interface {
+	CreateUserAccessBundleWithAudit(ctx context.Context, u domain.User, replaceRoleScopes bool, roleScopes []domain.UserRoleScope, replaceOverrides bool, overrides []domain.PermissionOverride, event domain.AuditEvent) (*domain.User, error)
+	UpdateUserAccessBundleWithAudit(ctx context.Context, u domain.User, replaceRoles, replaceRoleScopes bool, roleScopes []domain.UserRoleScope, replaceOverrides bool, overrides []domain.PermissionOverride, event domain.AuditEvent) (*domain.User, error)
+}

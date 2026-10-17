@@ -1,6 +1,7 @@
 // 2026-10-12 P1-H05 登录界面
 import { ApiError, readErrorResponse } from '../src/api/errors.js'
-import { mockLogin, mockLogout, mockMe, resetMockAuth } from '../src/api/mockAuth.js'
+import { mockChangePassword, mockLogin, mockLogout, mockMe, resetMockAuth } from '../src/api/mockAuth.js'
+import { createUser, resetUserPassword } from '../src/master/store.js'
 
 function assert(condition, message) {
   if (!condition) throw new Error(message)
@@ -34,6 +35,16 @@ assert(Array.isArray(ok.user.roles) && ok.user.roles.includes('SYSTEM'), 'roles'
 const me = mockMe(ok.accessToken)
 assert(me.displayName === '系统管理员', 'me displayName')
 assert(me.id === ok.user.id, 'me id')
+
+const forceChangeUser = createUser({ username: 'force-change-check', displayName: '强制改密检查', roles: ['REGISTRAR'] })
+resetUserPassword(forceChangeUser.userId)
+const forced = mockLogin({ username: 'force-change-check', password: '1' })
+assert(forced.user.mustChangePassword, 'reset requires password change')
+assert(mockMe(forced.accessToken).mustChangePassword, 'me retains password change requirement')
+mockChangePassword(forced.accessToken, { currentPassword: '1', newPassword: 'NewSecurePass1' })
+await expectError(() => mockMe(forced.accessToken), 'TOKEN_INVALID', 401)
+const changed = mockLogin({ username: 'force-change-check', password: 'NewSecurePass1' })
+assert(changed.user.mustChangePassword === false, 'password change clears requirement')
 
 mockLogout(ok.accessToken)
 await expectError(() => mockMe(ok.accessToken), 'TOKEN_INVALID', 401)

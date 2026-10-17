@@ -1,17 +1,47 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
+	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/cznUSER/B-HIS/internal/app"
+	"github.com/cznUSER/B-HIS/internal/auth"
 	"github.com/cznUSER/B-HIS/internal/domain"
+	"github.com/cznUSER/B-HIS/internal/logging"
 	"github.com/cznUSER/B-HIS/internal/store/memory"
 	"github.com/cznUSER/B-HIS/internal/store/seed"
 )
 
+func newChargeHTTP(t *testing.T) (*httptest.Server, *memory.Store, *auth.Issuer) {
+	t.Helper()
+	log, err := logging.New(t.TempDir(), "info")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = log.Close() })
+	st := memory.New()
+	ttl := 8 * time.Hour
+	issuer, err := auth.NewIssuer("test-secret-must-be-long-enough-32b!!", ttl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixed := time.Date(2026, 10, 12, 4, 0, 0, 0, time.UTC)
+	svc := &app.Service{
+		Users: st, Revocations: st, Audit: st, Patients: st, Registers: st, Orders: st,
+		Charges: st, Dispenses: st, Master: st, Tokens: issuer, Log: log, TTL: ttl,
+		Now: func() time.Time { return fixed },
+	}
+	ts := httptest.NewServer(New(svc, log, nil, "memory", time.Minute))
+	t.Cleanup(ts.Close)
+	return ts, st, issuer
+}
+
 func TestChargeHTTP(t *testing.T) {
-	ts, st, issuer := newOrderHTTP(t)
+	ts, st, issuer := newChargeHTTP(t)
 	tok := bearerFor(t, issuer, seed.DemoUser())
 	doc := domain.User{
 		ID: "00000000-0000-4000-8000-0000000000b2", Username: "doctor2", DisplayName: "门诊医生",
@@ -19,6 +49,23 @@ func TestChargeHTTP(t *testing.T) {
 	}
 	st.Add(doc)
 	docTok := bearerFor(t, issuer, doc)
+	registrar := domain.User{
+		ID: "00000000-0000-0000-0000-0000000000b3", Username: "registrar2", DisplayName: "挂号员",
+		Roles: []domain.Role{domain.RoleRegistrar}, Status: domain.StatusActive,
+	}
+	cashier := domain.User{
+		ID: "00000000-0000-0000-0000-0000000000b4", Username: "cashier2", DisplayName: "收费员",
+		Roles: []domain.Role{domain.RoleCashier}, Status: domain.StatusActive,
+	}
+	st.Add(registrar)
+	st.Add(cashier)
+	if err := st.ReplaceUserRoleScopes(context.Background(), cashier.ID, []domain.UserRoleScope{{
+		UserID: cashier.ID, RoleCode: string(domain.RoleCashier), DepartmentID: "dept-2", Status: domain.StatusActive,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	registrarTok := bearerFor(t, issuer, registrar)
+	cashierTok := bearerFor(t, issuer, cashier)
 	patientID := mustCreatePatient(t, ts.URL, tok)
 	registerID := mustRegisterID(t, ts.URL, tok, patientID)
 	orderID := mustCommitOrder(t, ts.URL, tok, registerID, drugA(2))
@@ -38,6 +85,17 @@ func TestChargeHTTP(t *testing.T) {
 		code, body, _ := postJSON(t, ts.URL+"/api/v1/charges", `{"orderId":"`+orderID+`"}`, authHdr(docTok))
 		if code != 403 || decodeErr(t, body).Error.Code != "FORBIDDEN" {
 			t.Fatalf("%d %s", code, body)
+		}
+	})
+
+	t.Run("preview enforces charge permission and department scope", func(t *testing.T) {
+		code, body := getAuth(t, ts.URL+"/api/v1/orders/"+orderID+"/charge-preview", registrarTok)
+		if code != 403 || decodeErr(t, body).Error.Code != "FORBIDDEN" {
+			t.Fatalf("registrar preview %d %s", code, body)
+		}
+		code, body = getAuth(t, ts.URL+"/api/v1/orders/"+orderID+"/charge-preview", cashierTok)
+		if code != 403 || decodeErr(t, body).Error.Code != "FORBIDDEN" {
+			t.Fatalf("cross-department cashier preview %d %s", code, body)
 		}
 	})
 
@@ -339,7 +397,7 @@ func TestChargeHTTP(t *testing.T) {
 		}
 	})
 
-	t.Run("wechat stored without provider", func(t *testing.T) {
+	t.Run("cash only is enforced for pay and refund", func(t *testing.T) {
 		reg := mustRegisterID(t, ts.URL, tok, patientID)
 		oid := mustCommitOrder(t, ts.URL, tok, reg, drugA(1))
 		code, body, _ := postJSON(t, ts.URL+"/api/v1/charges", `{"orderId":"`+oid+`"}`, authHdr(tok))
@@ -348,12 +406,22 @@ func TestChargeHTTP(t *testing.T) {
 		}
 		ch := decodeCharge(t, body)
 		code, body, _ = postJSON(t, ts.URL+"/api/v1/charges/"+ch.ChargeID+"/pay", `{"payType":"WECHAT","amount":10}`, authHdr(tok))
-		if code != 200 {
-			t.Fatalf("%d %s", code, body)
+		if code != 400 || decodeErr(t, body).Error.Code != "VALIDATION_ERROR" {
+			t.Fatalf("pay %d %s", code, body)
 		}
-		pay := decodePayment(t, body)
-		if pay.PayType != "WECHAT" || pay.Status != "SUCCEEDED" || !near(pay.Amount, 10) {
-			t.Fatalf("%+v", pay)
+		if got := decodeCharge(t, mustGet(t, ts.URL+"/api/v1/charges/"+ch.ChargeID, tok)); got.PaidAt != nil {
+			t.Fatalf("non-cash payment changed charge: %+v", got)
+		}
+		reg = mustRegisterID(t, ts.URL, tok, patientID)
+		oid = mustCommitOrder(t, ts.URL, tok, reg, drugA(1))
+		pay := mustChargePay(t, ts.URL, tok, oid, 10)
+		code, body, _ = postJSON(t, ts.URL+"/api/v1/charges/"+pay.ChargeID+"/refund", `{"payType":"WECHAT","items":[{"chargeItemId":"`+pay.Items[0].ChargeItemID+`","refundQty":1}]}`, authHdr(tok))
+		if code != 400 || decodeErr(t, body).Error.Code != "VALIDATION_ERROR" {
+			t.Fatalf("refund %d %s", code, body)
+		}
+		got := decodeCharge(t, mustGet(t, ts.URL+"/api/v1/charges/"+pay.ChargeID, tok))
+		if got.Status != "NORMAL" || got.PaidAt == nil {
+			t.Fatalf("non-cash refund changed charge: %+v", got)
 		}
 	})
 }
@@ -407,6 +475,7 @@ func mustGet(t *testing.T, url, tok string) []byte {
 type chargeJSON struct {
 	ChargeID          string           `json:"chargeId"`
 	SquareNo          string           `json:"squareNo"`
+	OrderID           *string          `json:"orderId"`
 	RegisterID        string           `json:"registerId"`
 	EncounterID       string           `json:"encounterId"`
 	PatientID         string           `json:"patientId"`
@@ -422,6 +491,7 @@ type chargeJSON struct {
 
 type chargeItemJSON struct {
 	ChargeItemID string  `json:"chargeItemId"`
+	ItemNo       string  `json:"itemNo"`
 	Qty          float64 `json:"qty"`
 	CanBack      bool    `json:"canBack"`
 }

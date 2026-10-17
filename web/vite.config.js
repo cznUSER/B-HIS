@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => {
     process.env.VITE_API_BASE_URL = '/api/v1'
   }
   const env = loadEnv(mode, process.cwd(), '')
-  const proxyTarget = env.VITE_API_PROXY_TARGET || 'http://localhost:8080'
+  const proxyTarget = env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:9999'
 
   return {
     plugins: [
@@ -24,7 +24,8 @@ export default defineConfig(({ mode }) => {
       },
     ],
     server: {
-      port: 5173,
+      port: 8888,
+      strictPort: true,
       proxy: {
         '/api': {
           target: proxyTarget,

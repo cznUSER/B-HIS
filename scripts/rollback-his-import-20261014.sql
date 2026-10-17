@@ -1,0 +1,20 @@
+/* Roll back only rows created by the 2026-10-14 history import batch. */
+SET NOCOUNT ON;
+SET XACT_ABORT ON;
+USE BHIS;
+DECLARE @batch varchar(64) = 'HIS_IMPORT_20261014';
+BEGIN TRANSACTION;
+DELETE FROM dbo.dispense_item WHERE dispense_id IN (SELECT dispense_id FROM dbo.dispense WHERE created_by = @batch);
+DELETE FROM dbo.payment WHERE created_by = @batch;
+DELETE FROM dbo.charge_item WHERE charge_id IN (SELECT charge_id FROM dbo.charge WHERE created_by = @batch);
+DELETE FROM dbo.dispense WHERE created_by = @batch;
+DELETE FROM dbo.charge WHERE created_by = @batch;
+DELETE FROM dbo.order_item WHERE order_id IN (SELECT order_id FROM dbo.order_sheet WHERE created_by = @batch);
+DELETE FROM dbo.order_sheet WHERE created_by = @batch;
+DELETE FROM dbo.register_bill WHERE created_by = @batch;
+DELETE FROM dbo.doctor WHERE created_by = @batch;
+DELETE FROM dbo.department WHERE created_by = @batch;
+DELETE FROM dbo.catalog_item WHERE created_by = @batch;
+DELETE FROM dbo.patient WHERE created_by = @batch;
+COMMIT TRANSACTION;
+PRINT 'HIS_IMPORT_ROLLBACK_COMMITTED';

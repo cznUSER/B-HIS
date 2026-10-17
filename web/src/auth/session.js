@@ -4,6 +4,19 @@
 import { computed, reactive } from 'vue'
 
 const STORAGE_KEY = 'bhis.session.v1'
+let expiredHandler = null
+
+// 2026-10-14 Only invalidate the session used by the failed request.
+export function setSessionExpiredHandler(handler) {
+  expiredHandler = handler
+}
+
+export function expireSession(accessToken) {
+  if (!accessToken || accessToken !== session.accessToken) return false
+  clearSession()
+  expiredHandler?.()
+  return true
+}
 
 export const session = reactive({
   accessToken: '',

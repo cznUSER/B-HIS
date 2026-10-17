@@ -358,7 +358,7 @@ func TestDemoHashMatchesPassword(t *testing.T) {
 func TestOpenAPIAuthSection(t *testing.T) {
 	b := readRepoFile(t, "api/openapi.yaml")
 	for _, s := range []string{
-		"version: 0.3.10-draft",
+		"version: 0.3.11-draft",
 		"contractVersion:",
 		"/auth/login:",
 		"/auth/logout:",

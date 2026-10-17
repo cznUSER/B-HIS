@@ -1,7 +1,8 @@
 # Copy to config.local.yaml or .env.local on the machine that runs the API.
 # Those files are gitignored. Do not put a real password in this example.
 Host:
-  ApiAddr: "127.0.0.1:8080"
+  ApiAddr: "127.0.0.1:9999"
+  WebAddr: "127.0.0.1:8888"
 Auth:
   # Replace via BHIS_JWT_SECRET. This value is a placeholder, not a credential.
   JWTSecret: "replace-me-placeholder"
@@ -22,8 +23,8 @@ Database:
   DSN: ""
 CORS:
   AllowedOrigins:
-    - "http://localhost:5173"
-    - "http://127.0.0.1:5173"
+    - "http://localhost:8888"
+    - "http://127.0.0.1:8888"
     - "http://localhost:4173"
     - "http://127.0.0.1:4173"
 # Optional outpatient registration validity. Zero (or omitted) disables expiry.

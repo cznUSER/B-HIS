@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -25,6 +26,7 @@ type Config struct {
 
 type HostConfig struct {
 	ApiAddr string `yaml:"ApiAddr"`
+	WebAddr string `yaml:"WebAddr"`
 }
 
 type AuthConfig struct {
@@ -69,7 +71,7 @@ func IsMissingJWT(err error) bool {
 // start against a process-local store.
 func Defaults() Config {
 	return Config{
-		Host: HostConfig{ApiAddr: "127.0.0.1:8080"},
+		Host: HostConfig{ApiAddr: "127.0.0.1:9999", WebAddr: "127.0.0.1:8888"},
 		Auth: AuthConfig{
 			AccessTokenTTL: "8h",
 			RateLimit:      RateLimitConfig{MaxFailures: 8, Window: "15m"},
@@ -77,8 +79,8 @@ func Defaults() Config {
 		Logging:  LoggingConfig{Dir: "./logs", Level: "info"},
 		Database: DatabaseConfig{Driver: "sqlserver"},
 		CORS: CORSConfig{AllowedOrigins: []string{
-			"http://localhost:5173",
-			"http://127.0.0.1:5173",
+			"http://localhost:8888",
+			"http://127.0.0.1:8888",
 			"http://localhost:4173",
 			"http://127.0.0.1:4173",
 		}},
@@ -123,6 +125,9 @@ func Load(path string) (Config, error) {
 func applyEnv(cfg *Config) {
 	if v := os.Getenv("BHIS_API_ADDR"); v != "" {
 		cfg.Host.ApiAddr = v
+	}
+	if v := os.Getenv("BHIS_WEB_ADDR"); v != "" {
+		cfg.Host.WebAddr = v
 	}
 	if v := os.Getenv("BHIS_JWT_SECRET"); v != "" {
 		cfg.Auth.JWTSecret = v
@@ -212,10 +217,25 @@ func loadEnvFile(name string) error {
 
 func (c *Config) normalize() error {
 	c.Host.ApiAddr = strings.TrimSpace(c.Host.ApiAddr)
+	c.Host.WebAddr = strings.TrimSpace(c.Host.WebAddr)
 	c.Database.Driver = strings.ToLower(strings.TrimSpace(c.Database.Driver))
 	c.Logging.Level = strings.ToLower(strings.TrimSpace(c.Logging.Level))
 	if c.Host.ApiAddr == "" {
 		return fmt.Errorf("Host.ApiAddr is required")
+	}
+	if c.Host.WebAddr == "" {
+		return fmt.Errorf("Host.WebAddr is required")
+	}
+	apiPort, err := listenerPort(c.Host.ApiAddr)
+	if err != nil {
+		return fmt.Errorf("Host.ApiAddr: %w", err)
+	}
+	webPort, err := listenerPort(c.Host.WebAddr)
+	if err != nil {
+		return fmt.Errorf("Host.WebAddr: %w", err)
+	}
+	if apiPort == webPort {
+		return fmt.Errorf("Host.ApiAddr and Host.WebAddr must use different ports")
 	}
 	if strings.TrimSpace(c.Auth.JWTSecret) == "" {
 		return ErrJWTRequired
@@ -250,6 +270,18 @@ func (c *Config) normalize() error {
 		return fmt.Errorf("RegisterExpireHours must be zero or positive")
 	}
 	return nil
+}
+
+func listenerPort(addr string) (int, error) {
+	_, portText, err := net.SplitHostPort(addr)
+	if err != nil {
+		return 0, fmt.Errorf("invalid listener address %q: %w", addr, err)
+	}
+	port, err := strconv.Atoi(portText)
+	if err != nil || port < 0 || port > 65535 {
+		return 0, fmt.Errorf("invalid listener port %q", portText)
+	}
+	return port, nil
 }
 
 func (c Config) TokenTTL() (time.Duration, error) {

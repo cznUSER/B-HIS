@@ -13,6 +13,10 @@ import (
 func (s *Store) CreateOrder(_ context.Context, o domain.Order) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.createOrderLocked(o)
+}
+
+func (s *Store) createOrderLocked(o domain.Order) error {
 	if _, ok := s.orders[o.OrderID]; ok {
 		return port.ErrDuplicateBusinessNo
 	}
@@ -26,6 +30,41 @@ func (s *Store) CreateOrder(_ context.Context, o domain.Order) error {
 	}
 	s.orders[o.OrderID] = cloneOrder(o)
 	return nil
+}
+
+// CreateOrderWithIdempotency keeps the idempotency record and order header/
+// items under the same memory lock, matching the SQL transaction contract.
+func (s *Store) CreateOrderWithIdempotency(_ context.Context, o domain.Order, scope, key, requestHash string, expiresAt time.Time) (domain.Order, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	mapKey := idempotencyMapKey(scope, key)
+	now := time.Now().UTC()
+	if record, ok := s.idempotency[mapKey]; ok {
+		if !record.expiresAt.IsZero() && !now.Before(record.expiresAt) {
+			delete(s.idempotency, mapKey)
+		} else {
+			if record.requestHash != requestHash {
+				return domain.Order{}, false, port.ErrIdempotencyConflict
+			}
+			switch record.state {
+			case idempotencyPending:
+				return domain.Order{}, false, port.ErrIdempotencyInProgress
+			case idempotencyCompleted:
+				existing, ok := s.orders[record.resourceID]
+				if !ok || existing.IsDeleted {
+					return domain.Order{}, false, port.ErrNotFound
+				}
+				return cloneOrder(existing), true, nil
+			}
+		}
+	}
+	s.idempotency[mapKey] = idempotencyRecord{scope: scope, key: key, requestHash: requestHash, state: idempotencyPending, expiresAt: expiresAt.UTC()}
+	if err := s.createOrderLocked(o); err != nil {
+		delete(s.idempotency, mapKey)
+		return domain.Order{}, false, err
+	}
+	s.idempotency[mapKey] = idempotencyRecord{scope: scope, key: key, requestHash: requestHash, state: idempotencyCompleted, resourceID: o.OrderID, expiresAt: expiresAt.UTC()}
+	return cloneOrder(o), false, nil
 }
 
 func (s *Store) GetOrder(_ context.Context, orderID string) (*domain.Order, error) {

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/cznUSER/B-HIS/internal/domain"
 	"github.com/cznUSER/B-HIS/internal/port"
@@ -16,6 +17,10 @@ import (
 type dispenseRec struct {
 	dispensed int64
 	returned  int64
+}
+
+func isRegisterFeeCharge(c domain.Charge) bool {
+	return len(c.Items) == 1 && c.Items[0].ItemNo == "REGISTER-FEE"
 }
 
 const chargeCols = `charge_id, square_no, order_id, register_id, patient_id,
@@ -35,11 +40,24 @@ func (s *Store) CreateCharge(ctx context.Context, c domain.Charge) error {
 	if c.OrderID != "" {
 		var n int
 		err = tx.QueryRowContext(ctx, `
-			SELECT COUNT(1) FROM dbo.charge
+			SELECT COUNT(1) FROM dbo.charge WITH (UPDLOCK, HOLDLOCK)
 			WHERE is_deleted = 0 AND order_id = @order_id`,
 			sql.Named("order_id", c.OrderID),
 		).Scan(&n)
 		if err != nil {
+			return err
+		}
+		if n > 0 {
+			return port.ErrChargeExists
+		}
+	} else if isRegisterFeeCharge(c) {
+		var n int
+		if err := tx.QueryRowContext(ctx, `
+			SELECT COUNT(1) FROM dbo.charge AS ch WITH (UPDLOCK, HOLDLOCK)
+			JOIN dbo.charge_item AS ci ON ci.charge_id = ch.charge_id
+			WHERE ch.is_deleted = 0 AND ch.register_id = @register_id
+			  AND ch.order_id IS NULL AND ch.status <> 'ABATE' AND ci.item_no = 'REGISTER-FEE'`,
+			sql.Named("register_id", c.RegisterID)).Scan(&n); err != nil {
 			return err
 		}
 		if n > 0 {
@@ -50,6 +68,113 @@ func (s *Store) CreateCharge(ctx context.Context, c domain.Charge) error {
 		return classifyWriteError(err)
 	}
 	return tx.Commit()
+}
+
+// CreateChargeWithIdempotency keeps the idempotency row, charge header, and
+// all charge items in one serializable transaction. The order check is inside
+// the same transaction so a replay is resolved before the one-charge rule.
+func (s *Store) CreateChargeWithIdempotency(ctx context.Context, c domain.Charge, scope, key, requestHash string, expiresAt time.Time) (domain.Charge, bool, error) {
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		return domain.Charge{}, false, err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var savedHash, state string
+	var resourceID sql.NullString
+	var savedExpires time.Time
+	err = tx.QueryRowContext(ctx, `
+		SELECT request_hash, state, resource_id, expires_at
+		FROM dbo.idempotency_record WITH (UPDLOCK, HOLDLOCK)
+		WHERE scope = @scope AND idem_key = @idem_key`,
+		sql.Named("scope", scope), sql.Named("idem_key", key)).Scan(&savedHash, &state, &resourceID, &savedExpires)
+	if err == nil {
+		if !savedExpires.After(time.Now().UTC()) {
+			if _, err := tx.ExecContext(ctx, `DELETE FROM dbo.idempotency_record WHERE scope=@scope AND idem_key=@idem_key`, sql.Named("scope", scope), sql.Named("idem_key", key)); err != nil {
+				return domain.Charge{}, false, err
+			}
+		} else {
+			if savedHash != requestHash {
+				return domain.Charge{}, false, port.ErrIdempotencyConflict
+			}
+			switch state {
+			case "PENDING":
+				return domain.Charge{}, false, port.ErrIdempotencyInProgress
+			case "COMPLETED":
+				if !resourceID.Valid || resourceID.String == "" {
+					return domain.Charge{}, false, port.ErrNotFound
+				}
+				existing, getErr := loadCharge(ctx, tx, resourceID.String)
+				if errors.Is(getErr, port.ErrNotFound) {
+					return domain.Charge{}, false, port.ErrNotFound
+				}
+				if getErr != nil {
+					return domain.Charge{}, false, getErr
+				}
+				if err := tx.Commit(); err != nil {
+					return domain.Charge{}, false, err
+				}
+				return *existing, true, nil
+			case "FAILED":
+				if _, err := tx.ExecContext(ctx, `DELETE FROM dbo.idempotency_record WHERE scope=@scope AND idem_key=@idem_key`, sql.Named("scope", scope), sql.Named("idem_key", key)); err != nil {
+					return domain.Charge{}, false, err
+				}
+			default:
+				return domain.Charge{}, false, port.ErrIdempotencyInProgress
+			}
+		}
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return domain.Charge{}, false, err
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO dbo.idempotency_record(scope, idem_key, request_hash, state, resource_type, resource_id, created_at, expires_at)
+		VALUES(@scope, @idem_key, @request_hash, 'PENDING', 'Charge', NULL, SYSUTCDATETIME(), @expires_at)`,
+		sql.Named("scope", scope), sql.Named("idem_key", key), sql.Named("request_hash", requestHash), sql.Named("expires_at", expiresAt.UTC())); err != nil {
+		return domain.Charge{}, false, err
+	}
+	if c.OrderID != "" {
+		var n int
+		if err := tx.QueryRowContext(ctx, `
+			SELECT COUNT(1) FROM dbo.charge WITH (UPDLOCK, HOLDLOCK)
+			WHERE is_deleted = 0 AND order_id = @order_id`,
+			sql.Named("order_id", c.OrderID)).Scan(&n); err != nil {
+			return domain.Charge{}, false, err
+		}
+		if n > 0 {
+			return domain.Charge{}, false, port.ErrChargeExists
+		}
+	} else if isRegisterFeeCharge(c) {
+		var n int
+		if err := tx.QueryRowContext(ctx, `
+			SELECT COUNT(1) FROM dbo.charge AS ch WITH (UPDLOCK, HOLDLOCK)
+			JOIN dbo.charge_item AS ci ON ci.charge_id = ch.charge_id
+			WHERE ch.is_deleted = 0 AND ch.register_id = @register_id
+			  AND ch.order_id IS NULL AND ch.status <> 'ABATE' AND ci.item_no = 'REGISTER-FEE'`,
+			sql.Named("register_id", c.RegisterID)).Scan(&n); err != nil {
+			return domain.Charge{}, false, err
+		}
+		if n > 0 {
+			return domain.Charge{}, false, port.ErrChargeExists
+		}
+	}
+	if err := insertCharge(ctx, tx, c); err != nil {
+		return domain.Charge{}, false, classifyWriteError(err)
+	}
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE dbo.idempotency_record
+		SET state='COMPLETED', resource_type='Charge', resource_id=@resource_id, completed_at=SYSUTCDATETIME()
+		WHERE scope=@scope AND idem_key=@idem_key`,
+		sql.Named("resource_id", c.ChargeID), sql.Named("scope", scope), sql.Named("idem_key", key)); err != nil {
+		return domain.Charge{}, false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return domain.Charge{}, false, err
+	}
+	if c.Items == nil {
+		c.Items = []domain.ChargeItem{}
+	}
+	return c, false, nil
 }
 
 func (s *Store) GetCharge(ctx context.Context, chargeID string) (*domain.Charge, error) {
@@ -110,14 +235,14 @@ func (s *Store) PayCharge(ctx context.Context, chargeID string, payment domain.P
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	var status, orderID string
+	var status, orderID, registerID string
 	var paid sql.NullTime
 	err = tx.QueryRowContext(ctx, `
-		SELECT status, order_id, paid_at
+		SELECT status, COALESCE(order_id, ''), register_id, paid_at
 		FROM dbo.charge WITH (UPDLOCK, ROWLOCK)
 		WHERE charge_id = @charge_id AND is_deleted = 0`,
 		sql.Named("charge_id", chargeID),
-	).Scan(&status, &orderID, &paid)
+	).Scan(&status, &orderID, &registerID, &paid)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil, port.ErrNotFound
 	}
@@ -164,6 +289,18 @@ func (s *Store) PayCharge(ctx context.Context, chargeID string, payment domain.P
 		if n != 1 {
 			return nil, nil, port.ErrNotFound
 		}
+	} else {
+		res, err := tx.ExecContext(ctx, `UPDATE dbo.register_bill SET register_charged=1, updated_at=@updated_at, updated_by=@updated_by WHERE register_id=@register_id AND is_deleted=0`, sql.Named("updated_at", payment.UpdatedAt.UTC()), sql.Named("updated_by", nullIfEmpty(payment.UpdatedBy)), sql.Named("register_id", registerID))
+		if err != nil {
+			return nil, nil, err
+		}
+		n, err := res.RowsAffected()
+		if err != nil {
+			return nil, nil, err
+		}
+		if n != 1 {
+			return nil, nil, port.ErrNotFound
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, nil, err
@@ -174,6 +311,155 @@ func (s *Store) PayCharge(ctx context.Context, chargeID string, payment domain.P
 	}
 	pay := payment
 	return loaded, &pay, nil
+}
+
+// LookupPayIdempotency returns a completed payment response before the caller
+// performs mutable charge-state validation. This lets a replay succeed even
+// though the charge is now NORMAL/paid. The lookup itself is read-only apart
+// from expiry cleanup.
+func (s *Store) LookupPayIdempotency(ctx context.Context, scope, key, requestHash string) (*domain.Charge, *domain.Payment, bool, error) {
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		return nil, nil, false, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	resourceID, state, found, err := readChargeIdempotency(ctx, tx, scope, key, requestHash)
+	if err != nil || !found {
+		if err == nil {
+			err = tx.Commit()
+		}
+		return nil, nil, false, err
+	}
+	pay, err := loadPayment(ctx, tx, resourceID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil, false, port.ErrNotFound
+	}
+	if err != nil {
+		return nil, nil, false, err
+	}
+	if state != "COMPLETED" || pay.Direction != domain.PaymentDirectionCharge {
+		return nil, nil, false, port.ErrNotFound
+	}
+	cur, err := loadCharge(ctx, tx, pay.ChargeID)
+	if errors.Is(err, port.ErrNotFound) {
+		return nil, nil, false, port.ErrNotFound
+	}
+	if err != nil {
+		return nil, nil, false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, nil, false, err
+	}
+	return cur, pay, true, nil
+}
+
+// PayChargeWithIdempotency atomically records the idempotency key, payment,
+// charge state, and order charged flag. A completed key points at payment_id,
+// which is sufficient to reconstruct the payment response after a restart.
+func (s *Store) PayChargeWithIdempotency(ctx context.Context, chargeID string, payment domain.Payment, scope, key, requestHash string, expiresAt time.Time) (*domain.Charge, *domain.Payment, bool, error) {
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		return nil, nil, false, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	resourceID, state, found, err := readChargeIdempotency(ctx, tx, scope, key, requestHash)
+	if err != nil {
+		return nil, nil, false, err
+	}
+	if found {
+		if state == "PENDING" {
+			return nil, nil, false, port.ErrIdempotencyInProgress
+		}
+		if state == "COMPLETED" {
+			pay, getErr := loadPayment(ctx, tx, resourceID)
+			if errors.Is(getErr, sql.ErrNoRows) {
+				return nil, nil, false, port.ErrNotFound
+			}
+			if getErr != nil {
+				return nil, nil, false, getErr
+			}
+			cur, getErr := loadCharge(ctx, tx, pay.ChargeID)
+			if errors.Is(getErr, port.ErrNotFound) {
+				return nil, nil, false, port.ErrNotFound
+			}
+			if getErr != nil {
+				return nil, nil, false, getErr
+			}
+			if err := tx.Commit(); err != nil {
+				return nil, nil, false, err
+			}
+			return cur, pay, true, nil
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO dbo.idempotency_record(scope, idem_key, request_hash, state, resource_type, resource_id, created_at, expires_at)
+		VALUES(@scope, @idem_key, @request_hash, 'PENDING', 'Payment', NULL, SYSUTCDATETIME(), @expires_at)`,
+		sql.Named("scope", scope), sql.Named("idem_key", key), sql.Named("request_hash", requestHash), sql.Named("expires_at", expiresAt.UTC())); err != nil {
+		return nil, nil, false, err
+	}
+	var status, orderID, registerID string
+	var paid sql.NullTime
+	err = tx.QueryRowContext(ctx, `
+		SELECT status, COALESCE(order_id, ''), register_id, paid_at FROM dbo.charge WITH (UPDLOCK, ROWLOCK)
+		WHERE charge_id=@charge_id AND is_deleted=0`, sql.Named("charge_id", chargeID)).Scan(&status, &orderID, &registerID, &paid)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil, false, port.ErrNotFound
+	}
+	if err != nil {
+		return nil, nil, false, err
+	}
+	if status == domain.ChargeStatusAbate {
+		return nil, nil, false, port.ErrChargeAlreadyAbated
+	}
+	if paid.Valid {
+		return nil, nil, false, port.ErrChargeAlreadyPaid
+	}
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE dbo.charge SET status=@status, paid_at=@paid_at, updated_at=@updated_at, updated_by=@updated_by
+		WHERE charge_id=@charge_id AND is_deleted=0`,
+		sql.Named("status", domain.ChargeStatusNormal), sql.Named("paid_at", payment.PaidAt.UTC()), sql.Named("updated_at", payment.UpdatedAt.UTC()), sql.Named("updated_by", nullIfEmpty(payment.UpdatedBy)), sql.Named("charge_id", chargeID)); err != nil {
+		return nil, nil, false, err
+	}
+	if err := insertPayment(ctx, tx, payment); err != nil {
+		return nil, nil, false, classifyWriteError(err)
+	}
+	if orderID != "" {
+		res, err := tx.ExecContext(ctx, `UPDATE dbo.order_sheet SET charged=1, updated_at=@updated_at, updated_by=@updated_by WHERE order_id=@order_id AND is_deleted=0`, sql.Named("updated_at", payment.UpdatedAt.UTC()), sql.Named("updated_by", nullIfEmpty(payment.UpdatedBy)), sql.Named("order_id", orderID))
+		if err != nil {
+			return nil, nil, false, err
+		}
+		n, err := res.RowsAffected()
+		if err != nil {
+			return nil, nil, false, err
+		}
+		if n != 1 {
+			return nil, nil, false, port.ErrNotFound
+		}
+	} else {
+		res, err := tx.ExecContext(ctx, `UPDATE dbo.register_bill SET register_charged=1, updated_at=@updated_at, updated_by=@updated_by WHERE register_id=@register_id AND is_deleted=0`, sql.Named("updated_at", payment.UpdatedAt.UTC()), sql.Named("updated_by", nullIfEmpty(payment.UpdatedBy)), sql.Named("register_id", registerID))
+		if err != nil {
+			return nil, nil, false, err
+		}
+		n, err := res.RowsAffected()
+		if err != nil {
+			return nil, nil, false, err
+		}
+		if n != 1 {
+			return nil, nil, false, port.ErrNotFound
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE dbo.idempotency_record SET state='COMPLETED', resource_type='Payment', resource_id=@resource_id, completed_at=SYSUTCDATETIME() WHERE scope=@scope AND idem_key=@idem_key`, sql.Named("resource_id", payment.PaymentID), sql.Named("scope", scope), sql.Named("idem_key", key)); err != nil {
+		return nil, nil, false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, nil, false, err
+	}
+	cur, err := loadCharge(ctx, s.db, chargeID)
+	if err != nil {
+		return nil, nil, false, err
+	}
+	p := payment
+	return cur, &p, false, nil
 }
 
 func (s *Store) RefundCharge(ctx context.Context, old domain.Charge, newCharge *domain.Charge, payment domain.Payment) (*domain.Charge, *domain.Charge, *domain.Payment, error) {
@@ -240,6 +526,19 @@ func (s *Store) RefundCharge(ctx context.Context, old domain.Charge, newCharge *
 	if err := insertPayment(ctx, tx, payment); err != nil {
 		return nil, nil, nil, classifyWriteError(err)
 	}
+	if old.OrderID == "" && newCharge == nil {
+		res, err := tx.ExecContext(ctx, `UPDATE dbo.register_bill SET register_charged=0, updated_at=@updated_at, updated_by=@updated_by WHERE register_id=@register_id AND is_deleted=0`, sql.Named("updated_at", payment.UpdatedAt.UTC()), sql.Named("updated_by", nullIfEmpty(payment.UpdatedBy)), sql.Named("register_id", old.RegisterID))
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		n, err := res.RowsAffected()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		if n != 1 {
+			return nil, nil, nil, port.ErrNotFound
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		return nil, nil, nil, err
 	}
@@ -256,6 +555,156 @@ func (s *Store) RefundCharge(ctx context.Context, old domain.Charge, newCharge *
 	}
 	pay := payment
 	return loaded, loadedNew, &pay, nil
+}
+
+// LookupRefundIdempotency rebuilds the composite refund response from the
+// refund payment, abated charge, and successor charge persisted in SQL.
+func (s *Store) LookupRefundIdempotency(ctx context.Context, scope, key, requestHash string) (*domain.Charge, *domain.Charge, *domain.Payment, bool, error) {
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		return nil, nil, nil, false, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	resourceID, state, found, err := readChargeIdempotency(ctx, tx, scope, key, requestHash)
+	if err != nil || !found {
+		if err == nil {
+			err = tx.Commit()
+		}
+		return nil, nil, nil, false, err
+	}
+	if state != "COMPLETED" {
+		return nil, nil, nil, false, port.ErrNotFound
+	}
+	pay, err := loadPayment(ctx, tx, resourceID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil, nil, false, port.ErrNotFound
+	}
+	if err != nil || pay.Direction != domain.PaymentDirectionRefund {
+		return nil, nil, nil, false, err
+	}
+	old, err := loadCharge(ctx, tx, pay.ChargeID)
+	if err != nil {
+		return nil, nil, nil, false, err
+	}
+	var next *domain.Charge
+	if old.SuccessorChargeID != "" {
+		next, err = loadCharge(ctx, tx, old.SuccessorChargeID)
+		if err != nil {
+			return nil, nil, nil, false, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, nil, nil, false, err
+	}
+	return old, next, pay, true, nil
+}
+
+// RefundChargeWithIdempotency atomically persists the refund payment, old
+// charge abatement, optional successor, and idempotency mapping. The mapping
+// points at payment_id; successor_charge_id supplies the rest of the response.
+func (s *Store) RefundChargeWithIdempotency(ctx context.Context, old domain.Charge, newCharge *domain.Charge, payment domain.Payment, scope, key, requestHash string, expiresAt time.Time) (*domain.Charge, *domain.Charge, *domain.Payment, bool, error) {
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		return nil, nil, nil, false, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	resourceID, state, found, err := readChargeIdempotency(ctx, tx, scope, key, requestHash)
+	if err != nil {
+		return nil, nil, nil, false, err
+	}
+	if found {
+		if state == "PENDING" {
+			return nil, nil, nil, false, port.ErrIdempotencyInProgress
+		}
+		if state == "COMPLETED" {
+			pay, getErr := loadPayment(ctx, tx, resourceID)
+			if errors.Is(getErr, sql.ErrNoRows) {
+				return nil, nil, nil, false, port.ErrNotFound
+			}
+			if getErr != nil {
+				return nil, nil, nil, false, getErr
+			}
+			oldSaved, getErr := loadCharge(ctx, tx, pay.ChargeID)
+			if getErr != nil {
+				return nil, nil, nil, false, getErr
+			}
+			var next *domain.Charge
+			if oldSaved.SuccessorChargeID != "" {
+				next, getErr = loadCharge(ctx, tx, oldSaved.SuccessorChargeID)
+				if getErr != nil {
+					return nil, nil, nil, false, getErr
+				}
+			}
+			if err := tx.Commit(); err != nil {
+				return nil, nil, nil, false, err
+			}
+			return oldSaved, next, pay, true, nil
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO dbo.idempotency_record(scope, idem_key, request_hash, state, resource_type, resource_id, created_at, expires_at) VALUES(@scope, @idem_key, @request_hash, 'PENDING', 'Payment', NULL, SYSUTCDATETIME(), @expires_at)`, sql.Named("scope", scope), sql.Named("idem_key", key), sql.Named("request_hash", requestHash), sql.Named("expires_at", expiresAt.UTC())); err != nil {
+		return nil, nil, nil, false, err
+	}
+	var status string
+	var paid sql.NullTime
+	if err := tx.QueryRowContext(ctx, `SELECT status, paid_at FROM dbo.charge WITH (UPDLOCK, ROWLOCK) WHERE charge_id=@charge_id AND is_deleted=0`, sql.Named("charge_id", old.ChargeID)).Scan(&status, &paid); errors.Is(err, sql.ErrNoRows) {
+		return nil, nil, nil, false, port.ErrNotFound
+	} else if err != nil {
+		return nil, nil, nil, false, err
+	}
+	if status == domain.ChargeStatusAbate {
+		return nil, nil, nil, false, port.ErrChargeAlreadyAbated
+	}
+	if !paid.Valid {
+		return nil, nil, nil, false, port.ErrChargeNotPaid
+	}
+	if newCharge != nil {
+		if err := insertCharge(ctx, tx, *newCharge); err != nil {
+			return nil, nil, nil, false, classifyWriteError(err)
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE dbo.charge SET status=@status, successor_charge_id=@successor_charge_id, updated_at=@updated_at, updated_by=@updated_by WHERE charge_id=@charge_id AND is_deleted=0`, sql.Named("status", domain.ChargeStatusAbate), sql.Named("successor_charge_id", nullIfEmpty(old.SuccessorChargeID)), sql.Named("updated_at", old.UpdatedAt.UTC()), sql.Named("updated_by", nullIfEmpty(old.UpdatedBy)), sql.Named("charge_id", old.ChargeID)); err != nil {
+		return nil, nil, nil, false, err
+	}
+	for _, it := range old.Items {
+		if _, err := tx.ExecContext(ctx, `UPDATE dbo.charge_item SET refunded_qty=@refunded_qty, updated_at=@updated_at WHERE charge_item_id=@charge_item_id AND charge_id=@charge_id`, sql.Named("refunded_qty", milliToDecimal(it.RefundedQtyMilli)), sql.Named("updated_at", old.UpdatedAt.UTC()), sql.Named("charge_item_id", it.ChargeItemID), sql.Named("charge_id", old.ChargeID)); err != nil {
+			return nil, nil, nil, false, err
+		}
+	}
+	if err := insertPayment(ctx, tx, payment); err != nil {
+		return nil, nil, nil, false, classifyWriteError(err)
+	}
+	if old.OrderID == "" && newCharge == nil {
+		res, err := tx.ExecContext(ctx, `UPDATE dbo.register_bill SET register_charged=0, updated_at=@updated_at, updated_by=@updated_by WHERE register_id=@register_id AND is_deleted=0`, sql.Named("updated_at", payment.UpdatedAt.UTC()), sql.Named("updated_by", nullIfEmpty(payment.UpdatedBy)), sql.Named("register_id", old.RegisterID))
+		if err != nil {
+			return nil, nil, nil, false, err
+		}
+		n, err := res.RowsAffected()
+		if err != nil {
+			return nil, nil, nil, false, err
+		}
+		if n != 1 {
+			return nil, nil, nil, false, port.ErrNotFound
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE dbo.idempotency_record SET state='COMPLETED', resource_type='Payment', resource_id=@resource_id, completed_at=SYSUTCDATETIME() WHERE scope=@scope AND idem_key=@idem_key`, sql.Named("resource_id", payment.PaymentID), sql.Named("scope", scope), sql.Named("idem_key", key)); err != nil {
+		return nil, nil, nil, false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, nil, nil, false, err
+	}
+	loadedOld, err := loadCharge(ctx, s.db, old.ChargeID)
+	if err != nil {
+		return nil, nil, nil, false, err
+	}
+	var loadedNew *domain.Charge
+	if newCharge != nil {
+		loadedNew, err = loadCharge(ctx, s.db, newCharge.ChargeID)
+		if err != nil {
+			return nil, nil, nil, false, err
+		}
+	}
+	p := payment
+	return loadedOld, loadedNew, &p, false, nil
 }
 
 func (s *Store) DrugOnHandMilli(ctx context.Context, itemNo string) (int64, error) {
@@ -452,6 +901,69 @@ func insertPayment(ctx context.Context, tx *sql.Tx, p domain.Payment) error {
 		sql.Named("updated_by", nullIfEmpty(p.UpdatedBy)),
 	)
 	return err
+}
+
+func readChargeIdempotency(ctx context.Context, tx *sql.Tx, scope, key, requestHash string) (resourceID, state string, found bool, err error) {
+	var savedHash string
+	var savedResource sql.NullString
+	var expiresAt time.Time
+	err = tx.QueryRowContext(ctx, `SELECT request_hash, state, resource_id, expires_at FROM dbo.idempotency_record WITH (UPDLOCK, HOLDLOCK) WHERE scope=@scope AND idem_key=@idem_key`, sql.Named("scope", scope), sql.Named("idem_key", key)).Scan(&savedHash, &state, &savedResource, &expiresAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", "", false, nil
+	}
+	if err != nil {
+		return "", "", false, err
+	}
+	if !expiresAt.After(time.Now().UTC()) {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM dbo.idempotency_record WHERE scope=@scope AND idem_key=@idem_key`, sql.Named("scope", scope), sql.Named("idem_key", key)); err != nil {
+			return "", "", false, err
+		}
+		return "", "", false, nil
+	}
+	if savedHash != requestHash {
+		return "", "", false, port.ErrIdempotencyConflict
+	}
+	if state == "FAILED" {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM dbo.idempotency_record WHERE scope=@scope AND idem_key=@idem_key`, sql.Named("scope", scope), sql.Named("idem_key", key)); err != nil {
+			return "", "", false, err
+		}
+		return "", "", false, nil
+	}
+	if state != "PENDING" && state != "COMPLETED" {
+		return "", "", false, port.ErrIdempotencyInProgress
+	}
+	return savedResource.String, state, true, nil
+}
+
+func loadPayment(ctx context.Context, q orderQuery, paymentID string) (*domain.Payment, error) {
+	var p domain.Payment
+	var amount sql.NullString
+	var paid, created, updated sql.NullTime
+	var operator, createdBy, updatedBy sql.NullString
+	err := q.QueryRowContext(ctx, `SELECT payment_id, payment_no, charge_id, direction, pay_type, amount, status, paid_at, operator_id, created_at, created_by, updated_at, updated_by FROM dbo.payment WHERE payment_id=@payment_id`, sql.Named("payment_id", paymentID)).Scan(
+		&p.PaymentID, &p.PaymentNo, &p.ChargeID, &p.Direction, &p.PayType, &amount, &p.Status, &paid, &operator, &created, &createdBy, &updated, &updatedBy,
+	)
+	if err != nil {
+		return nil, err
+	}
+	var convErr error
+	p.AmountCents, convErr = decimalToCents(amount.String)
+	if convErr != nil {
+		return nil, convErr
+	}
+	p.OperatorID = operator.String
+	p.CreatedBy = createdBy.String
+	p.UpdatedBy = updatedBy.String
+	if paid.Valid {
+		p.PaidAt = paid.Time
+	}
+	if created.Valid {
+		p.CreatedAt = created.Time
+	}
+	if updated.Valid {
+		p.UpdatedAt = updated.Time
+	}
+	return &p, nil
 }
 
 func loadCharge(ctx context.Context, q orderQuery, chargeID string) (*domain.Charge, error) {

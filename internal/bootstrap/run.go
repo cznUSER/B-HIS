@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,9 +24,9 @@ import (
 
 // Options selects process extras. The zero value is the headless API.
 type Options struct {
-	// UI serves the embedded login SPA on this listener. /api and /health stay on the API.
+	// UI serves the embedded login SPA on Host.WebAddr and proxies API traffic to Host.ApiAddr.
 	UI bool
-	// OnReady runs after the port is accepting connections. listenAddr is host:port.
+	// OnReady runs after all enabled listeners accept connections. listenAddr is host:port.
 	OnReady func(listenAddr string)
 }
 
@@ -64,42 +65,62 @@ func RunWith(ctx context.Context, cfg config.Config, opt Options) error {
 	if !ok {
 		return fmt.Errorf("store does not implement master data")
 	}
+	diagnoses, ok := any(registers).(port.DiagnoseStore)
+	if !ok {
+		return fmt.Errorf("store does not implement diagnoses")
+	}
+	dashboard, _ := any(charges).(port.DashboardStore)
+	batchStore, ok := any(dispenses).(port.InventoryBatchStore)
+	if !ok {
+		return fmt.Errorf("store does not implement inventory batch reads")
+	}
 	svc := &app.Service{
-		Users:       users,
-		Revocations: revocations,
-		Audit:       audit,
-		Patients:    patients,
-		Registers:   registers,
-		Orders:      orders,
-		Charges:     charges,
-		Dispenses:   dispenses,
-		Master:      master,
-		Tokens:      issuer,
-		Limiter:     auth.NewLimiter(cfg.MaxFailures(), window),
-		Log:         log,
-		TTL:         ttl,
+		Users:               users,
+		Revocations:         revocations,
+		Audit:               audit,
+		Patients:            patients,
+		Registers:           registers,
+		Diagnoses:           diagnoses,
+		Orders:              orders,
+		Charges:             charges,
+		Dispenses:           dispenses,
+		InventoryBatches:    batchStore,
+		Master:              master,
+		Dashboard:           dashboard,
+		Tokens:              issuer,
+		Limiter:             auth.NewLimiter(cfg.MaxFailures(), window),
+		Log:                 log,
+		TTL:                 ttl,
+		RegisterExpireHours: cfg.RegisterExpireHours,
 	}
-	handler := httpapi.New(svc, log, cfg.CORS.AllowedOrigins, cfg.Database.Driver, window)
-	if opt.UI {
-		handler = webui.Mount(handler)
-	}
-	ln, err := net.Listen("tcp", cfg.Host.ApiAddr)
+	apiHandler := httpapi.New(svc, log, cfg.CORS.AllowedOrigins, cfg.Database.Driver, window)
+	apiLn, err := net.Listen("tcp", cfg.Host.ApiAddr)
 	if err != nil {
 		return fmt.Errorf("%s", redact.String(err.Error()))
 	}
-	readyLn := &readyListener{Listener: ln, ready: make(chan struct{})}
-	srv := &http.Server{
-		Addr:              cfg.Host.ApiAddr,
-		Handler:           handler,
-		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      30 * time.Second,
-		IdleTimeout:       60 * time.Second,
-	}
-
-	msg := "addr=" + ln.Addr().String() + " driver=" + cfg.Database.Driver
+	servers := []serverBinding{{
+		server:   newHTTPServer(cfg.Host.ApiAddr, apiHandler),
+		listener: apiLn,
+	}}
+	msg := "api_addr=" + apiLn.Addr().String() + " driver=" + cfg.Database.Driver
+	readyAddr := apiLn.Addr().String()
 	if opt.UI {
-		msg += " ui=embedded"
+		apiURL, err := localHTTPURL(cfg.Host.ApiAddr)
+		if err != nil {
+			_ = apiLn.Close()
+			return err
+		}
+		webLn, err := net.Listen("tcp", cfg.Host.WebAddr)
+		if err != nil {
+			_ = apiLn.Close()
+			return fmt.Errorf("%s", redact.String(err.Error()))
+		}
+		servers = append(servers, serverBinding{
+			server:   newHTTPServer(cfg.Host.WebAddr, webui.Mount(apiURL)),
+			listener: webLn,
+		})
+		msg += " web_addr=" + webLn.Addr().String() + " ui=embedded"
+		readyAddr = webLn.Addr().String()
 	}
 	log.Log(logging.Event{
 		Level:   "info",
@@ -116,57 +137,107 @@ func RunWith(ctx context.Context, cfg config.Config, opt Options) error {
 		})
 	}
 
-	errCh := make(chan error, 1)
-	go func() {
-		err := srv.Serve(readyLn)
-		if errors.Is(err, http.ErrServerClosed) {
-			errCh <- nil
-			return
-		}
-		errCh <- err
-	}()
+	return serveServers(ctx, servers, readyAddr, opt.OnReady, log)
+}
 
-	select {
-	case <-readyLn.ready:
-		if opt.OnReady != nil {
-			opt.OnReady(ln.Addr().String())
-		}
-	case err := <-errCh:
-		if err != nil {
-			return fmt.Errorf("%s", redact.String(err.Error()))
-		}
-		return nil
-	case <-ctx.Done():
-		return shutdown(srv, log)
-	}
+type serverBinding struct {
+	server   *http.Server
+	listener net.Listener
+}
 
-	select {
-	case <-ctx.Done():
-		return shutdown(srv, log)
-	case err := <-errCh:
-		if err != nil {
-			return fmt.Errorf("%s", redact.String(err.Error()))
-		}
-		return nil
+func newHTTPServer(addr string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 }
 
-func shutdown(srv *http.Server, log *logging.Logger) error {
+func localHTTPURL(addr string) (string, error) {
+	if strings.HasPrefix(addr, ":") {
+		addr = "127.0.0.1" + addr
+	}
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return "", fmt.Errorf("invalid Host.ApiAddr %q: %w", addr, err)
+	}
+	if host == "" || host == "0.0.0.0" {
+		host = "127.0.0.1"
+	} else if host == "::" {
+		host = "::1"
+	}
+	return "http://" + net.JoinHostPort(host, port), nil
+}
+
+func serveServers(ctx context.Context, bindings []serverBinding, readyAddr string, onReady func(string), log *logging.Logger) error {
+	readyCh := make(chan string, len(bindings))
+	errCh := make(chan error, len(bindings))
+	for _, binding := range bindings {
+		readyListener := &readyListener{Listener: binding.listener, ready: readyCh}
+		go func(server *http.Server, listener net.Listener) {
+			err := server.Serve(listener)
+			if errors.Is(err, http.ErrServerClosed) {
+				err = nil
+			}
+			errCh <- err
+		}(binding.server, readyListener)
+	}
+
+	readyCount := 0
+	for readyCount < len(bindings) {
+		select {
+		case <-readyCh:
+			readyCount++
+		case err := <-errCh:
+			_ = shutdownServers(bindings, log)
+			if err == nil {
+				err = fmt.Errorf("HTTP server stopped before all listeners were ready")
+			}
+			return fmt.Errorf("%s", redact.String(err.Error()))
+		case <-ctx.Done():
+			return shutdownServers(bindings, log)
+		}
+	}
+	if onReady != nil {
+		onReady(readyAddr)
+	}
+
+	select {
+	case <-ctx.Done():
+		return shutdownServers(bindings, log)
+	case err := <-errCh:
+		_ = shutdownServers(bindings, log)
+		if err == nil {
+			return fmt.Errorf("HTTP server stopped unexpectedly")
+		}
+		return fmt.Errorf("%s", redact.String(err.Error()))
+	}
+}
+
+func shutdownServers(bindings []serverBinding, log *logging.Logger) error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	err := srv.Shutdown(shutdownCtx)
+	var firstErr error
+	for _, binding := range bindings {
+		if err := binding.server.Shutdown(shutdownCtx); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
 	log.Log(logging.Event{Level: "info", Action: "server.stop", Outcome: "SUCCESS"})
-	return err
+	return firstErr
 }
 
 // readyListener closes ready when Serve begins accepting.
 type readyListener struct {
 	net.Listener
-	ready chan struct{}
+	ready chan<- string
 	once  sync.Once
 }
 
 func (l *readyListener) Accept() (net.Conn, error) {
-	l.once.Do(func() { close(l.ready) })
+	l.once.Do(func() { l.ready <- l.Addr().String() })
 	return l.Listener.Accept()
 }

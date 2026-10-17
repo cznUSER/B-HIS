@@ -40,6 +40,9 @@ func newRegisterHTTP(t *testing.T) (*httptest.Server, *memory.Store, *auth.Issue
 		Audit:       st,
 		Patients:    st,
 		Registers:   st,
+		Diagnoses:   st,
+		Orders:      st,
+		Charges:     st,
 		Tokens:      issuer,
 		Log:         log,
 		TTL:         ttl,
@@ -77,9 +80,14 @@ func TestRegisterHTTP(t *testing.T) {
 		if code != 401 || decodeErr(t, body).Error.Code != "UNAUTHORIZED" {
 			t.Fatalf("check-in %d %s", code, body)
 		}
+		code, body, _ = postJSON(t, base+"/missing/complete", `{}`, nil)
+		if code != 401 || decodeErr(t, body).Error.Code != "UNAUTHORIZED" {
+			t.Fatalf("complete %d %s", code, body)
+		}
 	})
 
 	var created registerJSON
+	var feeRegister registerJSON
 	t.Run("create", func(t *testing.T) {
 		code, body, _ := postJSON(t, base, registerBody(patientID, "dept-1", "doc-1", "2026-10-12"), authHdr(tok))
 		if code != 201 {
@@ -117,11 +125,44 @@ func TestRegisterHTTP(t *testing.T) {
 			t.Fatalf("status %d %s", code, raw)
 		}
 		dto := decodeRegister(t, raw)
+		feeRegister = dto
 		if dto.RegisterSort == nil || *dto.RegisterSort != "sort-normal" || dto.RegisterFee != 12.5 || dto.RegisterCharged {
 			t.Fatalf("%+v", dto)
 		}
 		if dto.DepartmentID != "dept-2" || dto.DoctorID != "doc-2" {
 			t.Fatalf("%+v", dto)
+		}
+	})
+
+	t.Run("standalone register fee cash pay and refund", func(t *testing.T) {
+		code, raw, _ := postJSON(t, base+"/"+feeRegister.RegisterID+"/fee-charge", `{}`, authHdr(tok))
+		if code != 201 {
+			t.Fatalf("fee charge status %d %s", code, raw)
+		}
+		charge := decodeCharge(t, raw)
+		if charge.OrderID != nil || charge.RegisterID != feeRegister.RegisterID || !near(charge.SquareFee, 12.5) || len(charge.Items) != 1 || charge.Items[0].ItemNo != "REGISTER-FEE" {
+			t.Fatalf("fee charge %+v", charge)
+		}
+		code, raw, _ = postJSON(t, base+"/"+feeRegister.RegisterID+"/fee-charge", `{}`, authHdr(tok))
+		if code != 409 || decodeErr(t, raw).Error.Code != "REGISTER_FEE_ALREADY_CHARGED" {
+			t.Fatalf("duplicate fee %d %s", code, raw)
+		}
+		code, raw, _ = postJSON(t, ts.URL+"/api/v1/charges/"+charge.ChargeID+"/pay", `{"payType":"CASH","amount":12.5}`, authHdr(tok))
+		if code != 200 {
+			t.Fatalf("fee pay %d %s", code, raw)
+		}
+		code, raw = getAuth(t, base+"/"+feeRegister.RegisterID, tok)
+		if code != 200 || !decodeRegister(t, raw).RegisterCharged {
+			t.Fatalf("charged register %d %s", code, raw)
+		}
+		refundBody := `{"payType":"CASH","items":[{"chargeItemId":"` + charge.Items[0].ChargeItemID + `","refundQty":1}]}`
+		code, raw, _ = postJSON(t, ts.URL+"/api/v1/charges/"+charge.ChargeID+"/refund", refundBody, authHdr(tok))
+		if code != 200 {
+			t.Fatalf("fee refund %d %s", code, raw)
+		}
+		code, raw = getAuth(t, base+"/"+feeRegister.RegisterID, tok)
+		if code != 200 || decodeRegister(t, raw).RegisterCharged {
+			t.Fatalf("refunded register %d %s", code, raw)
 		}
 	})
 
@@ -168,6 +209,13 @@ func TestRegisterHTTP(t *testing.T) {
 					t.Fatalf("%+v", e)
 				}
 			})
+		}
+	})
+
+	t.Run("doctor must belong to selected department", func(t *testing.T) {
+		code, raw, _ := postJSON(t, base, registerBody(patientID, "dept-1", "doc-2", "2026-10-14"), authHdr(tok))
+		if code != 409 || decodeErr(t, raw).Error.Code != "DOCTOR_DEPARTMENT_MISMATCH" {
+			t.Fatalf("mismatched doctor %d %s", code, raw)
 		}
 	})
 
@@ -445,6 +493,26 @@ func TestRegisterHTTP(t *testing.T) {
 		code, raw, _ = postJSON(t, base+"/"+regBill.RegisterID+"/check-in", `{}`, authHdr(bearerFor(t, issuer, regUser)))
 		if code != 200 || decodeRegister(t, raw).Status != "DIAGNOSING" {
 			t.Fatalf("registrar %d %s", code, raw)
+		}
+
+		// Completion is the non-clinical terminal state transition for a visit.
+		code, raw, _ = postJSON(t, base+"/"+roleBill.RegisterID+"/complete", `{}`, authHdr(bearerFor(t, issuer, doc)))
+		if code != 200 || decodeRegister(t, raw).Status != "DIAGNOSED" {
+			t.Fatalf("doctor complete %d %s", code, raw)
+		}
+		if n := countAudit(st, "register.complete", "SUCCESS", roleBill.RegisterID); n != 1 {
+			t.Fatalf("complete audit %d", n)
+		}
+		code, raw, _ = postJSON(t, base+"/"+roleBill.RegisterID+"/complete", `{}`, authHdr(bearerFor(t, issuer, doc)))
+		if code != 409 || decodeErr(t, raw).Error.Code != "ILLEGAL_STATE_TRANSITION" {
+			t.Fatalf("second complete %d %s", code, raw)
+		}
+		if n := countAudit(st, "register.complete", "FAIL", roleBill.RegisterID); n != 1 {
+			t.Fatalf("complete fail audit %d", n)
+		}
+		code, raw, _ = postJSON(t, base+"/"+regBill.RegisterID+"/complete", `{}`, authHdr(bearerFor(t, issuer, cashier)))
+		if code != 403 || decodeErr(t, raw).Error.Code != "FORBIDDEN" {
+			t.Fatalf("cashier complete %d %s", code, raw)
 		}
 	})
 

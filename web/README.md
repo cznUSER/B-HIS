@@ -31,7 +31,7 @@ npm install
 npm run dev
 ```
 
-浏览器打开 http://localhost:5173 。未登录访问 `/` 或 `/app` 会到登录页；登录成功进入 `/app` 首页看板。
+浏览器打开 http://localhost:8888 。未登录访问 `/` 或 `/app` 会到登录页；登录成功进入 `/app` 首页看板。
 
 顶栏：产品名 B-HIS（回到首页）、环境标签（Mock 为「演示」，真实 API 为「开发」）、机构「演示机构」（占位，没有机构码）、人员显示名和角色、通知铃铛（角标固定 0，占位）、用户菜单、「退出登录」、本机时钟。用户菜单里「个人设置」为二期，不能点。显示名和角色来自登录结果或 `GET /auth/me`，页面不写死账号。没有患者搜索框。
 
@@ -57,7 +57,7 @@ npm run dev
 
 种子可改：科室 `dept-1` / `dept-2`，医生 `doc-1` / `doc-2`，目录 `DRUG-A` / `DRUG-B` / `TREAT-1`，库存各 100，号别 `sort-normal`，用户 `system`。科室代码重复提示 `DEPT_CODE_DUPLICATE`。新建药品会带出数量 0 的库存，治疗项目不入库存。库存只改当前量，原因必填，流水类型为调整，结果不能为负。用户新建和重置密码都是 `1`，页面不回显口令。停用的科室、医生、目录不会出现在挂号或开单的新选择里。没有权限矩阵、多院区、批次和效期。「用户与权限」仍是二期。
 
-关 Mock 联调：Go API 监听 `:8080`。在 `web/.env.local` 写 `VITE_USE_MOCK=false`、`VITE_API_BASE_URL=/api/v1`、`VITE_API_PROXY_TARGET=http://127.0.0.1:8080`，然后重新 `npm run dev`。用 `system` / `1` 登录，打开系统设置 → 基础数据。请求为 `GET/POST/PATCH /api/v1/departments`、`/doctors`、`/catalog-items`、`GET /api/v1/inventory/items` 与 `POST /api/v1/inventory/items/{skuId}/adjust`、`/dicts`、`/users`，重置密码是 `POST /api/v1/users/{userId}/reset-password`（204，不回显口令）。服务端没有库存流水列表，真接口下开单会读取实时目录和库存；基础数据读失败显示错误并禁用维护或处方写入，成功写入后即使刷新列表失败也保留服务端结果并提供重试。
+关 Mock 联调：Go API 监听 `127.0.0.1:9999`。在 `web/.env.local` 写 `VITE_USE_MOCK=false`、`VITE_API_BASE_URL=/api/v1`、`VITE_API_PROXY_TARGET=http://127.0.0.1:9999`，然后重新 `npm run dev`。用 `system` / `1` 登录，打开系统设置 → 基础数据。请求为 `GET/POST/PATCH /api/v1/departments`、`/doctors`、`/catalog-items`、`GET /api/v1/inventory/items` 与 `POST /api/v1/inventory/items/{skuId}/adjust`、`/dicts`、`/users`，重置密码是 `POST /api/v1/users/{userId}/reset-password`（204，不回显口令）。服务端没有库存流水列表，真接口下开单会读取实时目录和库存；基础数据读失败显示错误并禁用维护或处方写入，成功写入后即使刷新列表失败也保留服务端结果并提供重试。
 
 ## 患者建档
 
@@ -100,7 +100,7 @@ npm run dev
 
 发药页面始终请求真实 API；原有演示检索数据仅保留给隔离契约脚本，不进入产品构建。
 
-网站固定走真实 HTTP。`web/.env.local` 可写 `VITE_API_BASE_URL=http://localhost:8080/api/v1`，或写 `VITE_API_BASE_URL=/api/v1` 且 `VITE_API_PROXY_TARGET=http://localhost:8080`，然后重新 `npm run dev`。Go API 监听 `:8080`。
+网站固定走真实 HTTP。`web/.env.local` 可写 `VITE_API_BASE_URL=http://localhost:9999/api/v1`，或写 `VITE_API_BASE_URL=/api/v1` 且 `VITE_API_PROXY_TARGET=http://127.0.0.1:9999`，然后重新 `npm run dev`。Go API 监听 `127.0.0.1:9999`。
 
 | 操作 | 方法 | 路径 |
 |------|------|------|
@@ -121,7 +121,7 @@ npm run dev
 | `GET` | `/api/v1/patients` | `{ items: PatientDto[] }`，查询参数 `name`、`idNumber` |
 | `GET` | `/api/v1/patients/{patientId}` | 一条 `PatientDto` |
 
-网站已固定使用真实接口：`web/.env` 中 `VITE_USE_MOCK=false`，`VITE_API_BASE_URL=/api/v1`，`VITE_API_PROXY_TARGET=http://127.0.0.1:8080`。启动 Go API 并连接 SQL Server 后执行 `npm run dev`。账号 `system` / `1`。
+网站已固定使用真实接口：`web/.env` 中 `VITE_USE_MOCK=false`，`VITE_API_BASE_URL=/api/v1`，`VITE_API_PROXY_TARGET=http://127.0.0.1:9999`。启动 Go API 并连接 SQL Server 后执行 `npm run dev`。账号 `system` / `1`。
 
 ## 挂号
 
@@ -158,7 +158,7 @@ npm run dev
 
 「暂存」为 `SAVE`，不能收费。「提交」调用 commit，状态变为 `COMMIT` 后只读，可供收费；未收费可以作废。已收费不能改，也不能作废。同一挂号可以再开一张。
 
-字段对齐 OpenAPI **0.3.7-draft**：主字段是 `registerId`（`encounterId` 只是同义别名，请求里不传）。状态只有 `SAVE`、`COMMIT`、`PROC`、`ABATE`。开单固定经 Vite 代理请求 `127.0.0.1:8080`。没有 `registerId` 时仍是「请先挂号」，并可选择当日未退号的挂号。开单医生可以改，诊断可以不填，库存不足只提示。本页不调用挂号接诊。
+字段对齐 OpenAPI **0.3.7-draft**：主字段是 `registerId`（`encounterId` 只是同义别名，请求里不传）。状态只有 `SAVE`、`COMMIT`、`PROC`、`ABATE`。开单固定经 Vite 代理请求 `127.0.0.1:9999`。没有 `registerId` 时仍是「请先挂号」，并可选择当日未退号的挂号。开单医生可以改，诊断可以不填，库存不足只提示。本页不调用挂号接诊。
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
@@ -187,7 +187,7 @@ pnpm install
 pnpm dev
 ```
 
-浏览器打开 http://localhost:5173 。提交时按钮禁用并显示「登录中…」；再次提交会清掉上一条错误。
+浏览器打开 http://localhost:8888 。提交时按钮禁用并显示「登录中…」；再次提交会清掉上一条错误。
 
 ```bash
 npm run check       # Mock 登录、工作台、建档、挂号、开单、收费、发药。收费和发药的真接口形状用脚本里的假 HTTP。不访问 Go API
@@ -216,7 +216,7 @@ Mock 的 `accessToken` 是三段 JWT 外形，签名固定为 `mock`，**不是*
 
 ### 1. 启动 Go API
 
-在**仓库根目录**（不是 `web/`）。进程默认监听 **`127.0.0.1:8080`**（`config.example.yaml` 的 `Host.ApiAddr`，与 `internal/config` 的 Defaults 相同）。契约前缀是 `/api/v1`。
+在**仓库根目录**（不是 `web/`）。进程默认监听 **`127.0.0.1:9999`**（`config.example.yaml` 的 `Host.ApiAddr`，与 `internal/config` 的 Defaults 相同）。契约前缀是 `/api/v1`。
 
 `go run ./cmd/api` 会再找 `BHIS_CONFIG`、`config.local.yaml`、`config.yaml`，以及 gitignore 的根目录 `.env.local` / `.env`。JWT 为空会直接退出。本机演示用仓库里的占位配置即可（日志会警告密钥是占位符；共享环境改用 `BHIS_JWT_SECRET`，不要把真实密钥提交进 Git）：
 
@@ -233,7 +233,7 @@ go run ./cmd/api
 确认端口：
 
 ```bash
-curl -sS http://127.0.0.1:8080/health
+curl -sS http://127.0.0.1:9999/health
 ```
 
 应看到 `"status":"ok"` 且 `"driver":"sqlserver"`。监听地址若被 `BHIS_API_ADDR` 改掉，下面的 `VITE_API_BASE_URL` 要跟着改。
@@ -251,23 +251,23 @@ SQL Server 种子账号以仓库根 [README](../README.md) 的账号说明为准
 
 在 `web/` 新建 **`web/.env.local`**（把 `.env.example` 复制过去最省事）。该文件已被 gitignore。**不要提交 `.env.local`，不要把口令、JWT、数据库连接串写进任何会进 Git 的文件。** 前端这几个变量里也不需要密钥。
 
-保存后重新执行 `npm run dev`（Vite 只在启动时读环境变量）。浏览器打开 http://localhost:5173 。
+保存后重新执行 `npm run dev`（Vite 只在启动时读环境变量）。浏览器打开 http://localhost:8888 。
 
 **方式 A — 浏览器直连**（地址就是上面的默认端口）：
 
 ```bash
 VITE_USE_MOCK=false
-VITE_API_BASE_URL=http://127.0.0.1:8080/api/v1
+VITE_API_BASE_URL=http://127.0.0.1:9999/api/v1
 ```
 
-页面在 `http://localhost:5173` 或 `http://127.0.0.1:5173` 时，默认 CORS 已放行（`config.example.yaml` 的 `CORS.AllowedOrigins`，另含 preview 的 `4173`）。API 对 `POST` / `GET` 带 `Content-Type`、`Authorization` 会先回 `OPTIONS` 204。用了别的主机名或端口时，设置 `BHIS_CORS_ORIGINS`（逗号分隔）后重启 API。客户端跨源请求使用 `credentials: omit`，因为服务端不回 `Access-Control-Allow-Credentials`，登录靠 `Authorization: Bearer`，不靠 Cookie。
+页面在 `http://localhost:8888` 或 `http://127.0.0.1:8888` 时，默认 CORS 已放行（`config.example.yaml` 的 `CORS.AllowedOrigins`，另含 preview 的 `4173`）。API 对 `POST` / `GET` 带 `Content-Type`、`Authorization` 会先回 `OPTIONS` 204。用了别的主机名或端口时，设置 `BHIS_CORS_ORIGINS`（逗号分隔）后重启 API。客户端跨源请求使用 `credentials: omit`，因为服务端不回 `Access-Control-Allow-Credentials`，登录靠 `Authorization: Bearer`，不靠 Cookie。
 
-**方式 B — Vite 代理**（浏览器只访问 5173，不走跨源）：
+**方式 B — Vite 代理**（浏览器只访问 8888，不走跨源）：
 
 ```bash
 VITE_USE_MOCK=false
 VITE_API_BASE_URL=/api/v1
-VITE_API_PROXY_TARGET=http://127.0.0.1:8080
+VITE_API_PROXY_TARGET=http://127.0.0.1:9999
 ```
 
 开发服务器把以 `/api` 开头的请求转到 `VITE_API_PROXY_TARGET`。`npm run preview`（默认 4173）没有这段代理，预览构建请用方式 A，或保证页面源在 CORS 白名单里。
@@ -290,7 +290,7 @@ VITE_API_PROXY_TARGET=http://127.0.0.1:8080
 npm run check:api
 ```
 
-脚本从环境以及 `web/.env.local`、`web/.env` 读取 `VITE_USE_MOCK`、`VITE_API_BASE_URL`、`VITE_API_PROXY_TARGET`（已有环境变量优先）。它打印状态码和错误码，不打印 token 或口令。`VITE_USE_MOCK` 不是 `false` / `0` / `no` 时直接跳过并退出 0。**CI 只跑 `npm run check`，不要求本机有 API。** 相对路径的 `VITE_API_BASE_URL` 会拼到 `VITE_API_PROXY_TARGET`（缺省 `http://127.0.0.1:8080`）上，因为脚本跑在 Node 里，不经过 Vite。
+脚本从环境以及 `web/.env.local`、`web/.env` 读取 `VITE_USE_MOCK`、`VITE_API_BASE_URL`、`VITE_API_PROXY_TARGET`（已有环境变量优先）。它打印状态码和错误码，不打印 token 或口令。`VITE_USE_MOCK` 不是 `false` / `0` / `no` 时直接跳过并退出 0。**CI 只跑 `npm run check`，不要求本机有 API。** 相对路径的 `VITE_API_BASE_URL` 会拼到 `VITE_API_PROXY_TARGET`（缺省 `http://127.0.0.1:9999`）上，因为脚本跑在 Node 里，不经过 Vite。
 
 ## Windows 演示 exe
 

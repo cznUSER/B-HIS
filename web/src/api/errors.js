@@ -1,6 +1,8 @@
 // 2026-10-12 P1-H05 登录界面
 // 对齐 OpenAPI 0.3.2 ErrorBody；同时容忍散文契约里的 data 字段和纯 HTTP 错误。
 
+import { expireSession } from '../auth/session.js'
+
 const MESSAGE_BY_CODE = {
   INVALID_CREDENTIALS: '用户名或密码错误',
   ACCOUNT_DISABLED: '账号已停用',
@@ -10,6 +12,9 @@ const MESSAGE_BY_CODE = {
   TOKEN_INVALID: '登录凭证无效，请重新登录',
   FORBIDDEN: '没有权限执行该操作',
   VALIDATION_ERROR: '请输入用户名和密码',
+  PASSWORD_CHANGE_REQUIRED: '请先修改管理员重置的密码',
+  PASSWORD_CHANGE_NOT_ALLOWED: '当前账号不允许自行修改密码，请联系管理员',
+  CURRENT_PASSWORD_INVALID: '当前密码不正确',
   DUPLICATE_PATIENT: '该身份证号已存在，不能重复建档',
   DUPLICATE_ID_NUMBER: '该身份证号已存在，不能重复建档',
   DUPLICATE_CARD_NO: '卡号已存在，不能重复建档',
@@ -28,6 +33,7 @@ const MESSAGE_BY_CODE = {
   ITEM_NOT_CAN_BACK: '该明细不可退',
   REFUND_REQUIRES_RETURN: '已发药，请先退药再退费',
   REFUND_EXCEEDS_REFUNDABLE: '退数量超过可退数量',
+  PARTIAL_REFUND_DISCOUNT_UNSUPPORTED: '含优惠收费单暂不支持部分退费',
   ALREADY_ABATED: '该收费单已作废，不能再退',
   ALREADY_CHARGED: '该处方已收费',
   // 2026-10-12 P1-H05-DISPENSE-UI 发药/退药文案。库存不足的收费文案留在上面，发药调用时另传「无法发药」。
@@ -51,6 +57,9 @@ const MESSAGE_BY_CODE = {
   ADJUST_RESULT_NEGATIVE: '调整后数量不能为负',
   NOT_DRUG_SKU: '治疗项目无库存',
   USERNAME_DUPLICATE: '登录名已存在',
+  LAST_SYSTEM_ADMIN: '不能停用或移除最后一个系统管理员',
+  USER_AUDIT_UNAVAILABLE: '用户变更未完成，审计记录暂时不可用，请重试',
+  USER_ADMIN_BUSY: '用户权限正在被其他管理员修改，请稍后重试',
   DICT_READONLY: '该字典为系统枚举，不能维护',
   DICT_TYPE_READONLY: '该字典为只读枚举',
   DICT_CODE_DUPLICATE: '代码已存在',
@@ -89,7 +98,7 @@ export function apiError(status, code, message, extra = {}) {
   })
 }
 
-export async function readErrorResponse(response) {
+export async function readErrorResponse(response, accessToken = '') {
   const text = await response.text()
   let body = null
   if (text) {
@@ -110,6 +119,8 @@ export async function readErrorResponse(response) {
   const plainMessage =
     !err && envelope && typeof envelope.message === 'string' ? envelope.message.trim() : ''
 
+  // 2026-10-14 Login failures and 403 permissions are not session expiration.
+  if (response.status === 401 && code !== 'INVALID_CREDENTIALS') expireSession(accessToken)
   return new ApiError({
     status: response.status,
     code,

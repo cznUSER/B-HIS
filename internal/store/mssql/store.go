@@ -44,18 +44,17 @@ func New(db *sql.DB) *Store {
 }
 
 func (s *Store) FindByUsername(ctx context.Context, username string) (*domain.User, error) {
-	return s.find(ctx, `SELECT user_id, username, display_name, password_hash, status
+	return s.find(ctx, `SELECT `+userColumns+`
 		FROM dbo.app_user WHERE username = @username AND is_deleted = 0`, sql.Named("username", username))
 }
 
 func (s *Store) FindByID(ctx context.Context, id string) (*domain.User, error) {
-	return s.find(ctx, `SELECT user_id, username, display_name, password_hash, status
+	return s.find(ctx, `SELECT `+userColumns+`
 		FROM dbo.app_user WHERE user_id = @user_id AND is_deleted = 0`, sql.Named("user_id", id))
 }
 
 func (s *Store) find(ctx context.Context, q string, arg sql.NamedArg) (*domain.User, error) {
-	var u domain.User
-	err := s.db.QueryRowContext(ctx, q, arg).Scan(&u.ID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.Status)
+	u, err := scanUser(s.db.QueryRowContext(ctx, q, arg))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, port.ErrNotFound
 	}
@@ -79,6 +78,114 @@ func (s *Store) find(ctx context.Context, q string, arg sql.NamedArg) (*domain.U
 	}
 	if u.Roles == nil {
 		u.Roles = []domain.Role{}
+	}
+	return u, nil
+}
+
+const userColumns = `user_id, username, display_name, description, card_no, input_code, password_hash, status,
+	service_star, expand_interface1, expand_interface2, input_code_compare_mode,
+	must_change_password, cannot_modify_password, account_locked, account_stopped, hidden, is_system, is_super, is_developer,
+	last_login_at, last_login_ip, lock_until, password_changed_at, failed_login_count, auth_version, created_at, created_by, updated_at, updated_by`
+
+const userAdminColumns = `user_id, username, display_name, description, card_no, input_code, status,
+	service_star, expand_interface1, expand_interface2, input_code_compare_mode,
+	must_change_password, cannot_modify_password, account_locked, account_stopped, hidden, is_system, is_super, is_developer,
+	last_login_at, last_login_ip, lock_until, password_changed_at, failed_login_count, auth_version, created_at, created_by, updated_at, updated_by`
+
+func scanUser(sc scanner) (*domain.User, error) {
+	var u domain.User
+	var description, cardNo, inputCode, lastLoginIP, createdBy, updatedBy sql.NullString
+	var lastLoginAt, lockUntil, passwordChangedAt sql.NullTime
+	var serviceStar, expand1, expand2, inputMode sql.NullInt64
+	err := sc.Scan(
+		&u.ID, &u.Username, &u.DisplayName, &description, &cardNo, &inputCode, &u.PasswordHash, &u.Status,
+		&serviceStar, &expand1, &expand2, &inputMode,
+		&u.MustChangePassword, &u.CannotModifyPassword, &u.AccountLocked, &u.AccountStopped, &u.Hidden, &u.System, &u.Super, &u.Developer,
+		&lastLoginAt, &lastLoginIP, &lockUntil, &passwordChangedAt, &u.FailedLoginCount, &u.AuthVersion,
+		&u.CreatedAt, &createdBy, &u.UpdatedAt, &updatedBy,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if serviceStar.Valid {
+		value := int(serviceStar.Int64)
+		u.ServiceStar = &value
+	}
+	if expand1.Valid {
+		value := int32(expand1.Int64)
+		u.ExpandInterface1 = &value
+	}
+	if expand2.Valid {
+		value := int32(expand2.Int64)
+		u.ExpandInterface2 = &value
+	}
+	if inputMode.Valid {
+		value := int32(inputMode.Int64)
+		u.InputCodeCompareMode = &value
+	}
+	u.Description = description.String
+	u.CardNo = cardNo.String
+	u.InputCode = inputCode.String
+	u.LastLoginIP = lastLoginIP.String
+	u.CreatedBy = createdBy.String
+	u.UpdatedBy = updatedBy.String
+	if lastLoginAt.Valid {
+		u.LastLoginAt = lastLoginAt.Time.UTC()
+	}
+	if lockUntil.Valid {
+		u.LockUntil = lockUntil.Time.UTC()
+	}
+	if passwordChangedAt.Valid {
+		u.PasswordChangedAt = passwordChangedAt.Time.UTC()
+	}
+	return &u, nil
+}
+
+func scanAdminUser(sc scanner) (*domain.User, error) {
+	var u domain.User
+	var description, cardNo, inputCode, lastLoginIP, createdBy, updatedBy sql.NullString
+	var lastLoginAt, lockUntil, passwordChangedAt sql.NullTime
+	var serviceStar, expand1, expand2, inputMode sql.NullInt64
+	err := sc.Scan(
+		&u.ID, &u.Username, &u.DisplayName, &description, &cardNo, &inputCode, &u.Status,
+		&serviceStar, &expand1, &expand2, &inputMode,
+		&u.MustChangePassword, &u.CannotModifyPassword, &u.AccountLocked, &u.AccountStopped, &u.Hidden, &u.System, &u.Super, &u.Developer,
+		&lastLoginAt, &lastLoginIP, &lockUntil, &passwordChangedAt, &u.FailedLoginCount, &u.AuthVersion,
+		&u.CreatedAt, &createdBy, &u.UpdatedAt, &updatedBy,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if serviceStar.Valid {
+		value := int(serviceStar.Int64)
+		u.ServiceStar = &value
+	}
+	if expand1.Valid {
+		value := int32(expand1.Int64)
+		u.ExpandInterface1 = &value
+	}
+	if expand2.Valid {
+		value := int32(expand2.Int64)
+		u.ExpandInterface2 = &value
+	}
+	if inputMode.Valid {
+		value := int32(inputMode.Int64)
+		u.InputCodeCompareMode = &value
+	}
+	u.Description = description.String
+	u.CardNo = cardNo.String
+	u.InputCode = inputCode.String
+	u.LastLoginIP = lastLoginIP.String
+	u.CreatedBy = createdBy.String
+	u.UpdatedBy = updatedBy.String
+	if lastLoginAt.Valid {
+		u.LastLoginAt = lastLoginAt.Time.UTC()
+	}
+	if lockUntil.Valid {
+		u.LockUntil = lockUntil.Time.UTC()
+	}
+	if passwordChangedAt.Valid {
+		u.PasswordChangedAt = passwordChangedAt.Time.UTC()
 	}
 	return &u, nil
 }
@@ -109,25 +216,47 @@ func (s *Store) IsRevoked(ctx context.Context, jti string) (bool, error) {
 }
 
 func (s *Store) Append(ctx context.Context, e domain.AuditEvent) error {
-	_, err := s.db.ExecContext(ctx, `
+	return appendAudit(ctx, s.db, e)
+}
+
+type auditInserter interface {
+	ExecContext(context.Context, string, ...any) (sql.Result, error)
+}
+
+func appendAudit(ctx context.Context, q auditInserter, e domain.AuditEvent) error {
+	if e.ModuleID == "" {
+		e.ModuleID = domain.AuditModuleID(e.Action)
+	}
+	if e.Description == "" {
+		e.Description = domain.AuditDescription(e.Action)
+	}
+	_, err := q.ExecContext(ctx, `
 		INSERT INTO dbo.audit_log (
-			audit_id, occurred_at, actor_id, actor_roles, action,
-			resource_type, resource_id, outcome, error_code, request_id, client_ip
+			audit_id, occurred_at, actor_id, actor_username, actor_roles, module_id, department_id, action,
+			description, resource_type, resource_id, outcome, error_code, request_id, client_ip, client_mac, build_version
 		) VALUES (
-			@audit_id, @occurred_at, @actor_id, @actor_roles, @action,
-			@resource_type, @resource_id, @outcome, @error_code, @request_id, @client_ip
+			@audit_id, @occurred_at, @actor_id,
+			COALESCE(@actor_username, (SELECT TOP 1 username FROM dbo.app_user WHERE user_id = @actor_id)),
+			@actor_roles, @module_id, @department_id, @action,
+			@description, @resource_type, @resource_id, @outcome, @error_code, @request_id, @client_ip, @client_mac, @build_version
 		)`,
 		sql.Named("audit_id", e.ID),
 		sql.Named("occurred_at", e.OccurredAt.UTC()),
 		sql.Named("actor_id", nullIfEmpty(e.ActorID)),
+		sql.Named("actor_username", nullIfEmpty(e.ActorUsername)),
 		sql.Named("actor_roles", nullIfEmpty(e.ActorRoles)),
+		sql.Named("module_id", nullIfEmpty(e.ModuleID)),
+		sql.Named("department_id", nullIfEmpty(e.DepartmentID)),
 		sql.Named("action", e.Action),
+		sql.Named("description", nullIfEmpty(e.Description)),
 		sql.Named("resource_type", nullIfEmpty(e.ResourceType)),
 		sql.Named("resource_id", nullIfEmpty(e.ResourceID)),
 		sql.Named("outcome", e.Outcome),
 		sql.Named("error_code", nullIfEmpty(e.ErrorCode)),
 		sql.Named("request_id", nullIfEmpty(e.RequestID)),
 		sql.Named("client_ip", nullIfEmpty(e.ClientIP)),
+		sql.Named("client_mac", nullIfEmpty(e.ClientMAC)),
+		sql.Named("build_version", nullIfEmpty(e.BuildVersion)),
 	)
 	return err
 }

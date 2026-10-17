@@ -1,11 +1,12 @@
-// Package webui serves the built login SPA from the same process as the API.
-// 2026-10-12 Windows 本机演示：/ 为登录页，/api/v1 与 /health 仍走 API。
+// Package webui serves the built login SPA and forwards API traffic to the API listener.
 package webui
 
 import (
 	"embed"
 	"io/fs"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"path"
 	"strings"
 )
@@ -13,9 +14,19 @@ import (
 //go:embed all:assets
 var assets embed.FS
 
-// Mount forwards /api and /health to api and serves the embedded SPA everywhere else.
-func Mount(api http.Handler) http.Handler {
+// Mount forwards /api and /health to the API address and serves the embedded SPA elsewhere.
+func Mount(apiBaseURL string) http.Handler {
 	ui := handler()
+	target, err := url.Parse(apiBaseURL)
+	if err != nil || target.Host == "" || (target.Scheme != "http" && target.Scheme != "https") {
+		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			http.Error(w, "API address is invalid", http.StatusInternalServerError)
+		})
+	}
+	api := httputil.NewSingleHostReverseProxy(target)
+	api.ErrorHandler = func(w http.ResponseWriter, _ *http.Request, _ error) {
+		http.Error(w, "API unavailable", http.StatusBadGateway)
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if isAPIPath(r.URL.Path) {
 			api.ServeHTTP(w, r)

@@ -7,6 +7,10 @@ const (
 	PermEncounterCreate  = "encounter:create"
 	PermEncounterCheckIn = "encounter:check-in"
 	PermEncounterCancel  = "encounter:cancel"
+	// PermDiagnoseWrite grants access to the outpatient diagnosis workspace and
+	// its SAVE/COMMIT/ABATE lifecycle. It is intentionally separate from
+	// encounter check-in so registration staff cannot author clinical entries.
+	PermDiagnoseWrite    = "diagnose:write"
 	PermOrderSubmit      = "order:submit"
 	PermOrderRecipeCheck = "order:recipe-check"
 	PermChargePay        = "charge:pay"
@@ -16,6 +20,9 @@ const (
 	PermInventoryRead    = "inventory:read"
 	PermInventoryAdjust  = "inventory:adjust"
 	PermAuditRead        = "audit:read"
+	PermAdminUser        = "admin:user"
+	PermAdminRole        = "admin:role"
+	PermAdminPermission  = "admin:permission"
 	PermAdminAll         = "admin:*"
 )
 
@@ -25,13 +32,13 @@ var RolePermissions = map[Role][]string{
 		PermPatientCreate, PermEncounterCreate, PermEncounterCheckIn, PermEncounterCancel,
 	},
 	RoleDoctor: {
-		PermPatientCreate, PermEncounterCheckIn, PermOrderSubmit,
+		PermPatientCreate, PermEncounterCheckIn, PermDiagnoseWrite, PermOrderSubmit,
 	},
 	RoleCashier: {
 		PermPatientCreate, PermChargePay, PermChargeRefund,
 	},
 	RolePharmacist: {
-		PermOrderRecipeCheck, PermDispenseCreate, PermDispenseReturn, PermInventoryRead,
+		PermOrderRecipeCheck, PermDispenseCreate, PermDispenseReturn, PermInventoryRead, PermInventoryBatchRead,
 	},
 	RoleSystem: {PermAdminAll},
 }

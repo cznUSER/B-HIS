@@ -8,10 +8,11 @@ import { mockCreatePatient, resetMockPatients } from '../src/api/mockPatients.js
 import { resetPatientClientCache } from '../src/api/patientApi.js'
 import { todayInShanghai } from '../src/api/patientContract.js'
 import { assertCreateRegisterRequest } from '../src/api/registerContract.js'
-import { cancelRegister, checkInRegister, createRegister, listRegisters, presentCheckInError, presentRegisterError } from '../src/api/registerApi.js'
+import { cancelRegister, checkInRegister, completeRegister, createRegister, listRegisters, presentCheckInError, presentCompleteError, presentRegisterError } from '../src/api/registerApi.js'
 import {
   mockCancelRegister,
   mockCheckInRegister,
+  mockCompleteRegister,
   mockCreateRegister,
   mockListRegisters,
   resetMockRegisters,
@@ -233,9 +234,34 @@ const conflictViaApi = await expectError(
 assert(conflictViaApi.message === '当前状态不允许该操作', 'api mock 模拟冲突')
 const arrived = await checkInRegister(token, conflictSource.registerId)
 assert(arrived.status === 'DIAGNOSING', 'api mock 报到成功')
+const completed = await completeRegister(token, conflictSource.registerId)
+assert(completed.status === 'DIAGNOSED', 'api mock 完成就诊')
+const completeAgain = await expectError(
+  () => completeRegister(token, conflictSource.registerId),
+  'REGISTER_NOT_COMPLETE',
+  409,
+)
+assert(completeAgain.message === '当前状态不允许完成就诊', '重复完成就诊')
+
+const stagedDiagnosing = stageMockRegister(token, {
+  patientId: patient.patientId,
+  visitDate: today,
+  status: 'DIAGNOSING',
+  registerId: 'stage-complete-direct',
+})
+assert(mockCompleteRegister(token, stagedDiagnosing.registerId).status === 'DIAGNOSED', '直接完成就诊')
 
 const missingCheckIn = await expectError(() => mockCheckInRegister(token, 'missing-reg'), 'NOT_FOUND', 404)
 assert(missingCheckIn.message === '未找到挂号单', '报到找不到号')
+
+const completeConflict = presentCompleteError({
+  code: 'REGISTER_NOT_COMPLETE',
+  status: 409,
+  message: '',
+  details: null,
+  requestId: 'complete-1',
+})
+assert(completeConflict.message === '当前状态不允许完成就诊', '完成就诊缺省文案')
 
 const blankConflict = presentCheckInError({
   code: 'ILLEGAL_STATE_TRANSITION',
@@ -280,16 +306,18 @@ assert(downServer.message === '挂号服务暂不可用', '5xx 沿用服务端�
 
 const view = readFileSync(new URL('../src/views/RegisterView.vue', import.meta.url), 'utf8')
 const template = view.split('<template>')[1]
-for (const text of ['请先选择或建档患者', '请选择科室', '请选择医生', '普通号', '去建档', '回建档页', '退号', '报到', '模拟报到冲突', '姓名', '性别', '出生日期', '患者号', '身份证']) {
+for (const text of ['请先选择患者', '请选择科室', '请选择医生', '普通号', '患者查询', '退号', '报到', '模拟报到冲突', '姓名', '性别', '出生日期', '患者号', '身份证']) {
   assert(template.includes(text), `missing copy: ${text}`)
 }
+assert(!template.includes('去建档') && !template.includes('回建档页'), 'registration has no archive creation links')
+assert(view.includes("name: 'patient-search'"), 'empty and missing patient states route to independent search')
 assert(template.includes('v-if="canCheckIn(row.status)"'), '仅可报到状态显示按钮')
 assert(!template.includes('type="date"'), '无日期控件')
 assert(!template.includes('排班'), '无排班文案')
-assert(!template.includes('挂号费'), '费用不展示')
+assert(template.includes('挂号费（元）'), '真实模式展示挂号费输入')
 assert(!view.includes('deptCode'), '页面不用 deptCode')
 assert(view.includes('departmentId:'), '提交 departmentId')
-assert(view.includes('registerFee: 0'), '提交费用为 0')
+assert(view.includes('registerFee: mockMode ? 0'), 'mock 模式费用保持 0，真实模式提交输入值')
 const apiSrc = readFileSync(new URL('../src/api/registerApi.js', import.meta.url), 'utf8')
 assert(apiSrc.includes("apiUrl('/registers')"), 'create path')
 assert(apiSrc.includes('/registers/${encodeURIComponent(id)}/cancel'), 'cancel path')

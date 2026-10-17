@@ -4,6 +4,7 @@ import App from './App.vue'
 import router from './router/index.js'
 import { restoreSession } from './auth/session.js'
 import './styles.css'
+import './design-system.css'
 
 restoreSession()
 

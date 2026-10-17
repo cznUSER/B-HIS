@@ -60,6 +60,20 @@ func (h *Handler) getRegister(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, dto)
 }
 
+func (h *Handler) createRegisterFeeCharge(w http.ResponseWriter, r *http.Request) {
+	claims, err := h.bearerClaims(r)
+	if err != nil {
+		writeAppError(w, r, err)
+		return
+	}
+	dto, err := h.svc.CreateRegisterFeeCharge(r.Context(), claims, r.PathValue("registerId"), strings.TrimSpace(r.Header.Get("Idempotency-Key")), requestID(r.Context()), clientIP(r))
+	if err != nil {
+		writeAppError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, dto)
+}
+
 func (h *Handler) checkInRegister(w http.ResponseWriter, r *http.Request) {
 	claims, err := h.bearerClaims(r)
 	if err != nil {
@@ -67,6 +81,20 @@ func (h *Handler) checkInRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dto, err := h.svc.CheckInRegister(r.Context(), claims, r.PathValue("registerId"), requestID(r.Context()), clientIP(r))
+	if err != nil {
+		writeAppError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, dto)
+}
+
+func (h *Handler) completeRegister(w http.ResponseWriter, r *http.Request) {
+	claims, err := h.bearerClaims(r)
+	if err != nil {
+		writeAppError(w, r, err)
+		return
+	}
+	dto, err := h.svc.CompleteRegister(r.Context(), claims, r.PathValue("registerId"), requestID(r.Context()), clientIP(r))
 	if err != nil {
 		writeAppError(w, r, err)
 		return

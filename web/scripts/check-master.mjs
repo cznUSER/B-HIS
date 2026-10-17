@@ -140,6 +140,20 @@ assert(adjusted.qtyOnHand === 95, 'adjust delta')
 const ledger = listLedger(stockA.skuId).items
 assert(ledger[0].bizType === 'ADJUST' && ledger[0].qtyDelta === -5 && ledger[0].remark === '盘点', 'ledger adjust')
 assert(ledger.every((item) => item.bizType === 'ADJUST'), 'mock ledger is adjust only')
+const mockLedgerPage1 = await fetchLedger('token', 'DRUG-A', { from: '2026-10-01', to: '2026-11-01', limit: 1 })
+assert(mockLedgerPage1.items.length === 1 && mockLedgerPage1.nextCursor, 'mock ledger returns an opaque next cursor')
+const mockLedgerPage2 = await fetchLedger('token', 'DRUG-A', { from: '2026-10-01', to: '2026-11-01', limit: 1, cursor: mockLedgerPage1.nextCursor })
+assert(mockLedgerPage2.items.length === 1 && !mockLedgerPage2.nextCursor, 'mock ledger cursor returns the final page')
+const mockLedgerReturnOnly = await fetchLedger('token', 'DRUG-A', { bizType: 'RETURN', from: '2026-10-01', to: '2026-11-01' })
+assert(mockLedgerReturnOnly.items.length === 0, 'mock ledger filters by business type and inclusive date range')
+const mockLedgerShanghaiDay = await fetchLedger('token', 'DRUG-A', { bizType: 'ADJUST', from: '2026-10-12', to: '2026-10-12' })
+assert(mockLedgerShanghaiDay.items.length === 1 && mockLedgerShanghaiDay.items[0].ledgerId === 'led-drug-a-seed', 'mock ledger includes a Shanghai calendar day boundary')
+let badDateError
+try { await fetchLedger('token', 'DRUG-A', { from: '2026-02-30' }) } catch (error) { badDateError = error }
+assert(badDateError instanceof ApiError && badDateError.code === 'VALIDATION_ERROR' && badDateError.status === 400, 'mock ledger rejects invalid calendar dates')
+let badBizTypeError
+try { await fetchLedger('token', 'DRUG-A', { bizType: 'UNKNOWN' }) } catch (error) { badBizTypeError = error }
+assert(badBizTypeError instanceof ApiError && badBizTypeError.code === 'VALIDATION_ERROR' && badBizTypeError.status === 400, 'mock ledger rejects an unknown business type')
 
 const overview = listDictOverview()
 assert(overview.readonlyEnums.some((item) => item.dictType === 'sex' && item.values.join(',') === 'M,F,U'), 'sex enum')
@@ -159,13 +173,21 @@ expectError(
   'USERNAME_DUPLICATE',
   409,
 )
-const created = createUser({ username: 'reg1', displayName: '挂号甲', roles: ['registrar'] })
-assert(!JSON.stringify(created).includes('password'), 'create hides password')
+const created = createUser({ username: 'reg1', displayName: '挂号甲', description: '门诊挂号', cardNo: 'CARD-1', inputCode: 'ghj', roles: ['registrar'], accountStopped: false, mustChangePassword: true, cannotModifyPassword: false, hidden: true, system: false, super: false, developer: false })
+assert(!JSON.stringify(created).includes('"password":'), 'create hides password')
+assert(created.description === '门诊挂号' && created.cardNo === 'CARD-1' && created.inputCode === 'ghj', 'user profile metadata')
+assert(created.mustChangePassword === true && created.hidden === true && created.super === false && created.developer === false, 'user lifecycle flags round-trip')
 const account = loginAccountFromMaster('reg1')
 assert(account && account.password === '1' && account.disabled === false, 'default password')
 assert(account.user.roles.includes('REGISTRAR'), 'login role maps')
+assert(account.user.mustChangePassword === true && account.user.cannotModifyPassword === false, 'login lifecycle flags')
 resetUserPassword(created.userId)
-assert(loginAccountFromMaster('reg1').password === '1', 'reset password')
+assert(loginAccountFromMaster('reg1').password === '1' && listUsers().items.find((item) => item.userId === created.userId).mustChangePassword, 'reset password requires change')
+patchUser(created.userId, { description: '夜班挂号', cardNo: 'CARD-2', inputCode: 'ybgh', mustChangePassword: false, cannotModifyPassword: true, accountStopped: true, hidden: false, system: true, super: true, developer: true })
+const updatedUser = listUsers().items.find((item) => item.userId === created.userId)
+assert(updatedUser.description === '夜班挂号' && updatedUser.cardNo === 'CARD-2' && updatedUser.inputCode === 'ybgh', 'user profile patch')
+assert(updatedUser.cannotModifyPassword && updatedUser.accountStopped && updatedUser.system && updatedUser.super && updatedUser.developer, 'user protected lifecycle patch')
+assert(loginAccountFromMaster('reg1').disabled === true, 'stopped account blocked')
 patchUser(created.userId, { status: 'DISABLED' })
 assert(loginAccountFromMaster('reg1').disabled === true, 'disabled flag')
 expectError(() => mockLogin({ username: 'reg1', password: '1' }), 'ACCOUNT_DISABLED', 403)
@@ -176,6 +198,10 @@ assert(systemLogin.user.username === 'system' && systemLogin.user.roles.includes
 assert(canMaintainMaster({ username: 'system', roles: [] }) === true, 'demo system')
 assert(canMaintainMaster({ username: 'ops', roles: ['SYSTEM'] }) === true, 'SYSTEM role')
 assert(canMaintainMaster({ username: 'ops', roles: ['admin:master'] }) === true, 'admin scope')
+assert(canMaintainMaster({ roles: ['SYSTEM'], permissions: [], scopes: [], accessControlLoaded: true }) === false, 'empty effective master permissions block access')
+assert(canMaintainMaster({ permissions: ['admin:user'], scopes: ['master:'] }) === true, 'effective admin permission opens master')
+assert(canMaintainMaster({ permissions: ['admin:user'], scopes: ['outpatient:dept-1'] }) === false, 'outpatient-only scope blocks master')
+assert(canMaintainMaster({ permissions: ['admin:*'], deniedPermissions: ['admin:*'] }) === false, 'master admin deny wins')
 assert(canMaintainMaster({ username: 'reg', roles: ['REGISTRAR'] }) === false, 'registrar blocked')
 assert(canMaintainMaster(null) === false, 'anonymous blocked')
 
@@ -218,16 +244,7 @@ try {
   assert(error instanceof ApiError && error.status === 0, 'network status')
   assert(error.message === '无法连接基础数据服务', 'network copy')
 }
-let ledgerHits = 0
-globalThis.fetch = (...args) => {
-  ledgerHits += 1
-  return originalFetch(...args)
-}
-const quietLedger = await fetchLedger('token', 'sku-a')
-assert(quietLedger.supported === false && quietLedger.items.length === 0, 'real ledger is local empty')
-assert(ledgerHits === 0, 'real ledger does not fetch')
 globalThis.fetch = originalFetch
-
 const calls = []
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://127.0.0.1')
@@ -305,6 +322,13 @@ const server = http.createServer((req, res) => {
           { skuId: 'sku-a', skuCode: 'DRUG-A', itemNo: 'DRUG-A', name: '药A', itemName: '药A', qtyOnHand: 100, units: '盒', status: 'ACTIVE', rowVersion: '7' },
           { skuId: 'sku-b', skuCode: 'DRUG-B', itemNo: 'DRUG-B', name: '药B', itemName: '药B', qtyOnHand: 1, units: '盒', status: 'ACTIVE', rowVersion: '1' },
         ],
+      })
+      return
+    }
+    if (req.method === 'GET' && url.pathname === '/api/v1/inventory/ledger') {
+      json(200, {
+        items: [{ ledgerId: 'ledger-1', skuId: 'sku-a', skuCode: 'DRUG-A', bizType: 'DISPENSE', bizId: 'disp-1', qtyDelta: -1, qtyAfter: 99, remark: '', operatorName: '药师', createdAt: '2026-10-15T01:00:00Z' }],
+        nextCursor: 'opaque-next-2',
       })
       return
     }
@@ -416,6 +440,15 @@ try {
   assert(stock.items.length === 1 && stock.items[0].itemNo === 'DRUG-B', 'inventory client filter')
   const stockCall = calls.find((item) => item.method === 'GET' && item.path === '/api/v1/inventory/items')
   assert(!stockCall.search.includes('q='), 'inventory has no q')
+  const ledgerPage = await fetchLedger('tok', 'DRUG-A', {
+    bizType: 'DISPENSE', from: '2026-10-01', to: '2026-10-15', cursor: 'opaque-next', limit: 50,
+  })
+  assert(ledgerPage.items[0]?.ledgerId === 'ledger-1' && ledgerPage.nextCursor === 'opaque-next-2', 'real ledger returns a page')
+  const ledgerCall = calls.find((item) => item.method === 'GET' && item.path === '/api/v1/inventory/ledger')
+  assert(ledgerCall, 'real ledger endpoint requested')
+  assert(ledgerCall.search.includes('skuCode=DRUG-A') && ledgerCall.search.includes('bizType=DISPENSE'), 'ledger filters are sent')
+  assert(ledgerCall.search.includes('from=2026-10-01') && ledgerCall.search.includes('to=2026-10-15'), 'ledger calendar dates are sent')
+  assert(ledgerCall.search.includes('cursor=opaque-next') && ledgerCall.search.includes('limit=50'), 'ledger pagination is sent')
   const adjusted = await adjustInventory('tok', 'sku-a', { qtyDelta: '1', remark: ' 盘盈 ', rowVersion: '7', operatorName: '系统管理员' })
   assert(adjusted.qtyOnHand === 101, 'adjust result')
   const adjustCall = calls.find((item) => item.method === 'POST' && item.path === '/api/v1/inventory/items/sku-a/adjust')
@@ -434,14 +467,26 @@ try {
 
   const users = await fetchUsers('tok', { q: 'sys' })
   assert(users.items[0].username === 'system', 'user list')
-  const createdUser = await saveUser('tok', '', { username: 'reg1', displayName: '挂号甲', roles: ['REGISTRAR'], password: '1' })
-  assert(createdUser.userId === 'u-1' && !JSON.stringify(createdUser).includes('password'), 'user create hides password')
+  const createdUser = await saveUser('tok', '', { username: 'reg1', displayName: '挂号甲', description: '门诊挂号', cardNo: 'CARD-1', inputCode: 'ghj', serviceStar: 4, expandInterface1: 10, expandInterface2: 11, inputCodeCompareMode: 2, roles: ['REGISTRAR'], mustChangePassword: true, cannotModifyPassword: false, accountStopped: false, hidden: true, system: false, super: false, developer: false, password: 'Stronger!9' })
+  assert(createdUser.userId === 'u-1' && !JSON.stringify(createdUser).includes('"password":'), 'user create hides password')
   const userPost = calls.find((item) => item.method === 'POST' && item.path === '/api/v1/users')
   const userBody = JSON.parse(userPost.body)
-  assert(!Object.prototype.hasOwnProperty.call(userBody, 'password'), 'user body has no password')
+  assert(userBody.password === 'Stronger!9', 'user body carries optional initial password')
   assert(userBody.roles[0] === 'REGISTRAR', 'roles upper')
-  const patchedUser = await saveUser('tok', 'u-1', { status: 'DISABLED', roles: ['REGISTRAR'] })
+  assert(userBody.description === '门诊挂号' && userBody.cardNo === 'CARD-1' && userBody.inputCode === 'ghj', 'user create profile body')
+  assert(userBody.mustChangePassword === true && userBody.cannotModifyPassword === false && userBody.hidden === true && userBody.super === false, 'user create lifecycle body')
+  assert(userBody.serviceStar === 4 && userBody.expandInterface1 === 10 && userBody.expandInterface2 === 11 && userBody.inputCodeCompareMode === 2, 'user numeric metadata body')
+  const patchedUser = await saveUser('tok', 'u-1', { status: 'DISABLED', roles: ['REGISTRAR'], description: '', cardNo: '', inputCode: 'ybgh', serviceStar: null, expandInterface1: 5, expandInterface2: 6, inputCodeCompareMode: 2, mustChangePassword: false, cannotModifyPassword: true, accountLocked: false, accountStopped: true, hidden: false, system: false, super: true, developer: false })
   assert(patchedUser.status === 'DISABLED', 'user patch')
+  const userPatch = calls.find((item) => item.method === 'PATCH' && item.path === '/api/v1/users/u-1')
+  const patchBody = JSON.parse(userPatch.body)
+  assert(patchBody.description === '' && patchBody.cardNo === '' && patchBody.inputCode === 'ybgh', 'user patch profile body includes empty values')
+  assert(patchBody.mustChangePassword === false && patchBody.accountLocked === false && patchBody.accountStopped === true && patchBody.super === true, 'user patch lifecycle body preserves false')
+  assert(patchBody.serviceStar === null && patchBody.expandInterface1 === 5 && patchBody.expandInterface2 === 6 && patchBody.inputCodeCompareMode === 2, 'user patch numeric metadata and nullable star')
+  await saveUser('tok', 'u-1', { displayName: '仅更新资料' })
+  const limitedUserPatch = calls.at(-1)
+  const limitedUserBody = JSON.parse(limitedUserPatch.body)
+  assert(['hidden', 'system', 'developer', 'super', 'cardNo'].every((key) => !Object.hasOwn(limitedUserBody, key)), 'user API keeps omitted protected fields omitted')
   const reset = await resetUserPasswordApi('tok', 'u-1')
   assert(reset.ok === true, 'reset ok')
   const resetCall = calls.find((item) => item.path === '/api/v1/users/u-1/reset-password')

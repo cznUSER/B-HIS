@@ -83,8 +83,11 @@ func start(configFlag string, open bool) error {
 	if err != nil {
 		return err
 	}
-	page := loginURL(cfg.Host.ApiAddr)
-	fmt.Printf("B-HIS local demo\nLogin: %s\nDatabase: %s\nDemo account: %s / %s\nKeep this window open. Close it or press Ctrl+C to stop.\n", page, cfg.Database.Driver, seed.DemoUsername, seed.DemoPassword)
+	if err := restartHostListeners(cfg.Host.ApiAddr, cfg.Host.WebAddr, currentRestartOps()); err != nil {
+		return err
+	}
+	page := loginURL(cfg.Host.WebAddr)
+	fmt.Printf("B-HIS local demo\nLogin: %s\nAPI: http://%s\nDatabase: %s\nDemo account: %s / %s\nKeep this window open. Close it or press Ctrl+C to stop.\n", page, cfg.Host.ApiAddr, cfg.Database.Driver, seed.DemoUsername, seed.DemoPassword)
 	if cfg.PlaceholderSecret() {
 		fmt.Fprintf(os.Stderr, "host: jwt secret is a placeholder; set BHIS_JWT_SECRET outside this demo\n")
 	}

@@ -331,6 +331,16 @@ func (s *Store) ListUsers(_ context.Context, q port.UserQuery) ([]domain.User, e
 func (s *Store) CreateUser(_ context.Context, u domain.User) (*domain.User, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.createUserLocked(u, nil)
+}
+
+func (s *Store) CreateUserWithAudit(_ context.Context, u domain.User, event domain.AuditEvent) (*domain.User, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.createUserLocked(u, &event)
+}
+
+func (s *Store) createUserLocked(u domain.User, event *domain.AuditEvent) (*domain.User, error) {
 	if _, ok := s.byID[u.ID]; ok {
 		return nil, port.ErrDuplicateUsername
 	}
@@ -344,6 +354,9 @@ func (s *Store) CreateUser(_ context.Context, u domain.User) (*domain.User, erro
 	}
 	s.byID[u.ID] = clone(u)
 	s.byName[u.Username] = u.ID
+	if event != nil {
+		s.appendAuditLocked(*event)
+	}
 	c := clone(u)
 	return &c, nil
 }
@@ -351,12 +364,64 @@ func (s *Store) CreateUser(_ context.Context, u domain.User) (*domain.User, erro
 func (s *Store) UpdateUser(_ context.Context, u domain.User, replaceRoles bool) (*domain.User, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.updateUserLocked(u, replaceRoles)
+}
+
+func (s *Store) UpdateUserWithAudit(_ context.Context, u domain.User, replaceRoles bool, event domain.AuditEvent) (*domain.User, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cur, ok := s.byID[u.ID]
+	if !ok {
+		return nil, port.ErrNotFound
+	}
+	if cur.Status == domain.StatusActive && cur.HasSystemRole() && (u.Status != domain.StatusActive || !u.HasSystemRole()) {
+		count := 0
+		for _, row := range s.byID {
+			if row.Status == domain.StatusActive && row.HasSystemRole() {
+				count++
+			}
+		}
+		if count <= 1 {
+			return nil, port.ErrLastSystemAdmin
+		}
+	}
+	updated, err := s.updateUserLocked(u, replaceRoles)
+	if err != nil {
+		return nil, err
+	}
+	s.appendAuditLocked(event)
+	return updated, nil
+}
+
+func (s *Store) updateUserLocked(u domain.User, replaceRoles bool) (*domain.User, error) {
 	cur, ok := s.byID[u.ID]
 	if !ok {
 		return nil, port.ErrNotFound
 	}
 	cur.DisplayName = u.DisplayName
+	cur.PasswordHash = u.PasswordHash
 	cur.Status = u.Status
+	cur.Description = u.Description
+	cur.CardNo = u.CardNo
+	cur.InputCode = u.InputCode
+	cur.ServiceStar = cloneIntValue(u.ServiceStar)
+	cur.ExpandInterface1 = cloneInt32Value(u.ExpandInterface1)
+	cur.ExpandInterface2 = cloneInt32Value(u.ExpandInterface2)
+	cur.InputCodeCompareMode = cloneInt32Value(u.InputCodeCompareMode)
+	cur.MustChangePassword = u.MustChangePassword
+	cur.CannotModifyPassword = u.CannotModifyPassword
+	cur.AccountLocked = u.AccountLocked
+	cur.AccountStopped = u.AccountStopped
+	cur.Hidden = u.Hidden
+	cur.System = u.System
+	cur.Super = u.Super
+	cur.Developer = u.Developer
+	cur.LastLoginAt = u.LastLoginAt
+	cur.LastLoginIP = u.LastLoginIP
+	cur.LockUntil = u.LockUntil
+	cur.PasswordChangedAt = u.PasswordChangedAt
+	cur.FailedLoginCount = u.FailedLoginCount
+	cur.AuthVersion = u.AuthVersion
 	cur.UpdatedAt = u.UpdatedAt
 	cur.UpdatedBy = u.UpdatedBy
 	if replaceRoles {
@@ -367,6 +432,21 @@ func (s *Store) UpdateUser(_ context.Context, u domain.User, replaceRoles bool) 
 	return &c, nil
 }
 
+func cloneIntValue(value *int) *int {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	return &copy
+}
+func cloneInt32Value(value *int32) *int32 {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	return &copy
+}
+
 func (s *Store) ResetPassword(_ context.Context, userID, passwordHash, operatorID string, at time.Time) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -375,6 +455,92 @@ func (s *Store) ResetPassword(_ context.Context, userID, passwordHash, operatorI
 		return port.ErrNotFound
 	}
 	u.PasswordHash = passwordHash
+	u.MustChangePassword = true
+	u.PasswordChangedAt = at.UTC()
+	u.AuthVersion++
+	u.UpdatedAt = at.UTC()
+	u.UpdatedBy = operatorID
+	s.byID[userID] = u
+	return nil
+}
+
+func (s *Store) ResetPasswordWithAudit(_ context.Context, userID, passwordHash, operatorID string, event domain.AuditEvent) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	u, ok := s.byID[userID]
+	if !ok {
+		return port.ErrNotFound
+	}
+	at := event.OccurredAt.UTC()
+	if at.IsZero() {
+		at = time.Now().UTC()
+	}
+	u.PasswordHash = passwordHash
+	u.MustChangePassword = true
+	u.PasswordChangedAt = at
+	u.AuthVersion++
+	u.UpdatedAt = at
+	u.UpdatedBy = operatorID
+	s.byID[userID] = u
+	s.appendAuditLocked(event)
+	return nil
+}
+
+func (s *Store) RecordLoginFailure(_ context.Context, userID string, at time.Time, threshold int, lockDuration time.Duration) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	u, ok := s.byID[userID]
+	if !ok {
+		return false, port.ErrNotFound
+	}
+	now := at.UTC()
+	if u.AccountLocked && !u.LockUntil.IsZero() && !u.LockUntil.After(now) {
+		u.AccountLocked = false
+		u.LockUntil = time.Time{}
+		u.FailedLoginCount = 0
+	}
+	u.FailedLoginCount++
+	if threshold < 1 {
+		threshold = 3
+	}
+	if lockDuration <= 0 {
+		lockDuration = 15 * time.Minute
+	}
+	if u.FailedLoginCount >= threshold {
+		u.AccountLocked = true
+		u.LockUntil = now.Add(lockDuration)
+	}
+	s.byID[userID] = u
+	return u.AccountLocked, nil
+}
+
+func (s *Store) RecordSuccessfulLogin(_ context.Context, userID, clientIP string, at time.Time) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	u, ok := s.byID[userID]
+	if !ok {
+		return port.ErrNotFound
+	}
+	u.LastLoginAt = at.UTC()
+	u.LastLoginIP = clientIP
+	u.FailedLoginCount = 0
+	u.AccountLocked = false
+	u.LockUntil = time.Time{}
+	s.byID[userID] = u
+	return nil
+}
+
+func (s *Store) ChangePassword(_ context.Context, userID, passwordHash, operatorID string, at time.Time) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	u, ok := s.byID[userID]
+	if !ok {
+		return port.ErrNotFound
+	}
+	u.PasswordHash = passwordHash
+	u.MustChangePassword = false
+	u.PasswordChangedAt = at.UTC()
+	u.AuthVersion++
 	u.UpdatedAt = at.UTC()
 	u.UpdatedBy = operatorID
 	s.byID[userID] = u

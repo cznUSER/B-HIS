@@ -6,15 +6,16 @@
 import { apiUrl, useMock } from './config.js'
 import { apiError, readErrorResponse } from './errors.js'
 import {
-  assertCreateOrderRequest,
+  assertCreateOrderRequestWithCatalog,
   assertOrderDto,
   assertOrderList,
-  assertPatchOrderRequest,
+  assertPatchOrderRequestWithCatalog,
 } from './orderContract.js'
 import { fetchPatient } from './patientApi.js'
 import { todayInShanghai } from './patientContract.js'
 import { assertRegisterDto, assertRegisterList } from './registerContract.js'
 import { deptName, doctorName } from '../register/master.js'
+import { fetchCatalog } from '../master/api.js'
 import {
   mockAbateOrder,
   mockCommitOrder,
@@ -90,9 +91,10 @@ function presentRegister(dto, patient) {
     patientName: patient && patient.name ? patient.name : '',
     patientNo: patient && patient.patientNo ? patient.patientNo : '',
     departmentId: dto.departmentId || '',
-    departmentName: deptName(dto.departmentId),
+    // 2026-10-14: real names are supplied by the view's live master read.
+    departmentName: useMock() ? deptName(dto.departmentId) : '',
     doctorId: dto.doctorId || '',
-    doctorName: doctorName(dto.doctorId),
+    doctorName: useMock() ? doctorName(dto.doctorId) : '',
     visitDate: dto.visitDate || '',
     status: dto.status,
   }
@@ -127,8 +129,8 @@ function orderSearchParams(input) {
   return params
 }
 
-function patchPayload(input) {
-  const request = assertPatchOrderRequest(input)
+function patchPayload(input, catalogRows) {
+  const request = assertPatchOrderRequestWithCatalog(input, catalogRows)
   delete request.registerId
   return request
 }
@@ -146,7 +148,7 @@ export async function listOrderRegisters(accessToken) {
       ...bearer(accessToken),
     },
   }, '无法连接挂号服务')
-  if (!response.ok) throw presentOrderError(await readErrorResponse(response))
+  if (!response.ok) throw presentOrderError(await readErrorResponse(response, accessToken))
   const listed = assertRegisterList(await parseJson(response))
   const items = []
   for (const item of listed.items) items.push(await withPatient(accessToken, item))
@@ -167,7 +169,7 @@ export async function fetchOrderRegister(accessToken, registerId) {
       ...bearer(accessToken),
     },
   }, '无法连接挂号服务')
-  if (!response.ok) throw presentOrderError(await readErrorResponse(response))
+  if (!response.ok) throw presentOrderError(await readErrorResponse(response, accessToken))
   return withPatient(accessToken, assertRegisterDto(await parseJson(response)))
 }
 
@@ -190,17 +192,20 @@ export async function listOrders(accessToken, input) {
       ...bearer(accessToken),
     },
   }, '无法连接开单服务')
-  if (!response.ok) throw presentOrderError(await readErrorResponse(response))
+  if (!response.ok) throw presentOrderError(await readErrorResponse(response, accessToken))
   return assertOrderList(await parseJson(response))
 }
 
-export async function saveOrder(accessToken, input) {
+export async function saveOrder(accessToken, input, catalogRows) {
   const orderId = input && typeof input.orderId === 'string' ? input.orderId.trim() : ''
   if (useMock()) {
     await delay(180)
     if (orderId) return mockPatchOrder(accessToken, orderId, input)
     return mockCreateOrder(accessToken, input, crypto.randomUUID())
   }
+  // 2026-10-14 P1-H05-WEB-USABILITY: never normalize real orders with fixture prices.
+  // The view passes its completed live read; other callers read the same endpoint.
+  const liveCatalog = catalogRows === undefined ? (await fetchCatalog(accessToken, {})).items : catalogRows
   if (orderId) {
     const response = await callJson(ORDER_ROUTES.item(orderId), {
       method: 'PATCH',
@@ -209,9 +214,9 @@ export async function saveOrder(accessToken, input) {
         'Content-Type': 'application/json; charset=utf-8',
         ...bearer(accessToken),
       },
-      body: JSON.stringify(patchPayload(input)),
+      body: JSON.stringify(patchPayload(input, liveCatalog)),
     }, '无法连接开单服务')
-    if (!response.ok) throw presentOrderError(await readErrorResponse(response))
+    if (!response.ok) throw presentOrderError(await readErrorResponse(response, accessToken))
     return assertOrderDto(await parseJson(response))
   }
   const response = await callJson(ORDER_ROUTES.collection, {
@@ -222,9 +227,9 @@ export async function saveOrder(accessToken, input) {
       'Idempotency-Key': crypto.randomUUID(),
       ...bearer(accessToken),
     },
-    body: JSON.stringify(assertCreateOrderRequest(input)),
+    body: JSON.stringify(assertCreateOrderRequestWithCatalog(input, liveCatalog)),
   }, '无法连接开单服务')
-  if (response.status !== 201) throw presentOrderError(await readErrorResponse(response))
+  if (response.status !== 201) throw presentOrderError(await readErrorResponse(response, accessToken))
   return assertOrderDto(await parseJson(response))
 }
 
@@ -237,7 +242,7 @@ async function postOrderAction(accessToken, path) {
       ...bearer(accessToken),
     },
   }, '无法连接开单服务')
-  if (!response.ok) throw presentOrderError(await readErrorResponse(response))
+  if (!response.ok) throw presentOrderError(await readErrorResponse(response, accessToken))
   return assertOrderDto(await parseJson(response))
 }
 

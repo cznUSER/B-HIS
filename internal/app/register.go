@@ -16,22 +16,28 @@ import (
 )
 
 const (
-	CodePatientNotFound        = "PATIENT_NOT_FOUND"
-	CodeDepartmentNotFound     = "DEPARTMENT_NOT_FOUND"
-	CodeDoctorNotFound         = "DOCTOR_NOT_FOUND"
-	CodeRegisterNotCancellable = "REGISTER_NOT_CANCELLABLE"
-	CodeRegisterBackNotAllowed = "REGISTER_BACK_NOT_ALLOWED"
-	CodeIllegalStateTransition = "ILLEGAL_STATE_TRANSITION"
+	CodePatientNotFound          = "PATIENT_NOT_FOUND"
+	CodeDepartmentNotFound       = "DEPARTMENT_NOT_FOUND"
+	CodeDoctorNotFound           = "DOCTOR_NOT_FOUND"
+	CodeDoctorDepartmentMismatch = "DOCTOR_DEPARTMENT_MISMATCH"
+	CodeRegisterNotCancellable   = "REGISTER_NOT_CANCELLABLE"
+	CodeRegisterBackNotAllowed   = "REGISTER_BACK_NOT_ALLOWED"
+	CodeRegisterExpired          = "REGISTER_EXPIRED"
+	CodeIllegalStateTransition   = "ILLEGAL_STATE_TRANSITION"
 
-	msgPatientNotFound        = "患者不存在"
-	msgDepartmentNotFound     = "科室不存在"
-	msgDoctorNotFound         = "医生不存在"
-	msgRegisterNotCancellable = "当前状态不可退号"
-	msgRegisterBackNotAllowed = "已退号，不能再次退号"
-	msgIllegalStateTransition = "当前状态不允许该操作"
+	msgPatientNotFound                = "患者不存在"
+	msgDepartmentNotFound             = "科室不存在"
+	msgDoctorNotFound                 = "医生不存在"
+	msgDoctorDepartmentMismatch       = "医生不属于所选科室"
+	msgRegisterNotCancellable         = "当前状态不可退号"
+	msgRegisterActivityNotCancellable = "已有开单或收费记录，不能退号"
+	msgRegisterBackNotAllowed         = "已退号，不能再次退号"
+	msgRegisterExpired                = "挂号已超过有效期"
+	msgIllegalStateTransition         = "当前状态不允许该操作"
 
 	idemScopeRegisterCreate = "register.create"
 	registerSearchLimit     = 100
+	registerIdempotencyTTL  = 24 * time.Hour
 	maxRegisterFee          = 9999999999999999.99
 )
 
@@ -91,17 +97,14 @@ type registerCanon struct {
 // registerFee defaults to 0. registerCharged defaults to false.
 // Missing masters are 404 PATIENT_NOT_FOUND / DEPARTMENT_NOT_FOUND / DOCTOR_NOT_FOUND.
 // POST requires encounter:create or admin:* (REGISTRAR, SYSTEM).
-// Idempotency-Key is process-local. 003_register has no idempotency table.
+// Idempotency-Key is persisted when the register store provides the atomic
+// register.create contract; memory and SQL implementations use one lock or
+// transaction for the idempotency row and register bill.
 func (s *Service) CreateRegister(ctx context.Context, claims *auth.Claims, in CreateRegisterInput, requestID, ip string) (*RegisterDTO, error) {
 	start := time.Now()
 	user, err := s.actor(ctx, claims)
 	if err != nil {
 		return nil, err
-	}
-	if !hasPerm(user, domain.PermEncounterCreate) {
-		e := forbidden()
-		s.auditRegister(ctx, start, user, domain.ActionRegisterCreate, "", domain.OutcomeFail, e.Code, requestID, ip)
-		return nil, e
 	}
 	norm, fields := normalizeRegister(in)
 	if in.IdempotencyKey != "" && !validIdempotencyKey(in.IdempotencyKey) {
@@ -109,6 +112,11 @@ func (s *Service) CreateRegister(ctx context.Context, claims *auth.Claims, in Cr
 	}
 	if len(fields) > 0 {
 		return nil, &Error{Status: 400, Code: CodeValidation, Message: msgValidation, Details: map[string]any{"fields": fields}}
+	}
+	if !hasPermScope(user, domain.PermEncounterCreate, "outpatient", norm.DepartmentID) {
+		e := forbidden()
+		s.auditRegister(ctx, start, user, domain.ActionRegisterCreate, "", domain.OutcomeFail, e.Code, requestID, ip)
+		return nil, e
 	}
 	hash := hashRegister(norm)
 	if in.IdempotencyKey != "" {
@@ -131,6 +139,8 @@ func (s *Service) CreateRegister(ctx context.Context, claims *auth.Claims, in Cr
 	visit, _ := parseVisitDate(norm.VisitDate)
 	var created domain.Register
 	var createErr error
+	var replayed bool
+	atomicIdemStore, atomicIdem := s.Registers.(port.AtomicRegisterIdempotencyStore)
 	for attempt := 0; attempt < 5; attempt++ {
 		id, err := newUUID()
 		if err != nil {
@@ -157,9 +167,15 @@ func (s *Service) CreateRegister(ctx context.Context, claims *auth.Claims, in Cr
 			UpdatedAt:        now,
 			UpdatedBy:        user.ID,
 		}
-		createErr = s.Registers.CreateRegister(ctx, reg)
+		if atomicIdem && in.IdempotencyKey != "" {
+			created, replayed, createErr = atomicIdemStore.CreateRegisterWithIdempotency(ctx, reg, idemScopeRegisterCreate, in.IdempotencyKey, hash, time.Now().UTC().Add(registerIdempotencyTTL))
+		} else {
+			createErr = s.Registers.CreateRegister(ctx, reg)
+			if createErr == nil {
+				created = reg
+			}
+		}
 		if createErr == nil {
-			created = reg
 			break
 		}
 		if errors.Is(createErr, port.ErrDuplicateBusinessNo) {
@@ -168,10 +184,24 @@ func (s *Service) CreateRegister(ctx context.Context, claims *auth.Claims, in Cr
 		break
 	}
 	if createErr != nil {
-		return nil, createErr
+		switch {
+		case errors.Is(createErr, port.ErrIdempotencyConflict):
+			e := &Error{Status: 409, Code: CodeIdempotencyConflict, Message: msgIdempotencyConflict}
+			s.auditRegister(ctx, start, user, domain.ActionRegisterCreate, "", domain.OutcomeFail, e.Code, requestID, ip)
+			return nil, e
+		case errors.Is(createErr, port.ErrIdempotencyInProgress):
+			e := &Error{Status: 409, Code: CodeIdempotencyInProgress, Message: msgIdempotencyInProgress}
+			s.auditRegister(ctx, start, user, domain.ActionRegisterCreate, "", domain.OutcomeFail, e.Code, requestID, ip)
+			return nil, e
+		default:
+			return nil, createErr
+		}
 	}
 	dto := toRegisterDTO(created)
-	if in.IdempotencyKey != "" {
+	if replayed {
+		return &dto, nil
+	}
+	if in.IdempotencyKey != "" && !atomicIdem {
 		stored, err := s.saveRegisterIdem(in.IdempotencyKey, hash, dto)
 		if err != nil {
 			return nil, err
@@ -186,8 +216,12 @@ func (s *Service) CreateRegister(ctx context.Context, claims *auth.Claims, in Cr
 
 // SearchRegisters returns an AND of the given filters. With no filters the list is empty.
 func (s *Service) SearchRegisters(ctx context.Context, claims *auth.Claims, q RegisterSearch) (*RegisterListDTO, error) {
-	if _, err := s.actor(ctx, claims); err != nil {
+	user, err := s.actor(ctx, claims)
+	if err != nil {
 		return nil, err
+	}
+	if !hasAnyPermModule(user, "outpatient", domain.PermEncounterCreate, domain.PermEncounterCheckIn, domain.PermEncounterCancel) {
+		return nil, forbidden()
 	}
 	q.PatientID = strings.TrimSpace(q.PatientID)
 	q.RegisterNo = strings.TrimSpace(q.RegisterNo)
@@ -212,6 +246,9 @@ func (s *Service) SearchRegisters(ctx context.Context, claims *auth.Claims, q Re
 	}
 	items := make([]RegisterDTO, 0, len(rows))
 	for _, r := range rows {
+		if !hasAnyPermScope(user, "outpatient", r.DepartmentID, domain.PermEncounterCreate, domain.PermEncounterCheckIn, domain.PermEncounterCancel) {
+			continue
+		}
 		items = append(items, toRegisterDTO(r))
 	}
 	return &RegisterListDTO{Items: items}, nil
@@ -219,7 +256,8 @@ func (s *Service) SearchRegisters(ctx context.Context, claims *auth.Claims, q Re
 
 // GetRegister returns one bill or 404 NOT_FOUND.
 func (s *Service) GetRegister(ctx context.Context, claims *auth.Claims, registerID string) (*RegisterDTO, error) {
-	if _, err := s.actor(ctx, claims); err != nil {
+	user, err := s.actor(ctx, claims)
+	if err != nil {
 		return nil, err
 	}
 	registerID = strings.TrimSpace(registerID)
@@ -236,6 +274,9 @@ func (s *Service) GetRegister(ctx context.Context, claims *auth.Claims, register
 	if err != nil {
 		return nil, err
 	}
+	if !hasAnyPermScope(user, "outpatient", r.DepartmentID, domain.PermEncounterCreate, domain.PermEncounterCheckIn, domain.PermEncounterCancel) {
+		return nil, forbidden()
+	}
 	dto := toRegisterDTO(*r)
 	return &dto, nil
 }
@@ -249,17 +290,31 @@ func (s *Service) CancelRegister(ctx context.Context, claims *auth.Claims, regis
 	if err != nil {
 		return nil, err
 	}
-	if !hasPerm(user, domain.PermEncounterCancel) {
-		e := forbidden()
-		s.auditRegister(ctx, start, user, domain.ActionRegisterCancel, strings.TrimSpace(registerID), domain.OutcomeFail, e.Code, requestID, ip)
-		return nil, e
-	}
 	registerID = strings.TrimSpace(registerID)
 	if registerID == "" {
 		return nil, notFound()
 	}
 	if s.Registers == nil {
 		return nil, errors.New("register store is not configured")
+	}
+	reg, err := s.Registers.GetRegister(ctx, registerID)
+	if errors.Is(err, port.ErrNotFound) {
+		return nil, notFound()
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !hasPermScope(user, domain.PermEncounterCancel, "outpatient", reg.DepartmentID) {
+		e := forbidden()
+		s.auditRegister(ctx, start, user, domain.ActionRegisterCancel, registerID, domain.OutcomeFail, e.Code, requestID, ip)
+		return nil, e
+	}
+	if active, err := s.registerHasActivity(ctx, registerID); err != nil {
+		return nil, err
+	} else if active {
+		e := &Error{Status: 409, Code: CodeRegisterNotCancellable, Message: msgRegisterActivityNotCancellable}
+		s.auditRegister(ctx, start, user, domain.ActionRegisterCancel, registerID, domain.OutcomeFail, e.Code, requestID, ip)
+		return nil, e
 	}
 	updated, err := s.Registers.CancelRegister(ctx, registerID, user.ID, s.now().UTC())
 	if err != nil {
@@ -283,6 +338,24 @@ func (s *Service) CancelRegister(ctx context.Context, claims *auth.Claims, regis
 	return &dto, nil
 }
 
+// registerHasActivity prevents a NORMAL visit from being withdrawn after a
+// standalone registration-fee charge has entered the workflow. Existing
+// submitted-order退号 behavior remains permissive until the order is charged.
+func (s *Service) registerHasActivity(ctx context.Context, registerID string) (bool, error) {
+	if s.Charges != nil {
+		rows, err := s.Charges.SearchCharges(ctx, port.ChargeQuery{RegisterID: registerID, Limit: chargeSearchLimit})
+		if err != nil {
+			return false, err
+		}
+		for _, row := range rows {
+			if row.OrderID == "" && registerFeeCharge(row) && row.Status != domain.ChargeStatusAbate {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
 // CheckInRegister moves NORMAL or USED to DIAGNOSING.
 // Any other status is 409 ILLEGAL_STATE_TRANSITION and does not change the row.
 // POST requires encounter:check-in or admin:* (REGISTRAR, DOCTOR, SYSTEM). 2026-10-12
@@ -292,17 +365,28 @@ func (s *Service) CheckInRegister(ctx context.Context, claims *auth.Claims, regi
 	if err != nil {
 		return nil, err
 	}
-	if !hasPerm(user, domain.PermEncounterCheckIn) {
-		e := forbidden()
-		s.auditRegister(ctx, start, user, domain.ActionRegisterCheckIn, strings.TrimSpace(registerID), domain.OutcomeFail, e.Code, requestID, ip)
-		return nil, e
-	}
 	registerID = strings.TrimSpace(registerID)
 	if registerID == "" {
 		return nil, notFound()
 	}
 	if s.Registers == nil {
 		return nil, errors.New("register store is not configured")
+	}
+	reg, err := s.Registers.GetRegister(ctx, registerID)
+	if errors.Is(err, port.ErrNotFound) {
+		return nil, notFound()
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !hasPermScope(user, domain.PermEncounterCheckIn, "outpatient", reg.DepartmentID) {
+		e := forbidden()
+		s.auditRegister(ctx, start, user, domain.ActionRegisterCheckIn, registerID, domain.OutcomeFail, e.Code, requestID, ip)
+		return nil, e
+	}
+	if e := s.ensureRegisterNotExpired(reg); e != nil {
+		s.auditRegister(ctx, start, user, domain.ActionRegisterCheckIn, registerID, domain.OutcomeFail, e.Code, requestID, ip)
+		return nil, e
 	}
 	updated, err := s.Registers.CheckInRegister(ctx, registerID, user.ID, s.now().UTC())
 	if err != nil {
@@ -322,6 +406,62 @@ func (s *Service) CheckInRegister(ctx context.Context, claims *auth.Claims, regi
 	return &dto, nil
 }
 
+func (s *Service) ensureRegisterNotExpired(reg *domain.Register) *Error {
+	if reg == nil || s.RegisterExpireHours <= 0 || reg.RegisteredAt.IsZero() {
+		return nil
+	}
+	if !s.now().UTC().Before(reg.RegisteredAt.UTC().Add(time.Duration(s.RegisterExpireHours) * time.Hour)) {
+		return &Error{Status: 409, Code: CodeRegisterExpired, Message: msgRegisterExpired}
+	}
+	return nil
+}
+
+// CompleteRegister moves DIAGNOSING to DIAGNOSED and records the current user.
+// The existing encounter:check-in permission covers both check-in and completion
+// in the phase-one role matrix; no clinical policy or diagnosis payload is implied.
+func (s *Service) CompleteRegister(ctx context.Context, claims *auth.Claims, registerID, requestID, ip string) (*RegisterDTO, error) {
+	start := time.Now()
+	user, err := s.actor(ctx, claims)
+	if err != nil {
+		return nil, err
+	}
+	registerID = strings.TrimSpace(registerID)
+	if registerID == "" {
+		return nil, notFound()
+	}
+	if s.Registers == nil {
+		return nil, errors.New("register store is not configured")
+	}
+	reg, err := s.Registers.GetRegister(ctx, registerID)
+	if errors.Is(err, port.ErrNotFound) {
+		return nil, notFound()
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !hasPermScope(user, domain.PermEncounterCheckIn, "outpatient", reg.DepartmentID) {
+		e := forbidden()
+		s.auditRegister(ctx, start, user, domain.ActionRegisterComplete, registerID, domain.OutcomeFail, e.Code, requestID, ip)
+		return nil, e
+	}
+	updated, err := s.Registers.CompleteRegister(ctx, registerID, user.ID, s.now().UTC())
+	if err != nil {
+		switch {
+		case errors.Is(err, port.ErrNotFound):
+			return nil, notFound()
+		case errors.Is(err, port.ErrRegisterNotComplete):
+			e := &Error{Status: 409, Code: CodeIllegalStateTransition, Message: msgIllegalStateTransition}
+			s.auditRegister(ctx, start, user, domain.ActionRegisterComplete, registerID, domain.OutcomeFail, e.Code, requestID, ip)
+			return nil, e
+		default:
+			return nil, err
+		}
+	}
+	dto := toRegisterDTO(*updated)
+	s.auditRegister(ctx, start, user, domain.ActionRegisterComplete, dto.RegisterID, domain.OutcomeSuccess, "", requestID, ip)
+	return &dto, nil
+}
+
 func (s *Service) requireRegisterMasters(ctx context.Context, patientID, departmentID, doctorID string) error {
 	if _, err := s.Patients.Get(ctx, patientID); err != nil {
 		if errors.Is(err, port.ErrNotFound) {
@@ -334,11 +474,76 @@ func (s *Service) requireRegisterMasters(ctx context.Context, patientID, departm
 		return err
 	}
 	doc, err := s.Registers.GetDoctor(ctx, doctorID)
-	return gateActiveDoctor(doc, err)
+	if err := gateActiveDoctor(doc, err); err != nil {
+		return err
+	}
+	return gateDoctorDepartment(doc, departmentID)
+}
+
+func gateDoctorDepartment(d *domain.Doctor, departmentID string) error {
+	if d == nil || d.DepartmentID != departmentID {
+		return &Error{Status: 409, Code: CodeDoctorDepartmentMismatch, Message: msgDoctorDepartmentMismatch}
+	}
+	return nil
 }
 
 func hasPerm(u *domain.User, want string) bool {
+	return hasPermScope(u, want, permissionModule(want), "")
+}
+
+// hasPermAcrossScopes authorizes an endpoint that returns a global snapshot and
+// therefore has no department parameter to evaluate. A scoped grant is still
+// a valid grant for these read-only inventory endpoints; however, any matching
+// explicit DENY must remain effective because the response is not department
+// filtered and cannot safely apply a narrower deny at query time.
+func hasPermAcrossScopes(u *domain.User, want, moduleCode string) bool {
 	if u == nil {
+		return false
+	}
+	if u.Super || u.Developer {
+		return true
+	}
+	if !u.AccessControlLoaded {
+		return hasPerm(u, want)
+	}
+	hasGrant := false
+	for _, grant := range u.EffectivePermissions {
+		if (grant.PermissionCode == want || grant.PermissionCode == domain.PermAdminAll) &&
+			(grant.ModuleCode == "" || grant.ModuleCode == moduleCode) {
+			hasGrant = true
+			break
+		}
+	}
+	if !hasGrant {
+		return false
+	}
+	for _, denied := range u.DeniedPermissions {
+		if (denied.PermissionCode == want || denied.PermissionCode == domain.PermAdminAll) &&
+			(denied.ModuleCode == "" || denied.ModuleCode == moduleCode) {
+			return false
+		}
+	}
+	return true
+}
+
+func hasPermScope(u *domain.User, want, moduleCode, departmentID string) bool {
+	if u == nil {
+		return false
+	}
+	if u.Super || u.Developer {
+		return true
+	}
+	if u.AccessControlLoaded {
+		for _, denied := range u.DeniedPermissions {
+			if (denied.PermissionCode == want || denied.PermissionCode == domain.PermAdminAll) && permissionScopeMatches(denied, moduleCode, departmentID) {
+				return false
+			}
+		}
+		for _, permission := range u.EffectivePermissions {
+			if (permission.PermissionCode == want || permission.PermissionCode == domain.PermAdminAll) && permissionScopeMatches(permission, moduleCode, departmentID) {
+				return true
+			}
+		}
 		return false
 	}
 	for _, role := range u.Roles {
@@ -346,6 +551,48 @@ func hasPerm(u *domain.User, want string) bool {
 			if perm == domain.PermAdminAll || perm == want {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+func permissionModule(permission string) string {
+	if strings.HasPrefix(permission, "admin:") || strings.HasPrefix(permission, "inventory:") || strings.HasPrefix(permission, "audit:") {
+		return "master"
+	}
+	return "outpatient"
+}
+
+func permissionScopeMatches(grant domain.PermissionGrant, moduleCode, departmentID string) bool {
+	return (grant.ModuleCode == "" || grant.ModuleCode == moduleCode) && (grant.DepartmentID == "" || grant.DepartmentID == departmentID)
+}
+
+func hasAnyPermModule(u *domain.User, moduleCode string, permissions ...string) bool {
+	for _, permission := range permissions {
+		if hasPermScope(u, permission, moduleCode, "") {
+			return true
+		}
+	}
+	if u == nil || !u.AccessControlLoaded {
+		return false
+	}
+	for _, grant := range u.EffectivePermissions {
+		if grant.ModuleCode != "" && grant.ModuleCode != moduleCode {
+			continue
+		}
+		for _, permission := range permissions {
+			if (grant.PermissionCode == permission || grant.PermissionCode == domain.PermAdminAll) && hasPermScope(u, permission, moduleCode, grant.DepartmentID) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func hasAnyPermScope(u *domain.User, moduleCode, departmentID string, permissions ...string) bool {
+	for _, permission := range permissions {
+		if hasPermScope(u, permission, moduleCode, departmentID) {
+			return true
 		}
 	}
 	return false
@@ -465,7 +712,7 @@ func (s *Service) auditRegister(ctx context.Context, start time.Time, user *doma
 	if outcome != domain.OutcomeSuccess {
 		level = "warn"
 	}
-	s.record(ctx, start, domain.AuditEvent{
+	event := s.enrichBusinessAudit(ctx, domain.AuditEvent{
 		ActorID:      actor,
 		ActorRoles:   roles,
 		Action:       action,
@@ -475,7 +722,8 @@ func (s *Service) auditRegister(ctx context.Context, start time.Time, user *doma
 		ErrorCode:    errorCode,
 		RequestID:    requestID,
 		ClientIP:     ip,
-	}, level)
+	})
+	s.record(ctx, start, event, level)
 }
 
 func toRegisterDTO(r domain.Register) RegisterDTO {

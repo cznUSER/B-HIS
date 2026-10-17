@@ -4,6 +4,8 @@
 import { apiError } from './errors.js'
 import { mockMe } from './mockAuth.js'
 import { todayInShanghai } from './patientContract.js'
+import { mockStoredPaidCharges, mockUpdateChargeDispenseQuantities } from './mockCharges.js'
+import { applyMockInventoryMovement, listInventoryItems } from '../master/store.js'
 import {
   PHARMACY,
   formatQty,
@@ -254,6 +256,36 @@ function requestId() {
   return `mock-${crypto.randomUUID()}`
 }
 
+// 2026-10-14 P1-H05-WEB-USABILITY: join newly paid charge items by their actual IDs.
+// The existing fixture cases remain isolated; dynamic lines use the shared Mock inventory.
+function synchronizedState(accessToken) {
+  const state = readState()
+  for (const charge of mockStoredPaidCharges(accessToken)) {
+    for (const item of charge.items) {
+      if (item.itemType !== 'DRUG') continue
+      const current = state.lines.find((row) => row.chargeItemId === item.chargeItemId)
+      const linked = line({
+        storedOrder: true, chargeItemId: item.chargeItemId, orderItemId: item.orderItemId,
+        itemNo: item.itemNo, itemName: item.itemName, spec: item.spec || '', units: item.unit,
+        chargedQty: item.qty, dispensedNet: (item.dispensedQty || 0) - (item.returnedQty || 0),
+        returnedQty: item.returnedQty || 0, chargeStatus: charge.status,
+        patientId: charge.patientId, patientName: charge.patientName, patientNo: charge.patientNo,
+        registerId: charge.registerId, registerNo: (charge.registerSummary || '').split(' · ')[0],
+        orderId: charge.orderId, orderNo: charge.recipeNo, chargeId: charge.chargeId, squareNo: charge.squareNo,
+      })
+      if (current) Object.assign(current, linked)
+      else state.lines.push(linked)
+    }
+  }
+  return state
+}
+
+function stockQuantity(state, item) {
+  if (!item.storedOrder) return round2(state.stocks[item.itemNo] ?? 0)
+  const sku = listInventoryItems({ itemNo: item.itemNo }).items[0]
+  return round2(sku ? sku.qtyOnHand : 0)
+}
+
 function text(value) {
   return typeof value === 'string' ? value.trim() : ''
 }
@@ -278,7 +310,7 @@ function haystack(item) {
 }
 
 function presentLine(state, item) {
-  const stockQty = round2(state.stocks[item.itemNo] ?? 0)
+  const stockQty = stockQuantity(state, item)
   const availableQty = round2(item.chargedQty - item.dispensedNet)
   const status = lineDispenseStatus(item.chargedQty, item.dispensedNet)
   return {
@@ -386,7 +418,7 @@ export function mockSearchPending(accessToken, query) {
   mockMe(accessToken)
   const keyword = text(query).toLowerCase()
   if (!keyword) return { items: [], empty: 'prompt' }
-  const state = readState()
+  const state = synchronizedState(accessToken)
   const matched = state.lines.filter((item) => haystack(item).includes(keyword))
   if (matched.length === 0) return { items: [], empty: 'none' }
   const drugs = matched.filter((item) => item.itemType === 'DRUG')
@@ -400,7 +432,7 @@ export function mockSearchPending(accessToken, query) {
 
 export function mockListTodayPending(accessToken) {
   mockMe(accessToken)
-  const state = readState()
+  const state = synchronizedState(accessToken)
   const pending = state.lines.filter((item) => item.itemType === 'DRUG' && item.chargeStatus === 'NORMAL' && round2(item.chargedQty - item.dispensedNet) > 0)
   return {
     items: pending.map((item) => presentLine(state, item)),
@@ -423,7 +455,7 @@ function normalizeDispenseItems(input) {
 
 export function mockConfirmDispense(accessToken, input) {
   const user = mockMe(accessToken)
-  const state = readState()
+  const state = synchronizedState(accessToken)
   const key = text(input && input.idempotencyKey)
   guardIdempotency(state, key)
   const requested = normalizeDispenseItems(input)
@@ -444,10 +476,12 @@ export function mockConfirmDispense(accessToken, input) {
 
   const need = new Map()
   for (const step of plan) {
-    need.set(step.current.itemNo, round2((need.get(step.current.itemNo) || 0) + step.qty))
+    const stockKey = `${step.current.storedOrder ? 'stored' : 'fixture'}:${step.current.itemNo}`
+    const previous = need.get(stockKey)
+    need.set(stockKey, { current: step.current, qty: round2((previous ? previous.qty : 0) + step.qty) })
   }
-  for (const [itemNo, qty] of need) {
-    if (qty > round2(state.stocks[itemNo] ?? 0)) fail(409, 'INSUFFICIENT_STOCK', '库存不足，无法发药')
+  for (const { current, qty } of need.values()) {
+    if (qty > stockQuantity(state, current)) fail(409, 'INSUFFICIENT_STOCK', '库存不足，无法发药')
   }
 
   const groups = new Map()
@@ -461,6 +495,11 @@ export function mockConfirmDispense(accessToken, input) {
     const head = steps[0].current
     const seq = state.seq + 1
     state.seq = seq
+    const inventoryItems = steps.filter((step) => step.current.storedOrder).map((step) => ({ itemNo: step.current.itemNo, qty: step.qty }))
+    if (inventoryItems.length) applyMockInventoryMovement({
+      movementId: `dispense:dsp-${seq}:${head.chargeId}`, bizType: 'DISPENSE',
+      items: inventoryItems, operatorName: user.displayName, remark: `Mock 发药 dsp-${seq}`,
+    })
     const slip = {
       dispenseId: `dsp-${seq}`,
       dispenseNo: `FY${todayInShanghai().replace(/-/g, '')}-${String(seq).padStart(4, '0')}`,
@@ -480,7 +519,7 @@ export function mockConfirmDispense(accessToken, input) {
       orderNo: head.orderNo,
       items: steps.map((step, index) => {
         step.current.dispensedNet = round2(step.current.dispensedNet + step.qty)
-        state.stocks[step.current.itemNo] = round2((state.stocks[step.current.itemNo] ?? 0) - step.qty)
+        if (!step.current.storedOrder) state.stocks[step.current.itemNo] = round2((state.stocks[step.current.itemNo] ?? 0) - step.qty)
         return {
           dispenseItemId: `di-${seq}-${index + 1}`,
           chargeItemId: step.current.chargeItemId,
@@ -498,6 +537,7 @@ export function mockConfirmDispense(accessToken, input) {
   }
   state.dispenses.unshift(...slips.slice().reverse())
   rememberKey(state, key, 'dispense')
+  mockUpdateChargeDispenseQuantities(accessToken, plan.map((step) => step.current))
   writeState(state)
   const presented = slips.map((slip) => presentDispense(state, slip))
   return {
@@ -509,7 +549,7 @@ export function mockConfirmDispense(accessToken, input) {
 
 export function mockListDispenses(accessToken, input = {}) {
   mockMe(accessToken)
-  const state = readState()
+  const state = synchronizedState(accessToken)
   const patient = text(input.patient).toLowerCase()
   const dispenseNo = text(input.dispenseNo).toLowerCase()
   const todayOnly = input.today !== false
@@ -534,7 +574,7 @@ function formatDay(iso) {
 
 export function mockGetDispense(accessToken, dispenseId) {
   mockMe(accessToken)
-  const state = readState()
+  const state = synchronizedState(accessToken)
   const slip = state.dispenses.find((item) => item.dispenseId === text(dispenseId))
   if (!slip) fail(404, 'NOT_FOUND', '未找到发药单')
   return presentDispense(state, slip)
@@ -569,8 +609,8 @@ function findSlipItem(state, dispenseId, item) {
 }
 
 export function mockReturnDispense(accessToken, input) {
-  mockMe(accessToken)
-  const state = readState()
+  const user = mockMe(accessToken)
+  const state = synchronizedState(accessToken)
   const key = text(input && input.idempotencyKey)
   guardIdempotency(state, key)
   const reason = text(input && input.reason)
@@ -592,18 +632,24 @@ export function mockReturnDispense(accessToken, input) {
     plan.push({ ...found, charge, qty: item.returnQty })
   }
 
+  const seq = state.seq + 1
+  const inventoryItems = plan.filter((step) => step.charge.storedOrder).map((step) => ({ itemNo: step.charge.itemNo, qty: step.qty }))
+  if (inventoryItems.length) applyMockInventoryMovement({
+    movementId: `return:rt-${seq}:${plan[0].slip.chargeId}`, bizType: 'RETURN',
+    items: inventoryItems, operatorName: user.displayName, remark: reason,
+  })
   let total = 0
   for (const step of plan) {
     step.row.returnedQty = round2(step.row.returnedQty + step.qty)
     step.charge.dispensedNet = round2(step.charge.dispensedNet - step.qty)
     step.charge.returnedQty = round2(step.charge.returnedQty + step.qty)
-    state.stocks[step.charge.itemNo] = round2((state.stocks[step.charge.itemNo] ?? 0) + step.qty)
+    if (!step.charge.storedOrder) state.stocks[step.charge.itemNo] = round2((state.stocks[step.charge.itemNo] ?? 0) + step.qty)
     total = round2(total + step.qty)
   }
-  const seq = state.seq + 1
   state.seq = seq
   const chargeId = plan[0].slip.chargeId
   rememberKey(state, key, 'return')
+  mockUpdateChargeDispenseQuantities(accessToken, plan.map((step) => step.charge))
   writeState(state)
   return {
     returnId: `rt-${seq}`,
@@ -616,7 +662,7 @@ export function mockReturnDispense(accessToken, input) {
       dispenseItemId: step.row.dispenseItemId,
       chargeItemId: step.charge.chargeItemId,
       returnQty: step.qty,
-      stockQty: round2(state.stocks[step.charge.itemNo] ?? 0),
+      stockQty: stockQuantity(state, step.charge),
     })),
     lines: plan.map((step) => presentLine(state, step.charge)),
   }

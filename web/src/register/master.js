@@ -94,6 +94,14 @@ export function canCheckIn(status) {
   return status === 'NORMAL' || status === 'USED'
 }
 
+export function canComplete(status) {
+  return status === 'DIAGNOSING'
+}
+
+export function completeRejectMessage(status) {
+  return canComplete(status) ? '' : '只有就诊中的挂号才能完成就诊'
+}
+
 export function cancelRejectMessage(status) {
   if (canCancel(status)) return ''
   return REJECT_MESSAGE[status] || USED_REJECT

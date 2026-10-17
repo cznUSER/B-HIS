@@ -20,8 +20,10 @@ var (
 // Claims are the Phase1 access-token claims (H03 §3.0.1): sub, username, roles, iat, exp, jti.
 type Claims struct {
 	jwt.RegisteredClaims
-	Username string   `json:"username"`
-	Roles    []string `json:"roles"`
+	Username           string   `json:"username"`
+	Roles              []string `json:"roles"`
+	AuthVersion        int64    `json:"authVersion"`
+	MustChangePassword bool     `json:"mustChangePassword"`
 }
 
 // Issuer signs HS256 access tokens. There is no refresh token in Phase1.
@@ -62,7 +64,9 @@ func (i *Issuer) Issue(user domain.User, now time.Time) (string, time.Time, stri
 			ID:        jti,
 		},
 		Username: user.Username,
-		Roles:    roles,
+		Roles:              roles,
+		AuthVersion:        user.AuthVersion,
+		MustChangePassword: user.MustChangePassword,
 	}
 	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	signed, err := tok.SignedString(i.secret)

@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"strings"
 	"time"
@@ -30,9 +31,12 @@ const (
 	msgNotDispensed             = "尚未发药，不能退药"
 	msgDispenseNotCharged       = "未收费，不能发药"
 
-	idemScopeDispenseCreate = "dispense.create"
-	idemScopeDispenseReturn = "dispense.return"
-	dispenseSearchLimit     = 100
+	idemScopeDispenseCreate        = "dispense.create"
+	idemScopeDispenseReturn        = "dispense.return"
+	dispenseIdempotencyTTL         = 24 * time.Hour
+	dispenseSearchLimit            = 100
+	inventoryLedgerDefaultPageSize = 50
+	inventoryLedgerMaxPageSize     = 200
 )
 
 // DispenseItemInput is one POST /dispenses line. orderItemId and chargeItemId: at least one.
@@ -123,6 +127,33 @@ type InventoryListDTO struct {
 	Items []InventoryItemDTO `json:"items"`
 }
 
+type InventoryLedgerSearch struct {
+	SkuCode string
+	BizType string
+	From    string
+	To      string
+	Cursor  string
+	Limit   int
+}
+
+type InventoryLedgerDTO struct {
+	LedgerID     string  `json:"ledgerId"`
+	SkuID        string  `json:"skuId"`
+	SkuCode      string  `json:"skuCode"`
+	BizType      string  `json:"bizType"`
+	BizID        string  `json:"bizId"`
+	QtyDelta     float64 `json:"qtyDelta"`
+	QtyAfter     float64 `json:"qtyAfter"`
+	Remark       string  `json:"remark"`
+	OperatorName string  `json:"operatorName"`
+	CreatedAt    string  `json:"createdAt"`
+}
+
+type InventoryLedgerPageDTO struct {
+	Items      []InventoryLedgerDTO `json:"items"`
+	NextCursor string               `json:"nextCursor"`
+}
+
 // DispenseSearch filters are AND-ed. An empty query returns no rows.
 type DispenseSearch struct {
 	PatientID  string
@@ -178,11 +209,6 @@ func (s *Service) CreateDispense(ctx context.Context, claims *auth.Claims, in Cr
 	if err != nil {
 		return nil, err
 	}
-	if !hasPerm(user, domain.PermDispenseCreate) {
-		e := forbidden()
-		s.auditDispense(ctx, start, user, domain.ActionDispenseCreate, "", domain.OutcomeFail, e.Code, requestID, ip)
-		return nil, e
-	}
 	orderID, chargeID, canon, fields, biz := normalizeDispense(in)
 	if in.IdempotencyKey != "" && !validIdempotencyKey(in.IdempotencyKey) {
 		fields = addField(fields, "idempotencyKey")
@@ -195,15 +221,29 @@ func (s *Service) CreateDispense(ctx context.Context, claims *auth.Claims, in Cr
 		return nil, biz
 	}
 	hash := hashJSON(canon)
-	if in.IdempotencyKey != "" {
+	if s.Dispenses == nil || s.Orders == nil || s.Charges == nil {
+		return nil, errors.New("dispense store is not configured")
+	}
+	atomicIdemStore, atomicIdem := s.Dispenses.(port.AtomicDispenseIdempotencyStore)
+	if atomicIdem && in.IdempotencyKey != "" {
+		previous, found, lookupErr := atomicIdemStore.LookupDispenseIdempotency(ctx, idemScopeDispenseCreate, in.IdempotencyKey, hash)
+		if lookupErr != nil {
+			return nil, mapDispenseErr(lookupErr)
+		}
+		if found && previous != nil {
+			dto, dtoErr := s.toDispenseDTO(ctx, *previous)
+			if dtoErr != nil {
+				return nil, dtoErr
+			}
+			return &dto, nil
+		}
+	}
+	if in.IdempotencyKey != "" && !atomicIdem {
 		var prev DispenseDTO
 		found, err := s.takeIdem(idemScopeDispenseCreate, in.IdempotencyKey, hash, &prev)
 		if err != nil || found {
 			return &prev, err
 		}
-	}
-	if s.Dispenses == nil || s.Orders == nil || s.Charges == nil {
-		return nil, errors.New("dispense store is not configured")
 	}
 	order, err := s.Orders.GetOrder(ctx, orderID)
 	if errors.Is(err, port.ErrNotFound) {
@@ -213,6 +253,24 @@ func (s *Service) CreateDispense(ctx context.Context, claims *auth.Claims, in Cr
 	}
 	if err != nil {
 		return nil, err
+	}
+	if !hasPermScope(user, domain.PermDispenseCreate, "outpatient", order.DepartmentID) {
+		e := forbidden()
+		s.auditDispense(ctx, start, user, domain.ActionDispenseCreate, orderID, domain.OutcomeFail, e.Code, requestID, ip)
+		return nil, e
+	}
+	if in.IdempotencyKey != "" && atomicIdem {
+		saved, found, err := atomicIdemStore.LookupDispenseIdempotency(ctx, idemScopeDispenseCreate, in.IdempotencyKey, hash)
+		if err != nil {
+			return nil, mapDispenseErr(err)
+		}
+		if found {
+			dto, err := s.toDispenseDTO(ctx, *saved)
+			if err != nil {
+				return nil, err
+			}
+			return &dto, nil
+		}
 	}
 	if order.Status != domain.OrderStatusCommit && order.Status != domain.OrderStatusProc {
 		e := &Error{Status: 409, Code: CodeIllegalStateTransition, Message: msgIllegalStateTransition}
@@ -231,6 +289,7 @@ func (s *Service) CreateDispense(ctx context.Context, claims *auth.Claims, in Cr
 	}
 	now := s.now().UTC()
 	var saved *domain.Dispense
+	var replayed bool
 	for attempt := 0; attempt < 5; attempt++ {
 		id, err := newUUID()
 		if err != nil {
@@ -259,7 +318,15 @@ func (s *Service) CreateDispense(ctx context.Context, claims *auth.Claims, in Cr
 			DispensedAt: now, OperatorID: user.ID, DeptID: order.DepartmentID, Items: items,
 			CreatedAt: now, CreatedBy: user.ID, UpdatedAt: now, UpdatedBy: user.ID,
 		}
-		saved, err = s.Dispenses.CommitDispense(ctx, slip)
+		if atomicIdem && in.IdempotencyKey != "" {
+			var committed domain.Dispense
+			committed, replayed, err = atomicIdemStore.CreateDispenseWithIdempotency(ctx, slip, idemScopeDispenseCreate, in.IdempotencyKey, hash, time.Now().UTC().Add(dispenseIdempotencyTTL))
+			if err == nil {
+				saved = &committed
+			}
+		} else {
+			saved, err = s.Dispenses.CommitDispense(ctx, slip)
+		}
 		if errors.Is(err, port.ErrDuplicateBusinessNo) {
 			saved = nil
 			continue
@@ -278,7 +345,10 @@ func (s *Service) CreateDispense(ctx context.Context, claims *auth.Claims, in Cr
 	if err != nil {
 		return nil, err
 	}
-	if in.IdempotencyKey != "" {
+	if replayed {
+		return &dto, nil
+	}
+	if in.IdempotencyKey != "" && !atomicIdem {
 		if err := s.putIdem(idemScopeDispenseCreate, in.IdempotencyKey, hash, dto); err != nil {
 			return nil, err
 		}
@@ -294,11 +364,6 @@ func (s *Service) ReturnDispense(ctx context.Context, claims *auth.Claims, dispe
 	user, err := s.actor(ctx, claims)
 	if err != nil {
 		return nil, err
-	}
-	if !hasPerm(user, domain.PermDispenseReturn) {
-		e := forbidden()
-		s.auditDispense(ctx, start, user, domain.ActionDispenseReturn, dispenseID, domain.OutcomeFail, e.Code, requestID, ip)
-		return nil, e
 	}
 	dispenseID = strings.TrimSpace(dispenseID)
 	reason := strings.TrimSpace(in.Reason)
@@ -347,17 +412,53 @@ func (s *Service) ReturnDispense(ctx context.Context, claims *auth.Claims, dispe
 		lines = append(lines, port.ReturnLine{DispenseItemID: id, ReturnMilli: milli})
 	}
 	hash := hashJSON(canon)
-	if in.IdempotencyKey != "" {
+	if s.Dispenses == nil {
+		return nil, errors.New("dispense store is not configured")
+	}
+	atomicIdemStore, atomicIdem := s.Dispenses.(port.AtomicDispenseIdempotencyStore)
+	if atomicIdem && in.IdempotencyKey != "" {
+		previous, found, lookupErr := atomicIdemStore.LookupDispenseIdempotency(ctx, idemScopeDispenseReturn, in.IdempotencyKey, hash)
+		if lookupErr != nil {
+			return nil, mapDispenseErr(lookupErr)
+		}
+		if found && previous != nil {
+			dto, dtoErr := s.toDispenseDTO(ctx, *previous)
+			if dtoErr != nil {
+				return nil, dtoErr
+			}
+			return &dto, nil
+		}
+	}
+	if in.IdempotencyKey != "" && !atomicIdem {
 		var prev DispenseDTO
 		found, err := s.takeIdem(idemScopeDispenseReturn, in.IdempotencyKey, hash, &prev)
 		if err != nil || found {
 			return &prev, err
 		}
 	}
-	if s.Dispenses == nil {
-		return nil, errors.New("dispense store is not configured")
+	dispense, err := s.Dispenses.GetDispense(ctx, dispenseID)
+	if errors.Is(err, port.ErrNotFound) {
+		return nil, notFound()
 	}
-	saved, err := s.Dispenses.CommitReturn(ctx, dispenseID, reason, user.ID, s.now().UTC(), lines)
+	if err != nil {
+		return nil, err
+	}
+	if !hasPermScope(user, domain.PermDispenseReturn, "outpatient", dispense.DeptID) {
+		e := forbidden()
+		s.auditDispense(ctx, start, user, domain.ActionDispenseReturn, dispenseID, domain.OutcomeFail, e.Code, requestID, ip)
+		return nil, e
+	}
+	var saved *domain.Dispense
+	var replayed bool
+	if atomicIdem && in.IdempotencyKey != "" {
+		var committed domain.Dispense
+		committed, replayed, err = atomicIdemStore.ReturnDispenseWithIdempotency(ctx, dispenseID, reason, user.ID, s.now().UTC(), lines, idemScopeDispenseReturn, in.IdempotencyKey, hash, time.Now().UTC().Add(dispenseIdempotencyTTL))
+		if err == nil {
+			saved = &committed
+		}
+	} else {
+		saved, err = s.Dispenses.CommitReturn(ctx, dispenseID, reason, user.ID, s.now().UTC(), lines)
+	}
 	if err != nil {
 		mapped := mapDispenseErr(err)
 		s.auditDispenseErr(ctx, start, user, domain.ActionDispenseReturn, dispenseID, requestID, ip, mapped)
@@ -367,7 +468,10 @@ func (s *Service) ReturnDispense(ctx context.Context, claims *auth.Claims, dispe
 	if err != nil {
 		return nil, err
 	}
-	if in.IdempotencyKey != "" {
+	if replayed {
+		return &dto, nil
+	}
+	if in.IdempotencyKey != "" && !atomicIdem {
 		if err := s.putIdem(idemScopeDispenseReturn, in.IdempotencyKey, hash, dto); err != nil {
 			return nil, err
 		}
@@ -378,7 +482,8 @@ func (s *Service) ReturnDispense(ctx context.Context, claims *auth.Claims, dispe
 
 // GetDispense is GET /dispenses/{id}.
 func (s *Service) GetDispense(ctx context.Context, claims *auth.Claims, dispenseID string) (*DispenseDTO, error) {
-	if _, err := s.requireDispenseRead(ctx, claims); err != nil {
+	user, err := s.requireDispenseRead(ctx, claims)
+	if err != nil {
 		return nil, err
 	}
 	dispenseID = strings.TrimSpace(dispenseID)
@@ -392,6 +497,9 @@ func (s *Service) GetDispense(ctx context.Context, claims *auth.Claims, dispense
 	if err != nil {
 		return nil, err
 	}
+	if !hasAnyPermScope(user, "outpatient", d.DeptID, domain.PermDispenseCreate, domain.PermDispenseReturn) {
+		return nil, forbidden()
+	}
 	dto, err := s.toDispenseDTO(ctx, *d)
 	if err != nil {
 		return nil, err
@@ -401,7 +509,8 @@ func (s *Service) GetDispense(ctx context.Context, claims *auth.Claims, dispense
 
 // SearchDispenses is GET /dispenses. No filter returns an empty list.
 func (s *Service) SearchDispenses(ctx context.Context, claims *auth.Claims, q DispenseSearch) (*DispenseListDTO, error) {
-	if _, err := s.requireDispenseRead(ctx, claims); err != nil {
+	user, err := s.requireDispenseRead(ctx, claims)
+	if err != nil {
 		return nil, err
 	}
 	q.PatientID = strings.TrimSpace(q.PatientID)
@@ -458,6 +567,9 @@ func (s *Service) SearchDispenses(ctx context.Context, claims *auth.Claims, q Di
 	}
 	items := make([]DispenseDTO, 0, len(rows))
 	for _, row := range rows {
+		if !hasAnyPermScope(user, "outpatient", row.DeptID, domain.PermDispenseCreate, domain.PermDispenseReturn) {
+			continue
+		}
 		dto, err := s.toDispenseDTO(ctx, row)
 		if err != nil {
 			return nil, err
@@ -473,7 +585,7 @@ func (s *Service) ListInventory(ctx context.Context, claims *auth.Claims, q Inve
 	if err != nil {
 		return nil, err
 	}
-	if !hasPerm(user, domain.PermInventoryRead) {
+	if !hasPermAcrossScopes(user, domain.PermInventoryRead, "master") {
 		return nil, forbidden()
 	}
 	sku := strings.TrimSpace(q.SkuCode)
@@ -496,6 +608,115 @@ func (s *Service) ListInventory(ctx context.Context, claims *auth.Claims, q Inve
 		items = append(items, toInventoryItemDTO(row))
 	}
 	return &InventoryListDTO{Items: items}, nil
+}
+
+// ListInventoryLedger returns a filtered, stable page of append-only stock movements.
+func (s *Service) ListInventoryLedger(ctx context.Context, claims *auth.Claims, q InventoryLedgerSearch) (*InventoryLedgerPageDTO, error) {
+	user, err := s.actor(ctx, claims)
+	if err != nil {
+		return nil, err
+	}
+	if !hasPermAcrossScopes(user, domain.PermInventoryRead, "master") {
+		return nil, forbidden()
+	}
+	if s.Dispenses == nil {
+		return nil, errors.New("dispense store is not configured")
+	}
+
+	query := port.InventoryLedgerQuery{SkuCode: strings.TrimSpace(q.SkuCode)}
+	if len(query.SkuCode) > 32 {
+		return nil, validationFields([]string{"skuCode"})
+	}
+	query.BizType = strings.ToUpper(strings.TrimSpace(q.BizType))
+	if query.BizType != "" && query.BizType != domain.LedgerBizAdjust && query.BizType != domain.LedgerBizDispense && query.BizType != domain.LedgerBizReturn {
+		return nil, validationFields([]string{"bizType"})
+	}
+	if q.From != "" {
+		from, ok := parseLedgerDate(q.From)
+		if !ok {
+			return nil, validationFields([]string{"from"})
+		}
+		query.FromAt = from.UTC()
+		query.HasFrom = true
+	}
+	if q.To != "" {
+		to, ok := parseLedgerDate(q.To)
+		if !ok {
+			return nil, validationFields([]string{"to"})
+		}
+		query.ToAt = to.AddDate(0, 0, 1).UTC()
+		query.HasTo = true
+	}
+	if query.HasFrom && query.HasTo && !query.FromAt.Before(query.ToAt) {
+		return nil, validationFields([]string{"from", "to"})
+	}
+	if q.Limit < 0 || q.Limit > inventoryLedgerMaxPageSize {
+		return nil, validationFields([]string{"limit"})
+	}
+	pageSize := q.Limit
+	if pageSize == 0 {
+		pageSize = inventoryLedgerDefaultPageSize
+	}
+	if q.Cursor != "" {
+		query.CursorAt, query.CursorLedgerID, err = decodeLedgerCursor(q.Cursor)
+		if err != nil {
+			return nil, validationFields([]string{"cursor"})
+		}
+		query.HasCursor = true
+	}
+	query.Limit = pageSize + 1
+
+	rows, err := s.Dispenses.ListInventoryLedger(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	hasMore := len(rows) > pageSize
+	if hasMore {
+		rows = rows[:pageSize]
+	}
+	items := make([]InventoryLedgerDTO, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, InventoryLedgerDTO{
+			LedgerID: row.LedgerID, SkuID: row.SkuID, SkuCode: row.SkuCode,
+			BizType: row.BizType, BizID: row.BizID,
+			QtyDelta: float64(row.QtyDeltaMilli) / 1000,
+			QtyAfter: float64(row.QtyAfterMilli) / 1000,
+			Remark:   row.Remark, OperatorName: row.OperatorName,
+			CreatedAt: row.CreatedAt.UTC().Format(time.RFC3339Nano),
+		})
+	}
+	page := &InventoryLedgerPageDTO{Items: items}
+	if hasMore && len(rows) > 0 {
+		last := rows[len(rows)-1]
+		page.NextCursor = encodeLedgerCursor(last.CreatedAt, last.LedgerID)
+	}
+	return page, nil
+}
+
+func parseLedgerDate(value string) (time.Time, bool) {
+	date, err := time.ParseInLocation("2006-01-02", strings.TrimSpace(value), shanghai)
+	return date, err == nil
+}
+
+func encodeLedgerCursor(at time.Time, ledgerID string) string {
+	value := at.UTC().Format(time.RFC3339Nano) + "\n" + ledgerID
+	return base64.RawURLEncoding.EncodeToString([]byte(value))
+}
+
+func decodeLedgerCursor(cursor string) (time.Time, string, error) {
+	decoded, err := base64.RawURLEncoding.DecodeString(cursor)
+	if err != nil {
+		return time.Time{}, "", err
+	}
+	value, ledgerID, ok := strings.Cut(string(decoded), "\n")
+	if !ok || ledgerID == "" || len(ledgerID) > 64 || strings.Contains(ledgerID, "\n") {
+		return time.Time{}, "", errors.New("invalid ledger cursor")
+	}
+	at, err := time.Parse(time.RFC3339Nano, value)
+	if err != nil {
+		return time.Time{}, "", err
+	}
+	return at.UTC(), ledgerID, nil
 }
 
 func toInventoryItemDTO(row domain.InventoryItem) InventoryItemDTO {
@@ -739,7 +960,7 @@ func (s *Service) requireDispenseRead(ctx context.Context, claims *auth.Claims) 
 	if err != nil {
 		return nil, err
 	}
-	if !hasPerm(user, domain.PermDispenseCreate) && !hasPerm(user, domain.PermDispenseReturn) {
+	if !hasAnyPermModule(user, "outpatient", domain.PermDispenseCreate, domain.PermDispenseReturn) {
 		return nil, forbidden()
 	}
 	return user, nil
@@ -763,6 +984,10 @@ func mapDispenseErr(err error) error {
 		return &Error{Status: 409, Code: CodeNotDispensed, Message: msgNotDispensed}
 	case errors.Is(err, port.ErrIllegalStateTransition):
 		return &Error{Status: 409, Code: CodeIllegalStateTransition, Message: msgIllegalStateTransition}
+	case errors.Is(err, port.ErrIdempotencyConflict):
+		return &Error{Status: 409, Code: CodeIdempotencyConflict, Message: msgIdempotencyConflict}
+	case errors.Is(err, port.ErrIdempotencyInProgress):
+		return &Error{Status: 409, Code: CodeIdempotencyInProgress, Message: msgIdempotencyInProgress}
 	default:
 		return err
 	}
@@ -779,10 +1004,11 @@ func (s *Service) auditDispense(ctx context.Context, start time.Time, user *doma
 	if outcome != domain.OutcomeSuccess {
 		level = "warn"
 	}
-	s.record(ctx, start, domain.AuditEvent{
+	event := s.enrichBusinessAudit(ctx, domain.AuditEvent{
 		ActorID: actor, ActorRoles: roles, Action: action, ResourceType: "Dispense",
 		ResourceID: resourceID, Outcome: outcome, ErrorCode: errorCode, RequestID: requestID, ClientIP: ip,
-	}, level)
+	})
+	s.record(ctx, start, event, level)
 }
 
 func (s *Service) auditDispenseErr(ctx context.Context, start time.Time, user *domain.User, action, resourceID, requestID, ip string, err error) {

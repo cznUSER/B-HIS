@@ -81,8 +81,28 @@ function seedState() {
         username: 'system',
         loginName: 'system',
         displayName: '系统管理员',
+        description: '',
+        cardNo: '',
+        inputCode: 'xtgly',
+        serviceStar: null,
+        expandInterface1: 0,
+        expandInterface2: 0,
+        inputCodeCompareMode: 2,
         status: 'ACTIVE',
         roles: ['SYSTEM'],
+        mustChangePassword: false,
+        cannotModifyPassword: false,
+        accountLocked: false,
+        accountStopped: false,
+        hidden: false,
+        system: true,
+        super: false,
+        developer: false,
+        lastLoginAt: '',
+        lastLoginIp: '',
+        lockUntil: '',
+        passwordChangedAt: '',
+        failedLoginCount: 0,
         password: DEMO_PASSWORD,
         createdAt: SEED_AT,
         updatedAt: SEED_AT,
@@ -126,8 +146,37 @@ function skuSeed(skuId, catalogItemId, itemNo, itemName, qtyOnHand, units, seq) 
 
 let state = seedState()
 
+// 2026-10-14 P1-H05-WEB-USABILITY: business stock movements are Mock-only.
+// Persist inventory once per slip so reloading the browser cannot deduct it again.
+const INVENTORY_STORAGE_KEY = 'bhis.inventory-movements.v1'
+let inventoryMovements = {}
+let inventoryRestored = false
+
+function inventoryStorage() {
+  try { return typeof sessionStorage === 'undefined' ? null : sessionStorage }
+  catch { return null }
+}
+
+function restoreMockInventory() {
+  if (inventoryRestored) return
+  inventoryRestored = true
+  const store = inventoryStorage()
+  if (!store) return
+  try {
+    const snapshot = JSON.parse(store.getItem(INVENTORY_STORAGE_KEY) || 'null')
+    if (!snapshot || !Array.isArray(snapshot.inventory) || !Array.isArray(snapshot.ledger)) return
+    state.inventory = snapshot.inventory
+    state.ledger = snapshot.ledger
+    state.seq = Math.max(state.seq, Number(snapshot.seq) || 0)
+    inventoryMovements = snapshot.movements || {}
+  } catch { /* Invalid local demo state leaves the initial stock available. */ }
+}
+
 export function resetMasterStore() {
   state = seedState()
+  inventoryMovements = {}
+  inventoryRestored = false
+  inventoryStorage()?.removeItem(INVENTORY_STORAGE_KEY)
 }
 
 function nextId(prefix) {
@@ -235,8 +284,28 @@ function publicUser(row) {
     username: row.username,
     loginName: row.loginName,
     displayName: row.displayName,
+    description: row.description || '',
+    cardNo: row.cardNo || '',
+    inputCode: row.inputCode || '',
+    serviceStar: row.serviceStar == null ? null : row.serviceStar,
+    expandInterface1: Number(row.expandInterface1) || 0,
+    expandInterface2: Number(row.expandInterface2) || 0,
+    inputCodeCompareMode: Number(row.inputCodeCompareMode) || 2,
     status: row.status,
     roles: [...row.roles],
+    mustChangePassword: row.mustChangePassword === true,
+    cannotModifyPassword: row.cannotModifyPassword === true,
+    accountLocked: row.accountLocked === true,
+    accountStopped: row.accountStopped === true,
+    hidden: row.hidden === true,
+    system: row.system === true,
+    super: row.super === true,
+    developer: row.developer === true,
+    lastLoginAt: row.lastLoginAt || '',
+    lastLoginIp: row.lastLoginIp || '',
+    lockUntil: row.lockUntil || '',
+    passwordChangedAt: row.passwordChangedAt || '',
+    failedLoginCount: Number(row.failedLoginCount) || 0,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   }
@@ -529,6 +598,7 @@ export function patchCatalogItem(catalogItemId, input = {}) {
 }
 
 export function listInventoryItems(query = {}) {
+  restoreMockInventory()
   const status = text(query.status)
   const code = text(query.itemNo) || text(query.skuCode)
   const items = sortBy(state.inventory, (left, right) => left.itemNo.localeCompare(right.itemNo))
@@ -540,6 +610,7 @@ export function listInventoryItems(query = {}) {
 }
 
 export function listLedger(skuId) {
+  restoreMockInventory()
   const sku = state.inventory.find((item) => item.skuId === skuId)
   if (!sku) throw apiError(404, 'NOT_FOUND', '未找到库存')
   const items = state.ledger
@@ -551,6 +622,7 @@ export function listLedger(skuId) {
 }
 
 export function adjustInventory(skuId, input = {}) {
+  restoreMockInventory()
   const sku = state.inventory.find((item) => item.skuId === skuId)
   if (!sku) throw apiError(404, 'NOT_FOUND', '未找到库存')
   const catalog = state.catalog.find((item) => item.catalogItemId === sku.catalogItemId || sameCode(item.itemNo, sku.itemNo))
@@ -579,6 +651,43 @@ export function adjustInventory(skuId, input = {}) {
     seq: nextSeq(),
   })
   return publicInventory(sku)
+}
+
+// Correct business types use the existing Mock inventory/ledger, without HTTP or DB writes.
+export function applyMockInventoryMovement(input = {}) {
+  restoreMockInventory()
+  const movementId = text(input.movementId)
+  const bizType = text(input.bizType)
+  if (!movementId || !['DISPENSE', 'RETURN'].includes(bizType)) throw apiError(400, 'VALIDATION_ERROR', '库存业务无效')
+  if (inventoryMovements[movementId]) return
+  const totals = new Map()
+  for (const item of Array.isArray(input.items) ? input.items : []) {
+    const qty = Number(item.qty)
+    if (!Number.isFinite(qty) || qty <= 0) throw apiError(400, 'VALIDATION_ERROR', '库存业务数量无效')
+    const itemNo = text(item.itemNo)
+    totals.set(itemNo, (totals.get(itemNo) || 0) + qty)
+  }
+  const plan = [...totals].map(([itemNo, qty]) => {
+    const sku = state.inventory.find((item) => sameCode(item.itemNo, itemNo))
+    if (!sku) throw apiError(404, 'NOT_FOUND', '未找到库存')
+    const delta = Math.round((qty * (bizType === 'DISPENSE' ? -1 : 1) + Number.EPSILON) * 1000) / 1000
+    const after = Math.round((sku.qtyOnHand + delta + Number.EPSILON) * 1000) / 1000
+    if (after < 0) throw apiError(409, 'INSUFFICIENT_STOCK', '库存不足，无法发药')
+    return { sku, delta, after }
+  })
+  const now = nowIso()
+  for (const { sku, delta, after } of plan) {
+    sku.qtyOnHand = after
+    sku.rowVersion = String(Number(sku.rowVersion) + 1 || 1)
+    sku.updatedAt = now
+    state.ledger.push({
+      ledgerId: nextId('led'), skuId: sku.skuId, bizType, qtyDelta: delta, qtyAfter: after,
+      remark: text(input.remark), operatorName: text(input.operatorName) || '系统管理员',
+      createdAt: now, seq: nextSeq(),
+    })
+  }
+  inventoryMovements[movementId] = true
+  inventoryStorage()?.setItem(INVENTORY_STORAGE_KEY, JSON.stringify({ inventory: state.inventory, ledger: state.ledger, seq: state.seq, movements: inventoryMovements }))
 }
 
 export function listDictOverview() {
@@ -661,18 +770,42 @@ export function createUser(input = {}) {
   if (state.users.some((item) => item.username.toLowerCase() === username.toLowerCase())) {
     throw apiError(409, 'USERNAME_DUPLICATE', '登录名已存在')
   }
+  if (text(input.password) && (text(input.password).length < 8 || text(input.password).length > 72)) {
+    throw apiError(400, 'VALIDATION_ERROR', '密码须为 8 至 72 个字符')
+  }
   const now = nowIso()
   const row = {
     userId: nextId('user'),
     username,
     loginName: username,
     displayName,
+    description: text(input.description),
+    cardNo: text(input.cardNo),
+    inputCode: text(input.inputCode),
+    serviceStar: input.serviceStar == null || input.serviceStar === '' ? null : Number(input.serviceStar),
+    expandInterface1: Number(input.expandInterface1) || 0,
+    expandInterface2: Number(input.expandInterface2) || 0,
+    inputCodeCompareMode: input.inputCodeCompareMode == null ? 2 : Number(input.inputCodeCompareMode),
     status: input.status === 'DISABLED' || input.status === 'INACTIVE' ? input.status : 'ACTIVE',
     roles: normalizeRoles(input.roles),
-    password: DEMO_PASSWORD,
+    password: text(input.password) || DEMO_PASSWORD,
+    mustChangePassword: input.mustChangePassword == null ? input.cannotModifyPassword !== true : input.mustChangePassword === true,
+    cannotModifyPassword: input.cannotModifyPassword === true,
+    accountLocked: false,
+    accountStopped: input.accountStopped === true,
+    hidden: input.hidden === true,
+    system: input.system === true,
+    super: input.super === true,
+    developer: input.developer === true,
+    lastLoginAt: '',
+    lastLoginIp: '',
+    lockUntil: '',
+    passwordChangedAt: '',
+    failedLoginCount: 0,
     createdAt: now,
     updatedAt: now,
   }
+  if (row.accountStopped) row.status = 'DISABLED'
   state.users.push(row)
   return publicUser(row)
 }
@@ -685,6 +818,19 @@ export function patchUser(userId, input = {}) {
     if (!displayName) throw apiError(400, 'VALIDATION_ERROR', '请填写显示名')
     row.displayName = displayName
   }
+  for (const key of ['description', 'cardNo', 'inputCode']) {
+    if (key in input) row[key] = text(input[key])
+  }
+  if (text(input.password)) {
+    if (text(input.password).length < 8 || text(input.password).length > 72) throw apiError(400, 'VALIDATION_ERROR', '密码须为 8 至 72 个字符')
+    row.password = text(input.password)
+    row.mustChangePassword = true
+    row.passwordChangedAt = ''
+  }
+  if ('serviceStar' in input) row.serviceStar = input.serviceStar == null || input.serviceStar === '' ? null : Number(input.serviceStar)
+  for (const key of ['expandInterface1', 'expandInterface2', 'inputCodeCompareMode']) {
+    if (key in input && input[key] != null && input[key] !== '') row[key] = Number(input[key]) || 0
+  }
   if ('status' in input) {
     const status = text(input.status)
     if (status !== 'ACTIVE' && status !== 'DISABLED' && status !== 'INACTIVE') {
@@ -693,6 +839,15 @@ export function patchUser(userId, input = {}) {
     row.status = status
   }
   if ('roles' in input) row.roles = normalizeRoles(input.roles)
+  for (const key of ['mustChangePassword', 'cannotModifyPassword', 'accountLocked', 'accountStopped', 'hidden', 'system', 'super', 'developer']) {
+    if (key in input) row[key] = input[key] === true
+  }
+  if (input.accountStopped === true) row.status = 'DISABLED'
+  if (input.accountStopped === false && !('status' in input) && row.status === 'DISABLED') row.status = 'ACTIVE'
+  if (input.accountLocked === false) {
+    row.lockUntil = ''
+    row.failedLoginCount = 0
+  }
   row.updatedAt = nowIso()
   return publicUser(row)
 }
@@ -701,8 +856,24 @@ export function resetUserPassword(userId) {
   const row = state.users.find((item) => item.userId === userId)
   if (!row) throw apiError(404, 'NOT_FOUND', '未找到用户')
   row.password = DEMO_PASSWORD
-  row.updatedAt = nowIso()
+  row.mustChangePassword = true
+  row.passwordChangedAt = nowIso()
+  row.updatedAt = row.passwordChangedAt
   return { ok: true }
+}
+
+export function changeUserPassword(userId, currentPassword, newPassword) {
+  const row = state.users.find((item) => item.userId === userId)
+  if (!row) throw apiError(404, 'NOT_FOUND', '未找到用户')
+  if (row.cannotModifyPassword) throw apiError(403, 'PASSWORD_CHANGE_NOT_ALLOWED', '当前账号不允许自行修改密码')
+  if (row.password !== currentPassword) throw apiError(400, 'CURRENT_PASSWORD_INVALID', '当前密码不正确')
+  if (newPassword.length < 8 || newPassword.length > 72 || newPassword === currentPassword) {
+    throw apiError(400, 'VALIDATION_ERROR', '新密码须为 8 至 72 个字符且不能与当前密码相同')
+  }
+  row.password = newPassword
+  row.mustChangePassword = false
+  row.passwordChangedAt = nowIso()
+  row.updatedAt = row.passwordChangedAt
 }
 
 export function loginAccountFromMaster(username) {
@@ -712,12 +883,14 @@ export function loginAccountFromMaster(username) {
   if (!row) return null
   return {
     password: row.password,
-    disabled: row.status !== 'ACTIVE',
+    disabled: row.status !== 'ACTIVE' || row.accountStopped === true || row.accountLocked === true,
     user: {
       id: row.userId,
       username: row.username,
       displayName: row.displayName,
       roles: toSessionRoles(row.roles),
+      mustChangePassword: row.mustChangePassword === true,
+      cannotModifyPassword: row.cannotModifyPassword === true,
     },
   }
 }

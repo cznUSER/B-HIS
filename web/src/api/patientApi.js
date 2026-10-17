@@ -1,6 +1,6 @@
 // 2026-10-12 P1-H05-PATIENT-UI
 // POST /api/v1/patients | GET /api/v1/patients | GET /api/v1/patients/{patientId}
-// 与登录相同：VITE_USE_MOCK 决定走本地还是真实接口。真接口默认经 Vite 代理到 127.0.0.1:8080。
+// 与登录相同：VITE_USE_MOCK 决定走本地还是真实接口。真接口默认经 Vite 代理到 127.0.0.1:9999。
 
 import { apiUrl, useMock } from './config.js'
 import { apiError, readErrorResponse } from './errors.js'
@@ -72,6 +72,8 @@ function searchParams(query) {
   const params = new URLSearchParams()
   if (query.name) params.set('name', query.name)
   if (query.idNumber) params.set('idNumber', query.idNumber)
+  if (query.patientNo) params.set('patientNo', query.patientNo)
+  if (query.hospPkNo) params.set('hospPkNo', query.hospPkNo)
   return params
 }
 
@@ -101,7 +103,7 @@ export async function createPatient(accessToken, input) {
     throw apiError(0, 'HTTP_ERROR', '无法连接患者服务')
   }
 
-  if (response.status !== 201) throw presentPatientError(await readErrorResponse(response))
+  if (response.status !== 201) throw presentPatientError(await readErrorResponse(response, accessToken))
   const patient = assertPatientDto(await parseJson(response))
   remember([patient])
   return patient
@@ -133,7 +135,7 @@ export async function searchPatients(accessToken, input) {
     } catch {
       throw apiError(0, 'HTTP_ERROR', '无法连接患者服务')
     }
-    if (!response.ok) throw presentPatientError(await readErrorResponse(response))
+    if (!response.ok) throw presentPatientError(await readErrorResponse(response, accessToken))
     items = assertPatientList(await parseJson(response)).items
   }
 
@@ -164,7 +166,7 @@ export async function fetchPatient(accessToken, patientId) {
   } catch {
     throw apiError(0, 'HTTP_ERROR', '无法连接患者服务')
   }
-  if (!response.ok) throw presentPatientError(await readErrorResponse(response))
+  if (!response.ok) throw presentPatientError(await readErrorResponse(response, accessToken))
   const patient = assertPatientDto(await parseJson(response))
   remember([patient])
   return patient

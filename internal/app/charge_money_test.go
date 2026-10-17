@@ -1,9 +1,12 @@
 package app
 
 import (
+	"context"
+	"errors"
 	"testing"
 
 	"github.com/cznUSER/B-HIS/internal/domain"
+	"github.com/cznUSER/B-HIS/internal/store/memory"
 )
 
 func TestAllocFavourableF0(t *testing.T) {
@@ -52,5 +55,34 @@ func TestPortionCentsConserves(t *testing.T) {
 	rem, ok := portionCents(4000, 3000, 4000)
 	if !ok || rem != 3000 || ref+rem != 4000 {
 		t.Fatalf("rem %d", rem)
+	}
+}
+
+func TestDiscountedPartialRefundIsRejectedButFullRefundIsAllowed(t *testing.T) {
+	store := memory.New()
+	svc := &Service{Charges: store}
+	charge := domain.Charge{
+		ChargeID: "charge-1", TotalFeeCents: 4000, FavourableFeeCents: 400, SquareFeeCents: 3600,
+		Items: []domain.ChargeItem{{
+			ChargeItemID: "item-1", QtyMilli: 4000, TotalFeeCents: 4000,
+			CanBack: true, ItemType: domain.ItemTypeTreat,
+		}},
+	}
+
+	_, err := svc.planRefund(context.Background(), charge, RefundInput{
+		PayType: domain.PayTypeCash,
+		Items:   []RefundItemInput{{ChargeItemID: "item-1", RefundQty: 1}},
+	})
+	var appErr *Error
+	if err == nil || !errors.As(err, &appErr) || appErr.Code != "PARTIAL_REFUND_DISCOUNT_UNSUPPORTED" {
+		t.Fatalf("discounted partial refund err=%v", err)
+	}
+
+	plan, err := svc.planRefund(context.Background(), charge, RefundInput{
+		PayType: domain.PayTypeCash,
+		Items:   []RefundItemInput{{ChargeItemID: "item-1", RefundQty: 4}},
+	})
+	if err != nil || !plan.full || plan.payCents != 3600 || plan.newSq != 0 {
+		t.Fatalf("discounted full refund plan=%+v err=%v", plan, err)
 	}
 }

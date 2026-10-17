@@ -39,6 +39,33 @@ func TestDefaultsUseSQLServer(t *testing.T) {
 	if cfg.Database.Driver != "sqlserver" {
 		t.Fatalf("default driver = %q, want sqlserver", cfg.Database.Driver)
 	}
+	if cfg.Host.ApiAddr != "127.0.0.1:9999" || cfg.Host.WebAddr != "127.0.0.1:8888" {
+		t.Fatalf("default listeners = API %q, web %q", cfg.Host.ApiAddr, cfg.Host.WebAddr)
+	}
+}
+
+func TestListenerAddressOverridesAndPortConflict(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "local.yaml")
+	if err := os.WriteFile(path, []byte("Auth:\n  JWTSecret: file-secret\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("BHIS_DB_DRIVER", "sqlserver")
+	t.Setenv("BHIS_DB_DSN", "sqlserver://user:pass@db:1433?database=BHIS")
+	t.Setenv("BHIS_JWT_SECRET", "env-secret-must-be-at-least-16")
+	t.Setenv("BHIS_API_ADDR", "127.0.0.1:19999")
+	t.Setenv("BHIS_WEB_ADDR", "127.0.0.1:18888")
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Host.ApiAddr != "127.0.0.1:19999" || cfg.Host.WebAddr != "127.0.0.1:18888" {
+		t.Fatalf("listener overrides = API %q, web %q", cfg.Host.ApiAddr, cfg.Host.WebAddr)
+	}
+	t.Setenv("BHIS_WEB_ADDR", "0.0.0.0:19999")
+	if _, err := Load(path); err == nil || !strings.Contains(err.Error(), "must use different ports") {
+		t.Fatalf("same listener port should be rejected, got %v", err)
+	}
 }
 
 func TestMemoryDriverRejected(t *testing.T) {
@@ -103,7 +130,7 @@ func TestExampleHasNoRealDSN(t *testing.T) {
 	if !strings.Contains(text, DemoJWTPlaceholder) {
 		t.Fatal("example JWT placeholder drifted from DemoJWTPlaceholder")
 	}
-	for _, bad := range []string{"sqlserver://sa:", "192.168.", "8888"} {
+	for _, bad := range []string{"sqlserver://sa:", "192.168."} {
 		if strings.Contains(text, bad) {
 			t.Fatalf("example contains %s", bad)
 		}

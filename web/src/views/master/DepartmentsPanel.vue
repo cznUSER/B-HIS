@@ -1,13 +1,18 @@
 <script setup>
+// 2026-10-14 P1-H05-WEB-USABILITY 读取状态独立于写入提示；只有成功读取才可维护。
 // 2026-10-13 P1-H05-MASTER-UI 科室：代码唯一，可启停。种子 dept-1 / dept-2 可改。
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ApiError } from '../../api/errors.js'
 import { session } from '../../auth/session.js'
 import { fetchDepartments, saveDepartment } from '../../master/api.js'
 import { statusLabel } from '../../master/labels.js'
+import MasterPanelHeader from './MasterPanelHeader.vue'
 
 const rows = ref([])
 const loading = ref(false)
+const listReady = ref(false)
+const loadError = ref('')
+const loadErrorCode = ref('')
 const saving = ref(false)
 const editing = ref(false)
 const editingId = ref('')
@@ -18,6 +23,8 @@ const noticeError = ref(false)
 const errorCode = ref('')
 const form = reactive({ deptCode: '', deptName: '', status: 'ACTIVE', sortNo: 0 })
 
+const canMaintain = computed(() => listReady.value && !loading.value && !saving.value)
+
 function show(message, isError = false, code = '') {
   notice.value = message
   noticeError.value = isError
@@ -25,18 +32,25 @@ function show(message, isError = false, code = '') {
 }
 
 async function load() {
+  if (loading.value) return
   loading.value = true
+  listReady.value = false
+  loadError.value = ''
+  loadErrorCode.value = ''
   try {
     const listed = await fetchDepartments(session.accessToken, { q: q.value, status: status.value })
     rows.value = listed.items
+    listReady.value = true
   } catch (error) {
-    show(error instanceof ApiError ? error.message : '无法读取科室', true, error instanceof ApiError ? error.code : '')
+    loadError.value = error instanceof ApiError ? error.message : '无法读取科室'
+    loadErrorCode.value = error instanceof ApiError ? error.code : ''
   } finally {
     loading.value = false
   }
 }
 
 function startCreate() {
+  if (!canMaintain.value) return
   editing.value = true
   editingId.value = ''
   form.deptCode = ''
@@ -47,6 +61,7 @@ function startCreate() {
 }
 
 function startEdit(row) {
+  if (!canMaintain.value) return
   editing.value = true
   editingId.value = row.departmentId
   form.deptCode = row.deptCode
@@ -57,7 +72,7 @@ function startEdit(row) {
 }
 
 async function onSave() {
-  if (saving.value) return
+  if (!canMaintain.value) return
   saving.value = true
   const id = editingId.value
   try {
@@ -78,6 +93,8 @@ async function onSave() {
 }
 
 async function toggle(row) {
+  if (!canMaintain.value) return
+  saving.value = true
   const next = row.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'
   try {
     await saveDepartment(session.accessToken, row.departmentId, { status: next })
@@ -85,6 +102,8 @@ async function toggle(row) {
     await load()
   } catch (error) {
     show(error instanceof ApiError ? error.message : '操作失败', true, error instanceof ApiError ? error.code : '')
+  } finally {
+    saving.value = false
   }
 }
 
@@ -92,16 +111,17 @@ onMounted(load)
 </script>
 
 <template>
-  <section class="patient-panel" aria-labelledby="dept-heading">
-    <div class="panel-head">
-      <h2 id="dept-heading">科室</h2>
-      <button class="button button-compact" type="button" data-testid="dept-create" @click="startCreate">新建</button>
-    </div>
+  <section class="patient-panel master-data-panel ui2-department-panel" aria-labelledby="dept-heading">
+    <MasterPanelHeader title="科室" title-id="dept-heading" icon="departments" description="维护诊疗科室、显示顺序与启停状态。" :count="listReady ? rows.length : null" :loading="loading">
+      <template #actions>
+      <button class="button button-compact" type="button" data-testid="dept-create" :disabled="!canMaintain" @click="startCreate">新建</button>
+      </template>
+    </MasterPanelHeader>
 
-    <form class="master-filters" @submit.prevent="load">
+    <form class="master-filters" @submit.prevent="!saving && load()">
       <label class="field">
         <span>代码 / 名称</span>
-        <input v-model="q" type="search" data-testid="dept-q" />
+        <input v-model="q" type="search" placeholder="搜索科室代码或名称" data-testid="dept-q" />
       </label>
       <label class="field">
         <span>状态</span>
@@ -111,11 +131,12 @@ onMounted(load)
           <option value="INACTIVE">停用</option>
         </select>
       </label>
-      <button class="button button-ghost button-compact" type="submit">查询</button>
+      <button class="button button-ghost button-compact" type="submit" :disabled="loading || saving">查询</button>
     </form>
 
     <form v-if="editing" class="master-form" data-testid="dept-form" @submit.prevent="onSave">
-      <div class="field-grid">
+      <div class="master-editor-head"><div><p class="master-eyebrow">科室维护</p><h3>{{ editingId ? '编辑科室' : '新建科室' }}</h3></div><span class="master-soft-badge">{{ editingId ? form.deptCode : '新记录' }}</span></div>
+      <fieldset class="master-form-group"><legend>科室信息与状态</legend><div class="field-grid">
         <label class="field">
           <span>科室代码 <abbr class="req" title="必填">*</abbr></span>
           <input v-model="form.deptCode" required data-testid="dept-code" autocomplete="off" />
@@ -135,10 +156,10 @@ onMounted(load)
           <span>排序</span>
           <input v-model.number="form.sortNo" type="number" step="1" />
         </label>
-      </div>
+      </div></fieldset>
       <p class="field-hint">代码在未删除范围内唯一。停用后再挂号、再开单时不会出现。</p>
       <div class="panel-actions">
-        <button class="button button-compact" type="submit" data-testid="dept-save" :disabled="saving">
+        <button class="button button-compact" type="submit" data-testid="dept-save" :disabled="!canMaintain">
           {{ saving ? '正在保存…' : '保存' }}
         </button>
         <button class="button button-ghost button-compact" type="button" @click="editing = false">取消</button>
@@ -148,31 +169,36 @@ onMounted(load)
     <p v-if="notice" class="banner" :class="{ 'banner-ok': !noticeError }" :role="noticeError ? 'alert' : 'status'" data-testid="dept-notice">
       {{ notice }}<span v-if="errorCode">（{{ errorCode }}）</span>
     </p>
-    <p v-if="loading" class="shell-status">正在读取…</p>
-    <p v-else-if="rows.length === 0" class="result-empty" data-testid="dept-empty">
+    <p v-if="loading" class="shell-status" role="status">正在读取…</p>
+    <div v-else-if="loadError" class="master-load-error" role="alert" data-testid="dept-load-error">
+      <p>{{ loadError }}<span v-if="loadErrorCode">（{{ loadErrorCode }}）</span></p>
+      <button class="button button-ghost button-compact" type="button" data-testid="dept-retry" @click="load">重新读取</button>
+    </div>
+    <p v-else-if="listReady && rows.length === 0" class="result-empty" data-testid="dept-empty">
       {{ q || status ? '没有符合条件的科室' : '暂无科室，请新建' }}
     </p>
-    <div v-else class="result-wrap">
+    <div v-else-if="listReady" class="result-wrap" tabindex="0" role="region" aria-label="科室列表，可横向滚动">
+      <div class="master-table-head"><h3>科室列表</h3><span>{{ rows.length }} 条查询结果</span></div>
       <table class="register-table" data-testid="dept-list">
         <caption class="sr-only">科室</caption>
         <thead>
           <tr>
-            <th>代码</th>
-            <th>名称</th>
-            <th>状态</th>
-            <th>排序</th>
-            <th>操作</th>
+            <th scope="col">代码</th>
+            <th scope="col">名称</th>
+            <th scope="col">状态</th>
+            <th scope="col">排序</th>
+            <th scope="col">操作</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="row in rows" :key="row.departmentId">
             <td class="mono">{{ row.deptCode }}</td>
-            <td>{{ row.deptName }}</td>
+            <td class="master-primary-cell">{{ row.deptName }}</td>
             <td><span class="status-pill" :data-status="row.status">{{ statusLabel(row.status) }}</span></td>
             <td>{{ row.sortNo }}</td>
             <td class="ticket-actions">
-              <button class="text-btn" type="button" @click="startEdit(row)">编辑</button>
-              <button class="text-btn" type="button" :data-testid="`dept-toggle-${row.departmentId}`" @click="toggle(row)">
+              <button class="text-btn" type="button" :disabled="!canMaintain" @click="startEdit(row)">编辑</button>
+              <button class="text-btn" type="button" :data-testid="`dept-toggle-${row.departmentId}`" :disabled="!canMaintain" @click="toggle(row)">
                 {{ row.status === 'ACTIVE' ? '停用' : '启用' }}
               </button>
             </td>
@@ -180,5 +206,24 @@ onMounted(load)
         </tbody>
       </table>
     </div>
+    <p class="master-list-foot">仅启用科室可在新的挂号与开单中使用。</p>
   </section>
 </template>
+
+<style scoped>
+/* UI2.0/bsdata/DepartmentFrm: 408px editor, Songti 16px, 90x30 actions. */
+.ui2-department-panel.patient-panel.master-data-panel { color: #202020; font-family: SimSun, '宋体', serif; }
+.ui2-department-panel.patient-panel.master-data-panel .master-form { width: 408px; max-width: 100%; margin: 12px 0; padding: 12px; border: 1px solid #999; border-radius: 0; background: #f0f0f0; box-sizing: border-box; }
+.ui2-department-panel.patient-panel.master-data-panel .master-editor-head { min-height: 30px; margin: -12px -12px 12px; padding: 6px 12px; background: #e4e4e4; border-bottom: 1px solid #999; }
+.ui2-department-panel.patient-panel.master-data-panel .master-editor-head h3 { margin: 0; font: 16px SimSun, '宋体', serif; }
+.ui2-department-panel.patient-panel.master-data-panel .master-eyebrow { display: none; }
+.ui2-department-panel.patient-panel.master-data-panel .master-form-group { padding: 8px 0; border: 0; border-radius: 0; background: transparent; }
+.ui2-department-panel.patient-panel.master-data-panel .master-form-group legend { font: 12px 'Segoe UI', sans-serif; }
+.ui2-department-panel.patient-panel.master-data-panel .master-form .field-grid { display: grid; grid-template-columns: 1fr; gap: 7px; }
+.ui2-department-panel.patient-panel.master-data-panel .master-form .field { display: grid; grid-template-columns: 76px minmax(0, 1fr); align-items: center; gap: 6px; }
+.ui2-department-panel.patient-panel.master-data-panel .master-form .field > span { display: block; padding: 3px 5px; border: 1px solid #bbb; border-radius: 5px; background: #dedede; color: #202020; font: 12px/17px 'Segoe UI', sans-serif; }
+.ui2-department-panel.patient-panel.master-data-panel .master-form .field input, .ui2-department-panel.patient-panel.master-data-panel .master-form .field select { width: 100%; min-width: 0; height: 25px; min-height: 25px; padding: 2px 5px; border: 1px solid #999; border-radius: 0; background: #fff; color: #202020; font: 16px SimSun, '宋体', serif; box-sizing: border-box; }
+.ui2-department-panel.patient-panel.master-data-panel .master-form .panel-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.ui2-department-panel.patient-panel.master-data-panel .master-form .panel-actions .button { width: 90px; height: 30px; min-height: 30px; padding: 0 5px; border: 1px solid #aaa; border-radius: 3px; background: #e6e6e6; color: #202020; font: 16px SimSun, '宋体', serif; }
+.ui2-department-panel.patient-panel.master-data-panel .master-form .field-hint { margin-top: 10px; font: 12px/1.5 'Segoe UI', sans-serif; }
+</style>

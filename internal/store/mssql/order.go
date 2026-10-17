@@ -44,7 +44,14 @@ func (s *Store) CreateOrder(ctx context.Context, o domain.Order) error {
 	if n > 0 {
 		return port.ErrDuplicateBusinessNo
 	}
-	_, err = tx.ExecContext(ctx, `
+	if err := insertOrder(ctx, tx, o); err != nil {
+		return classifyWriteError(err)
+	}
+	return tx.Commit()
+}
+
+func insertOrder(ctx context.Context, tx *sql.Tx, o domain.Order) error {
+	_, err := tx.ExecContext(ctx, `
 		INSERT INTO dbo.order_sheet (
 			order_id, order_no, register_id, patient_id, department_id, doctor_id,
 			diagnose_name, recipe_sort, status, total_fee, charged, submitted_at,
@@ -72,12 +79,100 @@ func (s *Store) CreateOrder(ctx context.Context, o domain.Order) error {
 		sql.Named("updated_by", nullIfEmpty(o.UpdatedBy)),
 	)
 	if err != nil {
-		return classifyWriteError(err)
+		return err
 	}
-	if err := insertOrderItems(ctx, tx, o.Items, o.CreatedAt); err != nil {
-		return classifyWriteError(err)
+	return insertOrderItems(ctx, tx, o.Items, o.CreatedAt)
+}
+
+// CreateOrderWithIdempotency keeps the idempotency row, order header, and all
+// item rows in one serializable transaction. Other order lifecycle operations
+// intentionally remain separate scopes.
+func (s *Store) CreateOrderWithIdempotency(ctx context.Context, o domain.Order, scope, key, requestHash string, expiresAt time.Time) (domain.Order, bool, error) {
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		return domain.Order{}, false, err
 	}
-	return tx.Commit()
+	defer func() { _ = tx.Rollback() }()
+
+	var savedHash, state string
+	var resourceID sql.NullString
+	var savedExpires time.Time
+	err = tx.QueryRowContext(ctx, `
+		SELECT request_hash, state, resource_id, expires_at
+		FROM dbo.idempotency_record WITH (UPDLOCK, HOLDLOCK)
+		WHERE scope = @scope AND idem_key = @idem_key`,
+		sql.Named("scope", scope), sql.Named("idem_key", key)).Scan(&savedHash, &state, &resourceID, &savedExpires)
+	if err == nil {
+		if !savedExpires.After(time.Now().UTC()) {
+			if _, err := tx.ExecContext(ctx, `DELETE FROM dbo.idempotency_record WHERE scope=@scope AND idem_key=@idem_key`, sql.Named("scope", scope), sql.Named("idem_key", key)); err != nil {
+				return domain.Order{}, false, err
+			}
+		} else {
+			if savedHash != requestHash {
+				return domain.Order{}, false, port.ErrIdempotencyConflict
+			}
+			switch state {
+			case "PENDING":
+				return domain.Order{}, false, port.ErrIdempotencyInProgress
+			case "COMPLETED":
+				if !resourceID.Valid || resourceID.String == "" {
+					return domain.Order{}, false, port.ErrNotFound
+				}
+				existing, getErr := loadOrder(ctx, tx, resourceID.String)
+				if errors.Is(getErr, port.ErrNotFound) {
+					return domain.Order{}, false, port.ErrNotFound
+				}
+				if getErr != nil {
+					return domain.Order{}, false, getErr
+				}
+				if err := tx.Commit(); err != nil {
+					return domain.Order{}, false, err
+				}
+				return *existing, true, nil
+			case "FAILED":
+				if _, err := tx.ExecContext(ctx, `DELETE FROM dbo.idempotency_record WHERE scope=@scope AND idem_key=@idem_key`, sql.Named("scope", scope), sql.Named("idem_key", key)); err != nil {
+					return domain.Order{}, false, err
+				}
+			default:
+				return domain.Order{}, false, port.ErrIdempotencyInProgress
+			}
+		}
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return domain.Order{}, false, err
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO dbo.idempotency_record(scope, idem_key, request_hash, state, resource_type, resource_id, created_at, expires_at)
+		VALUES(@scope, @idem_key, @request_hash, 'PENDING', 'Order', NULL, SYSUTCDATETIME(), @expires_at)`,
+		sql.Named("scope", scope), sql.Named("idem_key", key), sql.Named("request_hash", requestHash), sql.Named("expires_at", expiresAt.UTC())); err != nil {
+		return domain.Order{}, false, err
+	}
+	var n int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(1) FROM dbo.order_sheet WHERE is_deleted=0 AND order_no=@order_no`, sql.Named("order_no", o.OrderNo)).Scan(&n); err != nil {
+		return domain.Order{}, false, err
+	}
+	if n > 0 {
+		return domain.Order{}, false, port.ErrDuplicateBusinessNo
+	}
+	if err := insertOrder(ctx, tx, o); err != nil {
+		return domain.Order{}, false, classifyWriteError(err)
+	}
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE dbo.idempotency_record
+		SET state='COMPLETED', resource_type='Order', resource_id=@resource_id, completed_at=SYSUTCDATETIME()
+		WHERE scope=@scope AND idem_key=@idem_key`,
+		sql.Named("resource_id", o.OrderID), sql.Named("scope", scope), sql.Named("idem_key", key)); err != nil {
+		return domain.Order{}, false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return domain.Order{}, false, err
+	}
+	if o.Items != nil {
+		o.Items = append([]domain.OrderItem(nil), o.Items...)
+	} else {
+		o.Items = []domain.OrderItem{}
+	}
+	return o, false, nil
 }
 
 func (s *Store) GetOrder(ctx context.Context, orderID string) (*domain.Order, error) {

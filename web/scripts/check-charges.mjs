@@ -112,6 +112,23 @@ const full = mockRefund(token, sun.chargeId, {
   items: sunDetail.items.map((item) => ({ chargeItemId: item.chargeItemId, refundQty: item.refundableQty })),
 })
 assert(full.fullRefund === true && full.newSquare == null, 'full refund has no new slip')
+const discounted = mockListCharges(token, { keyword: '郑优惠全退' }).items.find((item) => item.status === 'NORMAL')
+assert(discounted, 'discounted fixture exists')
+const discountedDetail = mockGetCharge(token, discounted.chargeId)
+await expectError(
+  () => mockRefund(token, discounted.chargeId, {
+    payType: 'CASH',
+    items: [{ chargeItemId: discountedDetail.items[0].chargeItemId, refundQty: 1 }],
+  }),
+  'PARTIAL_REFUND_DISCOUNT_UNSUPPORTED',
+  409,
+)
+const discountedFull = mockRefund(token, discounted.chargeId, {
+  payType: 'CASH',
+  items: discountedDetail.items.map((item) => ({ chargeItemId: item.chargeItemId, refundQty: item.refundableQty })),
+})
+assert(discountedFull.fullRefund === true && discountedFull.newSquare == null, 'discounted full refund has no successor')
+assert(discountedFull.refundPayment.amountCents === discounted.squareFeeCents, 'discounted full refund uses square fee')
 const listed = mockListCharges(token, {})
 assert(!listed.items.some((item) => item.status === 'NORMAL' && item.squareFeeCents === 0), 'no zero normal slip')
 assert(listed.items.some((item) => item.chargeId === sun.chargeId && item.status === 'ABATE' && item.squareFeeCents === 3950), 'abated keeps amount')
@@ -299,7 +316,16 @@ const server = http.createServer(async (req, res) => {
     return
   }
   if (req.method === 'GET' && url.pathname === '/api/v1/orders/ord-1') {
-    json(200, orderDto('COMMIT', settled))
+    json(200, orderDto(settled ? 'PROC' : 'COMMIT', settled))
+    return
+  }
+  // 2026-10-14 real charge stock is supplied by inventory, not the fixture catalog.
+  if (req.method === 'GET' && url.pathname === '/api/v1/inventory/items') {
+    json(200, { items: [{ skuId: 'sku-live', itemNo: 'DRUG-A', skuCode: 'DRUG-A', itemName: '实时库存药品', qtyOnHand: 7, units: '盒' }] })
+    return
+  }
+  if (req.method === 'GET' && url.pathname === '/api/v1/dispenses') {
+    json(200, { items: [{ dispenseId: 'dsp-returned', dispenseNo: 'FY-RETURNED', chargeId: 'ch-1', items: [{ chargeItemId: 'ci-1', dispensedQty: 2, returnedQty: 2 }] }] })
     return
   }
   if (req.method === 'GET' && url.pathname === '/api/v1/orders/ord-1/charge-preview') {
@@ -369,7 +395,7 @@ process.env.VITE_USE_MOCK = 'false'
 process.env.VITE_API_BASE_URL = `http://127.0.0.1:${port}/api/v1`
 
 try {
-  const { listCharges, loadPendingCharge, lookupChargeSubjects, payCharge, refundCharge } = await import('../src/api/chargeApi.js')
+  const { fetchCharge, listCharges, loadPendingCharge, lookupChargeSubjects, payCharge, refundCharge } = await import('../src/api/chargeApi.js')
   const looked = await lookupChargeSubjects(token, '')
   assert(looked.items.length === 1 && looked.items[0].scene === 'PENDING', 'real lookup pending')
   assert(looked.items[0].registerId === REGISTER, 'registerId primary')
@@ -378,6 +404,7 @@ try {
   assert(pending.preview.favourableFeeCents === 0, 'preview favourable')
   assert(pending.preview.amountPaidCents === pending.preview.amountDueCents, 'paid equals due')
   assert(!pending.preview.stockBlocked, 'preview stock')
+  assert(pending.preview.items[0].stockAvailable === 7 && pending.preview.items[0].stockHint === '可用 7', 'preview uses the returned live stock quantity')
 
   const paidResult = await payCharge(token, {
     orderId: 'ord-1',
@@ -391,6 +418,7 @@ try {
   const payCall = calls.find((item) => item.path.endsWith('/pay'))
   assert(payCall && JSON.parse(payCall.body).amount === 20 && JSON.parse(payCall.body).payType === 'CASH', 'wire amount is squareFee')
   assert(calls.some((item) => item.path.endsWith('/charge-preview')), 'preview was requested')
+  assert(calls.some((item) => item.path.endsWith('/inventory/items')), 'live inventory was requested')
   assert(calls.some((item) => item.method === 'POST' && item.path === '/api/v1/charges'), 'create charge')
 
   await expectError(
@@ -401,6 +429,8 @@ try {
 
   const listed = await listCharges(token, { todayOnly: true })
   assert(listed.items.some((item) => item.squareNo === 'S20261012001' && item.patientName === '赵待收'), 'query list')
+  const returned = await fetchCharge(token, 'ch-1')
+  assert(returned.items[0].netDispensedQty === 0 && !returned.items[0].dispenseBlocked, 'fully returned drugs are refundable even while order is PROC')
 
   const refunded = await refundCharge(token, 'ch-1', {
     payType: 'CASH',

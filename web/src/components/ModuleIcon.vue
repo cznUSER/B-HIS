@@ -1,5 +1,5 @@
 <script setup>
-// 2026-10-12 P1-H05-HOME 门诊六步图标
+// 2026-10-12 P1-H05-HOME 门诊工作区图标
 defineProps({
   name: { type: String, required: true },
 })
@@ -20,6 +20,10 @@ defineProps({
       <template v-else-if="name === 'order'">
         <path d="M7 4.2h6.6L18 8.6V19a1.4 1.4 0 0 1-1.4 1.4H7.4A1.4 1.4 0 0 1 6 19V5.6A1.4 1.4 0 0 1 7.4 4.2H7z" />
         <path d="M13.5 4.5V8.8H18M8.6 12.4h6.6M8.6 15.6h4.4" />
+      </template>
+      <template v-else-if="name === 'diagnosis'">
+        <path d="M6.2 4.2h11.6A1.8 1.8 0 0 1 19.6 6v12a1.8 1.8 0 0 1-1.8 1.8H6.2A1.8 1.8 0 0 1 4.4 18V6a1.8 1.8 0 0 1 1.8-1.8z" />
+        <path d="M8 9h8M8 12.4h8M8 15.8h4.5" />
       </template>
       <template v-else-if="name === 'charge'">
         <path d="M7 3.6h10v16.6l-1.8-1.1-1.8 1.1-1.8-1.1L10 19.1 8.2 18 7 19.1V3.6z" />

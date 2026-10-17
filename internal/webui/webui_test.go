@@ -9,12 +9,16 @@ import (
 )
 
 func TestMountKeepsAPIAndServesSPA(t *testing.T) {
-	api := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/health" && !strings.HasPrefix(r.URL.Path, "/api/") && r.URL.Path != "/api" {
+			t.Errorf("unexpected forwarded path %q", r.URL.Path)
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		_, _ = w.Write([]byte(`{"from":"api"}`))
-	})
-	h := Mount(api)
+	}))
+	defer api.Close()
+	h := Mount(api.URL)
 
 	for _, p := range []string{"/health", "/api/v1/auth/login", "/api"} {
 		req := httptest.NewRequest(http.MethodPost, p, nil)
@@ -59,6 +63,15 @@ func TestMountKeepsAPIAndServesSPA(t *testing.T) {
 	}
 	if bg.Body.Len() < 1024 {
 		t.Fatalf("background too small: %d", bg.Body.Len())
+	}
+}
+
+func TestMountReturnsBadGatewayWhenAPIIsUnavailable(t *testing.T) {
+	h := Mount("http://127.0.0.1:1")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/health", nil))
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("status %d body %s", rec.Code, rec.Body.String())
 	}
 }
 

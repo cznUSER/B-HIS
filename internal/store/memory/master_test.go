@@ -65,3 +65,31 @@ func TestAdjustLedgerAndCatalogStock(t *testing.T) {
 		t.Fatal("TREAT must not create inventory")
 	}
 }
+
+func TestResetPasswordWithAuditIsAtomicInMemory(t *testing.T) {
+	ctx := context.Background()
+	s := New()
+	before, err := s.FindByUsername(ctx, "system")
+	if err != nil {
+		t.Fatal(err)
+	}
+	event := domain.AuditEvent{
+		ID: "audit-reset-password", OccurredAt: time.Date(2026, 10, 15, 1, 2, 3, 0, time.UTC),
+		ActorID: before.ID, Action: domain.ActionUserResetPassword, ResourceType: "User", ResourceID: before.ID,
+		Outcome: domain.OutcomeSuccess, RequestID: "reset-password-atomic",
+	}
+	if err := s.ResetPasswordWithAudit(ctx, before.ID, "new-hash", before.ID, event); err != nil {
+		t.Fatal(err)
+	}
+	after, err := s.FindByID(ctx, before.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.PasswordHash != "new-hash" || !after.MustChangePassword || after.AuthVersion != before.AuthVersion+1 {
+		t.Fatalf("reset state = %+v, before=%+v", after, before)
+	}
+	audits := s.Audits()
+	if len(audits) != 1 || audits[0].Action != domain.ActionUserResetPassword || audits[0].Outcome != domain.OutcomeSuccess {
+		t.Fatalf("reset audits = %+v", audits)
+	}
+}

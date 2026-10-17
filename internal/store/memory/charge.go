@@ -23,6 +23,10 @@ var chargeZone = time.FixedZone("Asia/Shanghai", 8*60*60)
 func (s *Store) CreateCharge(_ context.Context, c domain.Charge) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.createChargeLocked(c)
+}
+
+func (s *Store) createChargeLocked(c domain.Charge) error {
 	if _, ok := s.charges[c.ChargeID]; ok {
 		return port.ErrDuplicateBusinessNo
 	}
@@ -36,9 +40,51 @@ func (s *Store) CreateCharge(_ context.Context, c domain.Charge) error {
 		if c.OrderID != "" && ex.OrderID == c.OrderID {
 			return port.ErrChargeExists
 		}
+		if c.OrderID == "" && registerFeeCharge(c) && ex.OrderID == "" && registerFeeCharge(ex) && ex.RegisterID == c.RegisterID && ex.Status != domain.ChargeStatusAbate {
+			return port.ErrChargeExists
+		}
 	}
 	s.charges[c.ChargeID] = cloneCharge(c)
 	return nil
+}
+
+func registerFeeCharge(c domain.Charge) bool {
+	return len(c.Items) == 1 && c.Items[0].ItemNo == "REGISTER-FEE"
+}
+
+// CreateChargeWithIdempotency keeps the idempotency record and charge mutation
+// under one memory lock, matching the SQL transaction contract.
+func (s *Store) CreateChargeWithIdempotency(_ context.Context, c domain.Charge, scope, key, requestHash string, expiresAt time.Time) (domain.Charge, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	mapKey := idempotencyMapKey(scope, key)
+	now := time.Now().UTC()
+	if record, ok := s.idempotency[mapKey]; ok {
+		if !record.expiresAt.IsZero() && !now.Before(record.expiresAt) {
+			delete(s.idempotency, mapKey)
+		} else {
+			if record.requestHash != requestHash {
+				return domain.Charge{}, false, port.ErrIdempotencyConflict
+			}
+			switch record.state {
+			case idempotencyPending:
+				return domain.Charge{}, false, port.ErrIdempotencyInProgress
+			case idempotencyCompleted:
+				existing, ok := s.charges[record.resourceID]
+				if !ok || existing.IsDeleted {
+					return domain.Charge{}, false, port.ErrNotFound
+				}
+				return cloneCharge(existing), true, nil
+			}
+		}
+	}
+	s.idempotency[mapKey] = idempotencyRecord{scope: scope, key: key, requestHash: requestHash, state: idempotencyPending, expiresAt: expiresAt.UTC()}
+	if err := s.createChargeLocked(c); err != nil {
+		delete(s.idempotency, mapKey)
+		return domain.Charge{}, false, err
+	}
+	s.idempotency[mapKey] = idempotencyRecord{scope: scope, key: key, requestHash: requestHash, state: idempotencyCompleted, resourceID: c.ChargeID, expiresAt: expiresAt.UTC()}
+	return cloneCharge(c), false, nil
 }
 
 func (s *Store) GetCharge(_ context.Context, chargeID string) (*domain.Charge, error) {
@@ -143,10 +189,127 @@ func (s *Store) PayCharge(_ context.Context, chargeID string, payment domain.Pay
 		o.UpdatedAt = payment.UpdatedAt
 		o.UpdatedBy = payment.UpdatedBy
 		s.orders[cur.OrderID] = o
+	} else if register, ok := s.registers[cur.RegisterID]; ok && !register.IsDeleted {
+		register.RegisterCharged = true
+		register.UpdatedAt = payment.UpdatedAt
+		register.UpdatedBy = payment.UpdatedBy
+		s.registers[cur.RegisterID] = register
 	}
 	out := cloneCharge(cur)
 	pay := payment
 	return &out, &pay, nil
+}
+
+// PayChargeWithIdempotency keeps the idempotency record and all payment state
+// changes under the same memory lock. The payment id is the durable resource
+// pointer used to replay the response after a service restart.
+func (s *Store) PayChargeWithIdempotency(_ context.Context, chargeID string, payment domain.Payment, scope, key, requestHash string, expiresAt time.Time) (*domain.Charge, *domain.Payment, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	mapKey := idempotencyMapKey(scope, key)
+	now := time.Now().UTC()
+	if record, ok := s.idempotency[mapKey]; ok {
+		if !record.expiresAt.IsZero() && !now.Before(record.expiresAt) {
+			delete(s.idempotency, mapKey)
+		} else {
+			if record.requestHash != requestHash {
+				return nil, nil, false, port.ErrIdempotencyConflict
+			}
+			switch record.state {
+			case idempotencyPending:
+				return nil, nil, false, port.ErrIdempotencyInProgress
+			case idempotencyCompleted:
+				pay, ok := s.payments[record.resourceID]
+				if !ok {
+					return nil, nil, false, port.ErrNotFound
+				}
+				cur, ok := s.charges[pay.ChargeID]
+				if !ok || cur.IsDeleted {
+					return nil, nil, false, port.ErrNotFound
+				}
+				out := cloneCharge(cur)
+				p := pay
+				return &out, &p, true, nil
+			}
+		}
+	}
+	s.idempotency[mapKey] = idempotencyRecord{scope: scope, key: key, requestHash: requestHash, state: idempotencyPending, expiresAt: expiresAt.UTC()}
+	fail := func(err error) (*domain.Charge, *domain.Payment, bool, error) {
+		delete(s.idempotency, mapKey)
+		return nil, nil, false, err
+	}
+	cur, ok := s.charges[chargeID]
+	if !ok || cur.IsDeleted {
+		return fail(port.ErrNotFound)
+	}
+	if cur.Status == domain.ChargeStatusAbate {
+		return fail(port.ErrChargeAlreadyAbated)
+	}
+	if !cur.PaidAt.IsZero() {
+		return fail(port.ErrChargeAlreadyPaid)
+	}
+	if err := reservePaymentLocked(s, payment); err != nil {
+		return fail(err)
+	}
+	if cur.OrderID != "" {
+		o, ok := s.orders[cur.OrderID]
+		if !ok || o.IsDeleted {
+			return fail(port.ErrNotFound)
+		}
+	}
+	cur.Status = domain.ChargeStatusNormal
+	cur.PaidAt = payment.PaidAt
+	cur.UpdatedAt = payment.UpdatedAt
+	cur.UpdatedBy = payment.UpdatedBy
+	s.charges[chargeID] = cur
+	s.payments[payment.PaymentID] = payment
+	if cur.OrderID != "" {
+		o := s.orders[cur.OrderID]
+		o.Charged = true
+		o.UpdatedAt = payment.UpdatedAt
+		o.UpdatedBy = payment.UpdatedBy
+		s.orders[cur.OrderID] = o
+	} else if register, ok := s.registers[cur.RegisterID]; ok && !register.IsDeleted {
+		register.RegisterCharged = true
+		register.UpdatedAt = payment.UpdatedAt
+		register.UpdatedBy = payment.UpdatedBy
+		s.registers[cur.RegisterID] = register
+	}
+	s.idempotency[mapKey] = idempotencyRecord{scope: scope, key: key, requestHash: requestHash, state: idempotencyCompleted, resourceID: payment.PaymentID, expiresAt: expiresAt.UTC()}
+	out := cloneCharge(cur)
+	p := payment
+	return &out, &p, false, nil
+}
+
+func (s *Store) LookupPayIdempotency(_ context.Context, scope, key, requestHash string) (*domain.Charge, *domain.Payment, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	mapKey := idempotencyMapKey(scope, key)
+	record, ok := s.idempotency[mapKey]
+	if !ok {
+		return nil, nil, false, nil
+	}
+	if !record.expiresAt.IsZero() && !time.Now().UTC().Before(record.expiresAt) {
+		delete(s.idempotency, mapKey)
+		return nil, nil, false, nil
+	}
+	if record.requestHash != requestHash {
+		return nil, nil, false, port.ErrIdempotencyConflict
+	}
+	if record.state == idempotencyPending {
+		return nil, nil, false, port.ErrIdempotencyInProgress
+	}
+	pay, ok := s.payments[record.resourceID]
+	if !ok || pay.Direction != domain.PaymentDirectionCharge {
+		return nil, nil, false, port.ErrNotFound
+	}
+	cur, ok := s.charges[pay.ChargeID]
+	if !ok || cur.IsDeleted {
+		return nil, nil, false, port.ErrNotFound
+	}
+	out := cloneCharge(cur)
+	p := pay
+	return &out, &p, true, nil
 }
 
 // RefundCharge abates old, optionally inserts the remainder square, and stores the REFUND payment. 2026-10-12
@@ -190,9 +353,155 @@ func (s *Store) RefundCharge(_ context.Context, old domain.Charge, newCharge *do
 		savedNew = &out
 	}
 	s.payments[payment.PaymentID] = payment
+	if old.OrderID == "" && newCharge == nil {
+		if register, ok := s.registers[old.RegisterID]; ok && !register.IsDeleted {
+			register.RegisterCharged = false
+			register.UpdatedAt = payment.UpdatedAt
+			register.UpdatedBy = payment.UpdatedBy
+			s.registers[old.RegisterID] = register
+		}
+	}
 	outOld := cloneCharge(s.charges[old.ChargeID])
 	pay := payment
 	return &outOld, savedNew, &pay, nil
+}
+
+// RefundChargeWithIdempotency keeps the abatement, optional successor, refund
+// payment, and idempotency pointer under one memory lock. Replays rebuild the
+// composite result from the payment's old charge and successor relation.
+func (s *Store) RefundChargeWithIdempotency(_ context.Context, old domain.Charge, newCharge *domain.Charge, payment domain.Payment, scope, key, requestHash string, expiresAt time.Time) (*domain.Charge, *domain.Charge, *domain.Payment, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	mapKey := idempotencyMapKey(scope, key)
+	now := time.Now().UTC()
+	if record, ok := s.idempotency[mapKey]; ok {
+		if !record.expiresAt.IsZero() && !now.Before(record.expiresAt) {
+			delete(s.idempotency, mapKey)
+		} else {
+			if record.requestHash != requestHash {
+				return nil, nil, nil, false, port.ErrIdempotencyConflict
+			}
+			switch record.state {
+			case idempotencyPending:
+				return nil, nil, nil, false, port.ErrIdempotencyInProgress
+			case idempotencyCompleted:
+				pay, ok := s.payments[record.resourceID]
+				if !ok || pay.Direction != domain.PaymentDirectionRefund {
+					return nil, nil, nil, false, port.ErrNotFound
+				}
+				oldSaved, ok := s.charges[pay.ChargeID]
+				if !ok || oldSaved.IsDeleted {
+					return nil, nil, nil, false, port.ErrNotFound
+				}
+				oldOut := cloneCharge(oldSaved)
+				var newOut *domain.Charge
+				if oldSaved.SuccessorChargeID != "" {
+					newSaved, exists := s.charges[oldSaved.SuccessorChargeID]
+					if !exists || newSaved.IsDeleted {
+						return nil, nil, nil, false, port.ErrNotFound
+					}
+					cp := cloneCharge(newSaved)
+					newOut = &cp
+				}
+				p := pay
+				return &oldOut, newOut, &p, true, nil
+			}
+		}
+	}
+	s.idempotency[mapKey] = idempotencyRecord{scope: scope, key: key, requestHash: requestHash, state: idempotencyPending, expiresAt: expiresAt.UTC()}
+	fail := func(err error) (*domain.Charge, *domain.Charge, *domain.Payment, bool, error) {
+		delete(s.idempotency, mapKey)
+		return nil, nil, nil, false, err
+	}
+	cur, ok := s.charges[old.ChargeID]
+	if !ok || cur.IsDeleted {
+		return fail(port.ErrNotFound)
+	}
+	if cur.Status == domain.ChargeStatusAbate {
+		return fail(port.ErrChargeAlreadyAbated)
+	}
+	if cur.PaidAt.IsZero() {
+		return fail(port.ErrChargeNotPaid)
+	}
+	if newCharge != nil {
+		if _, exists := s.charges[newCharge.ChargeID]; exists {
+			return fail(port.ErrDuplicateBusinessNo)
+		}
+		for _, ex := range s.charges {
+			if !ex.IsDeleted && ex.SquareNo == newCharge.SquareNo {
+				return fail(port.ErrDuplicateBusinessNo)
+			}
+		}
+	}
+	if err := reservePaymentLocked(s, payment); err != nil {
+		return fail(err)
+	}
+	old.CreatedAt = cur.CreatedAt
+	old.CreatedBy = cur.CreatedBy
+	if old.PaidAt.IsZero() {
+		old.PaidAt = cur.PaidAt
+	}
+	s.charges[old.ChargeID] = cloneCharge(old)
+	var savedNew *domain.Charge
+	if newCharge != nil {
+		cp := cloneCharge(*newCharge)
+		s.charges[newCharge.ChargeID] = cp
+		out := cloneCharge(cp)
+		savedNew = &out
+	}
+	s.payments[payment.PaymentID] = payment
+	if old.OrderID == "" && newCharge == nil {
+		if register, ok := s.registers[old.RegisterID]; ok && !register.IsDeleted {
+			register.RegisterCharged = false
+			register.UpdatedAt = payment.UpdatedAt
+			register.UpdatedBy = payment.UpdatedBy
+			s.registers[old.RegisterID] = register
+		}
+	}
+	s.idempotency[mapKey] = idempotencyRecord{scope: scope, key: key, requestHash: requestHash, state: idempotencyCompleted, resourceID: payment.PaymentID, expiresAt: expiresAt.UTC()}
+	outOld := cloneCharge(s.charges[old.ChargeID])
+	p := payment
+	return &outOld, savedNew, &p, false, nil
+}
+
+func (s *Store) LookupRefundIdempotency(_ context.Context, scope, key, requestHash string) (*domain.Charge, *domain.Charge, *domain.Payment, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	mapKey := idempotencyMapKey(scope, key)
+	record, ok := s.idempotency[mapKey]
+	if !ok {
+		return nil, nil, nil, false, nil
+	}
+	if !record.expiresAt.IsZero() && !time.Now().UTC().Before(record.expiresAt) {
+		delete(s.idempotency, mapKey)
+		return nil, nil, nil, false, nil
+	}
+	if record.requestHash != requestHash {
+		return nil, nil, nil, false, port.ErrIdempotencyConflict
+	}
+	if record.state == idempotencyPending {
+		return nil, nil, nil, false, port.ErrIdempotencyInProgress
+	}
+	pay, ok := s.payments[record.resourceID]
+	if !ok || pay.Direction != domain.PaymentDirectionRefund {
+		return nil, nil, nil, false, port.ErrNotFound
+	}
+	old, ok := s.charges[pay.ChargeID]
+	if !ok || old.IsDeleted {
+		return nil, nil, nil, false, port.ErrNotFound
+	}
+	oldOut := cloneCharge(old)
+	var newOut *domain.Charge
+	if old.SuccessorChargeID != "" {
+		next, exists := s.charges[old.SuccessorChargeID]
+		if !exists || next.IsDeleted {
+			return nil, nil, nil, false, port.ErrNotFound
+		}
+		cp := cloneCharge(next)
+		newOut = &cp
+	}
+	p := pay
+	return &oldOut, newOut, &p, true, nil
 }
 
 func reservePaymentLocked(s *Store, payment domain.Payment) error {

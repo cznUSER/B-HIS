@@ -1,0 +1,66 @@
+.shell-main .access-page { gap: 18px; }
+.shell-main .access-page-header { background: linear-gradient(118deg, #fff 20%, #eef5f3); }
+.shell-main .access-scope-note { display: flex; align-items: flex-start; gap: 10px; padding: 0 2px; color: #71877d; font-size: 11px; line-height: 1.8; }
+.shell-main .access-scope-note > svg { flex: none; width: 18px; height: 18px; color: #579584; }
+.shell-main .access-tabs { margin-top: 2px; }
+.shell-main .access-data-panel { animation: master-editor-appear .24s var(--ease-out, ease-out); }
+.shell-main .access-data-panel .master-form { margin-top: 0; }
+.shell-main .access-checks { display: flex; flex-wrap: wrap; gap: 14px 22px; color: #708871; font-size: 11px; }
+.shell-main .access-checks label { display: inline-flex; align-items: center; gap: 7px; }
+.shell-main .access-checks input { accent-color: #398b76; }
+.shell-main .access-data-panel .master-filters { margin-top: 2px; }
+.shell-main .access-catalog-tabs { display: flex; align-items: stretch; gap: 18px; border-bottom: 1px solid #e1e9e2; }
+.shell-main .access-catalog-tab { position: relative; min-height: 38px; padding: 0 2px; border: 0; border-bottom: 2px solid transparent; color: #71877d; background: transparent; font-size: 11px; cursor: pointer; }
+.shell-main .access-catalog-tab:hover { color: #3c7564; }
+.shell-main .access-catalog-tab.is-active { border-bottom-color: #4d9782; color: #3f7060; font-weight: 600; }
+.shell-main .access-catalog-form .access-catalog-wide { grid-column: 1 / -1; }
+.shell-main .access-catalog-form textarea { min-height: 64px; resize: vertical; }
+.shell-main .access-permission-form .access-permission-wide { grid-column: 1 / -1; }
+.shell-main .access-permission-form textarea { min-height: 64px; resize: vertical; }
+.shell-main .access-permission-form .field small { color: #829286; font-size: 10px; line-height: 1.5; }
+.shell-main .access-check { display: inline-flex; align-items: center; gap: 8px; color: #657e6e; font-size: 11px; }
+.shell-main .access-check input { accent-color: #398b76; }
+.shell-main .access-inline-note, .shell-main .access-empty-note { margin: 0; color: #7c8e7d; font-size: 11px; line-height: 1.7; }
+.shell-main .access-inline-note { padding: 10px 13px; border-left: 2px solid #76a98a; background: #f3f8f4; }
+.shell-main .access-permission-form .field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.shell-main .password-change-page { max-width: 980px; }
+.shell-main .password-change-form { max-width: 680px; gap: 18px; padding: 25px; }
+.shell-main .password-change-form .field { max-width: 100%; }
+.shell-main .password-change-blocked { display: flex; align-items: flex-start; flex-direction: column; gap: 12px; max-width: 680px; padding: 24px; border: 1px solid #e3ebe4; border-radius: 8px; background: #fff; }
+.shell-main .password-change-blocked h2 { color: #425d4f; font-size: 16px; }
+.shell-main .password-change-blocked p { color: #758779; font-size: 12px; line-height: 1.7; }
+.shell-main .access-override-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; overflow: hidden; border: 1px solid #e4ece5; border-radius: 8px; background: #e4ece5; }
+.shell-main .access-override-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-width: 0; padding: 11px 13px; background: #fff; }
+.shell-main .access-override-row > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.shell-main .access-override-row strong { color: #425d4f; font-size: 11px; font-weight: 550; }
+.shell-main .access-override-row code { color: #829286; font-size: 10px; overflow-wrap: anywhere; }
+.shell-main .access-override-row select { flex: none; width: 122px; min-height: 34px; padding: 0 8px; font-size: 10px; }
+.shell-main .access-user-controls .access-checks { gap: 12px 20px; }
+.shell-main .access-user-controls .access-checks label { min-height: 28px; }
+.shell-main .access-user-audit { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1px; border-block: 1px solid #e6ece7; background: #e6ece7; }
+.shell-main .access-user-audit p { display: flex; flex-direction: column; gap: 5px; min-width: 0; margin: 0; padding: 10px 12px; background: #fff; }
+.shell-main .access-user-audit span { color: #829286; font-size: 10px; }
+.shell-main .access-user-audit strong { color: #425d4f; font-size: 11px; font-weight: 550; overflow-wrap: anywhere; }
+.shell-main .access-user-badges { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; }
+.shell-main .access-user-badge { display: inline-flex; align-items: center; min-height: 21px; padding: 2px 7px; border: 1px solid #dce6de; border-radius: 4px; color: #627d6c; font-size: 10px; line-height: 1.3; white-space: nowrap; }
+.shell-main .access-user-badge.is-warning { border-color: #e7d9b4; color: #94753b; background: #fcf8ed; }
+.shell-main .access-user-badge.is-danger { border-color: #e8c7c2; color: #a25e55; background: #fcf2f0; }
+.shell-main .access-user-badge.is-muted { color: #79867d; background: #f5f7f5; }
+.shell-main .access-data-panel .master-primary-cell small, .shell-main .access-user-activity { display: block; margin-top: 4px; color: #829286; font-size: 10px; font-weight: 400; line-height: 1.5; }
+.shell-main .access-reset-overlay { position: fixed; z-index: 120; inset: 0; display: grid; place-items: center; padding: 20px; background: rgb(21 36 29 / 48%); }
+.shell-main .access-reset-dialog { display: flex; flex-direction: column; gap: 16px; width: min(540px, 100%); max-height: calc(100vh - 40px); overflow: auto; padding: 22px; border: 1px solid #dce6de; border-radius: 8px; background: #fff; box-shadow: 0 18px 56px rgb(18 36 28 / 20%); }
+.shell-main .access-reset-dialog > p { margin: 0; color: #71877d; font-size: 12px; line-height: 1.8; }
+@media (max-width: 720px) {
+  .shell-main .access-scope-note { align-items: flex-start; }
+  .shell-main .access-tabs .master-tab { flex: 1 0 30%; }
+  .shell-main .access-catalog-tabs { gap: 13px; overflow-x: auto; }
+  .shell-main .access-catalog-tab { flex: 0 0 auto; }
+  .shell-main .access-override-list { grid-template-columns: 1fr; }
+  .shell-main .access-override-row { align-items: flex-start; flex-direction: column; }
+  .shell-main .access-override-row select { width: 100%; }
+  .shell-main .access-permission-form .field-grid { grid-template-columns: 1fr; }
+  .shell-main .access-permission-form .access-permission-wide { grid-column: auto; }
+  .shell-main .password-change-form { padding: 18px; }
+  .shell-main .access-user-audit { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .shell-main .access-reset-dialog { padding: 18px; }
+}

@@ -6,7 +6,13 @@ import { mockLogin, resetMockAuth } from '../src/api/mockAuth.js'
 import { mockCreatePatient, mockSearchPatients, resetMockPatients } from '../src/api/mockPatients.js'
 import { presentPatientError } from '../src/api/patientApi.js'
 import { createPatient, fetchPatient, resetPatientClientCache, searchPatients } from '../src/api/patientApi.js'
-import { FARE_OPTIONS, assertCreatePatientRequest, todayInShanghai } from '../src/api/patientContract.js'
+import {
+  FARE_OPTIONS,
+  assertCreatePatientRequest,
+  assertPatientSearchQuery,
+  patientMatchesQuery,
+  todayInShanghai,
+} from '../src/api/patientContract.js'
 
 function assert(condition, message) {
   if (!condition) throw new Error(message)
@@ -80,6 +86,39 @@ assert(!Object.prototype.hasOwnProperty.call(noId, 'idNumber'), 'empty id omitte
 assert(!Object.prototype.hasOwnProperty.call(noId, 'idType'), 'empty id type omitted')
 assert(!Object.prototype.hasOwnProperty.call(noId, 'phone'), 'empty phone omitted')
 
+const detailedFields = {
+  cardNo: 'C-20261017',
+  memberCardNo: 'M-1001',
+  memberLevel: '普通会员',
+  contractUnit: '示范单位',
+  patientCertificateNo: '病人证-001',
+  birthPlace: '山西省太原市',
+  ethnicity: '汉族',
+  nationality: '中国',
+  maritalStatus: '已婚',
+  occupationCategory: '专业技术人员',
+  occupation: '医生',
+  education: '本科',
+  workUnit: '示范医院',
+  workUnitPhone: '03511234567',
+  workUnitPostcode: '030000',
+  householdAddress: '山西省太原市小店区',
+  householdPhone: '03517654321',
+  householdPostcode: '030012',
+  contactName: '李四',
+  contactAddress: '太原市示范路',
+  contactPhone: '13900000000',
+  contactRelation: '配偶',
+}
+const detailedBody = assertCreatePatientRequest(sample(detailedFields))
+for (const [key, value] of Object.entries(detailedFields)) {
+  assert(detailedBody[key] === value, `detailed field ${key} is sent`)
+}
+const detailedDto = (await import('../src/api/patientContract.js')).assertPatientDto({ patientId: 'p-1', name: '张三', ...detailedFields })
+for (const [key, value] of Object.entries(detailedFields)) {
+  assert(detailedDto[key] === value, `detailed dto field ${key}`)
+}
+
 const created = mockCreatePatient(token, sample())
 assert(created.patientId, 'patientId')
 assert(created.patientNo && created.patientNo.startsWith('P'), 'patientNo')
@@ -106,8 +145,13 @@ const prefixId = mockSearchPatients(token, { idNumber: '11010119900115123' })
 assert(prefixId.items.length === 0, 'id is not a prefix search')
 const byNo = mockSearchPatients(token, { patientNo: created.patientNo })
 assert(byNo.items.length === 1 && byNo.items[0].name === '张三', 'exact patientNo')
+const byHospNo = mockSearchPatients(token, { hospPkNo: created.hospPkNo })
+assert(byHospNo.items.length === 1 && byHospNo.items[0].patientId === created.patientId, 'exact hospPkNo')
 const prefixNo = mockSearchPatients(token, { patientNo: created.patientNo.slice(0, -1) })
 assert(prefixNo.items.length === 0, 'patientNo is not a prefix search')
+assertPatientSearchQuery({ hospPkNo: ' H0001 ' })
+assert(patientMatchesQuery({ hospPkNo: 'H0001' }, { hospPkNo: 'H0001' }), 'hospPkNo exact match')
+assert(!patientMatchesQuery({ hospPkNo: 'H00010' }, { hospPkNo: 'H0001' }), 'hospPkNo is not a prefix search')
 await expectError(() => mockSearchPatients(token, {}), 'VALIDATION_ERROR', 400)
 
 mockCreatePatient(token, sample({ idNumber: '', cardNo: 'C1', name: '有卡' }))
@@ -128,16 +172,31 @@ assert(loaded.name === '王五', 'api get')
 
 const view = readFileSync(new URL('../src/views/PatientView.vue', import.meta.url), 'utf8')
 const template = view.split('<template>')[1]
-for (const text of ['姓名', '性别', '出生日期', '费别', '身份证号', '手机号', '地址', '打开已有患者', '建档成功', '患者号', '去挂号', '没有匹配的患者']) {
+for (const text of ['姓名', '性别', '出生日期', '费别', '证件号码', '手机号', '地址', '卡号', '会员卡号', '会员等级', '合同单位', '病人证号', '出生地', '民族', '国籍', '婚姻状况', '职业分类', '职业', '学历', '工作单位', '邮政编码', '户口地址', '联系人', '关系', '在患者查询中查看已有档案', '建档成功', '患者号', '去挂号']) {
   assert(template.includes(text), `missing copy: ${text}`)
 }
+for (const text of ['patient-create-layout', 'patient-summary', 'patient-mode-switch', '简易建档', '详细建档', 'patient-detail-fields']) {
+  assert(template.includes(text), `missing patient registration layout: ${text}`)
+}
+const summaryIndex = template.indexOf('data-testid="patient-summary"')
+const formIndex = template.indexOf('data-testid="patient-form"')
+assert(summaryIndex >= 0 && summaryIndex < formIndex, 'left summary precedes the create form')
+assert(template.includes('v-if="detailMode" class="clinical-section" data-testid="patient-detail-fields"'), 'detail fields are mode-gated')
+assert(template.includes('data-testid="patient-simple-fields"'), 'simple fields have a mode boundary')
+assert(template.includes('v-model="form.address"'), 'address remains available in detailed mode')
+const simpleFields = template.slice(template.indexOf('data-testid="patient-simple-fields"'), template.indexOf('data-testid="patient-detail-fields"'))
+assert(!simpleFields.includes('患者地址') && !simpleFields.includes('patient-address'), 'address is not part of simple registration')
+assert(view.includes('const detailMode = ref(false)'), 'simple mode is the default')
+assert(!template.includes('patient-search') && !template.includes('searchPatients'), '建档页不含患者查询')
+const searchView = readFileSync(new URL('../src/views/PatientSearchView.vue', import.meta.url), 'utf8')
+for (const text of ['患者查询', 'searchPatients', 'fetchPatient', '没有匹配的患者']) assert(searchView.includes(text), `search page ${text}`)
 const apiSrc = readFileSync(new URL('../src/api/patientApi.js', import.meta.url), 'utf8')
 assert(apiSrc.includes('该身份证号已存在，不能重复建档'), 'duplicate copy is fixed')
 assert(apiSrc.includes('DUPLICATE_ID_NUMBER'), 'real duplicate code')
 assert(apiSrc.includes('卡号已存在，不能重复建档'), 'card copy is fixed')
 const aliased = presentPatientError({ code: 'DUPLICATE_PATIENT', status: 409, message: 'duplicate', details: null, requestId: 'r' })
 assert(aliased.code === 'DUPLICATE_PATIENT' && aliased.message === '该身份证号已存在，不能重复建档', 'legacy code')
-for (const text of ['发卡', '充值', '民族', '婚姻', '合并', '卡号']) {
+for (const text of ['发卡', '充值', '患者来源', '首诊症状', '介绍人', '信用额度', '支付方式', '收据号', '合并']) {
   assert(!template.includes(text), `forbidden copy: ${text}`)
 }
 assert(readFileSync(new URL('../src/router/index.js', import.meta.url), 'utf8').includes('OutpatientModuleView'), 'router')
@@ -182,6 +241,7 @@ const server = http.createServer(async (req, res) => {
       return
     }
     json(201, {
+      ...payload,
       patientId: 'created-1',
       hospPkNo: 'H0001',
       patientNo: 'P0001',
@@ -203,6 +263,7 @@ const server = http.createServer(async (req, res) => {
       items: [
         {
           patientId: 'created-1',
+          hospPkNo: 'H0001',
           patientNo: 'P0001',
           name: '张三',
           sex: 'M',
@@ -212,6 +273,7 @@ const server = http.createServer(async (req, res) => {
         },
         {
           patientId: 'other-1',
+          hospPkNo: 'H0002',
           patientNo: 'P0002',
           name: '李四',
           sex: 'F',
@@ -251,14 +313,16 @@ process.env.VITE_API_BASE_URL = `http://127.0.0.1:${port}/api/v1`
 resetPatientClientCache()
 
 try {
-  const real = await createPatient('header.payload.sig', sample({ idNumber: '', name: '赵六', address: '太原市并州路' }))
+  const real = await createPatient('header.payload.sig', sample({ ...detailedFields, idNumber: '', name: '赵六', address: '太原市并州路' }))
   assert(real.patientNo === 'P0001', 'real patientNo')
   assert(real.patientId === 'created-1', 'real patientId')
   assert(real.address === '太原市并州路', 'real address')
+  assert(real.memberCardNo === detailedFields.memberCardNo && real.householdPostcode === detailedFields.householdPostcode, 'real response keeps detailed patient fields')
   const post = calls.find((item) => item.method === 'POST')
   const posted = JSON.parse(post.body)
   assert(posted.address === '太原市并州路', 'post sends address')
-  assert(!Object.prototype.hasOwnProperty.call(posted, 'cardNo'), 'post omits card')
+  assert(posted.cardNo === detailedFields.cardNo, 'post sends card')
+  assert(posted.memberCardNo === detailedFields.memberCardNo && posted.householdPostcode === detailedFields.householdPostcode, 'post sends detailed patient fields')
   assert(posted.fareIdentity === 'SELF', 'post fare')
   assert(posted.name === '赵六', 'post name')
   assert(typeof post.headers['idempotency-key'] === 'string' && post.headers['idempotency-key'].length > 10, 'idempotency')
@@ -272,17 +336,31 @@ try {
   assert(Array.isArray(dup.details.fields) && dup.details.fields.includes('idNumber'), 'duplicate field')
   assert(dup.requestId === 'req-dup', 'request id kept')
 
+  resetPatientClientCache()
   calls.length = 0
   const byPatientNo = await searchPatients('header.payload.sig', { patientNo: 'P0001' })
-  assert(byPatientNo.items.length === 1 && byPatientNo.items[0].patientId === 'created-1', 'cached patientNo')
-  assert(calls.length === 0, 'patientNo search does not invent a query key')
+  assert(byPatientNo.items.length === 1 && byPatientNo.items[0].patientId === 'created-1', 'real patientNo search')
+  const patientNoCall = calls.find((item) => item.method === 'GET' && item.path === '/api/v1/patients')
+  assert(patientNoCall && new URLSearchParams(patientNoCall.search).get('patientNo') === 'P0001', 'patientNo query is sent exactly')
+  assert([...new URLSearchParams(patientNoCall.search).keys()].length === 1, 'patientNo search sends no other filters')
 
+  resetPatientClientCache()
+  calls.length = 0
   const byName = await searchPatients('header.payload.sig', { name: '张' })
   assert(byName.items.length === 1 && byName.items[0].name === '张三', 'client keeps fuzzy name')
   const nameCall = calls.find((item) => item.method === 'GET' && item.path === '/api/v1/patients')
   assert(nameCall.search.includes('name='), 'name query')
   assert(!nameCall.search.includes('patientNo'), 'no invented patientNo param')
+  assert(!nameCall.search.includes('hospPkNo'), 'no invented hospPkNo param')
   assert(!nameCall.search.includes('address'), 'no address query')
+
+  resetPatientClientCache()
+  calls.length = 0
+  const byHospPkNo = await searchPatients('header.payload.sig', { hospPkNo: 'H0001' })
+  assert(byHospPkNo.items.length === 1 && byHospPkNo.items[0].patientId === 'created-1', 'real hospPkNo search')
+  const hospPkNoCall = calls.find((item) => item.method === 'GET' && item.path === '/api/v1/patients')
+  assert(hospPkNoCall && new URLSearchParams(hospPkNoCall.search).get('hospPkNo') === 'H0001', 'hospPkNo query is sent exactly')
+  assert([...new URLSearchParams(hospPkNoCall.search).keys()].length === 1, 'hospPkNo search sends no other filters')
 
   const one = await fetchPatient('header.payload.sig', 'created-1')
   assert(one.patientNo === 'P0001', 'real get')

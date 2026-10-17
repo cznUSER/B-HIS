@@ -26,8 +26,12 @@ import {
   stockWarnings,
 } from '../api/orderContract.js'
 import { session } from '../auth/session.js'
-import { fetchCatalog, fetchDepartments, fetchDoctors } from '../master/api.js'
+import { fetchCatalog, fetchDepartments, fetchDoctors, fetchInventory } from '../master/api.js'
 import { selectableDoctors } from '../register/master.js'
+import BusinessPageHeader from '../components/BusinessPageHeader.vue'
+import BusinessEmptyState from '../components/BusinessEmptyState.vue'
+import { recordAction, setOrders, setRegister } from '../workbench/outpatientContext.js'
+import './clinical-design.css'
 
 const route = useRoute()
 const router = useRouter()
@@ -56,40 +60,54 @@ const abating = ref(false)
 const confirmAbate = ref(false)
 let loadSeq = 0
 const mockMode = useMock()
-const remoteDoctorIds = ref(null)
-const remoteItemNos = ref(null)
+// 2026-10-14 P1-H05-WEB-USABILITY: distinguish failed live reads from empty data.
+const remoteDepartments = ref([])
+const remoteDoctors = ref([])
+const remoteCatalog = ref([])
+const remoteInventory = ref([])
+const masterLoading = ref(!mockMode)
+const masterReady = ref(mockMode)
+const masterError = ref('')
+const registersError = ref('')
+const registerError = ref('')
+const ordersLoading = ref(false)
+const ordersReady = ref(false)
+const ordersError = ref('')
+let ordersLoadSeq = 0
 
 const busy = computed(() => saving.value || committing.value || abating.value)
+const selectedLineCount = computed(() => lines.value.filter((line) => line.itemNo).length)
 const orderableRegisters = computed(() => registers.value.filter((item) => registerIsOrderable(item)))
 const orderDoctors = computed(() => {
-  const rows = selectableDoctors()
-  if (!remoteDoctorIds.value) return rows
-  return rows.filter((item) => remoteDoctorIds.value.has(item.doctorId))
+  if (mockMode) return selectableDoctors()
+  const activeDept = new Set(remoteDepartments.value.filter((item) => item.status === 'ACTIVE').map((item) => item.departmentId))
+  return remoteDoctors.value.filter((item) => item.status === 'ACTIVE' && activeDept.has(item.departmentId)).map((item) => ({ ...item, name: item.doctorName }))
 })
 const drugOptions = computed(() => listedCatalog('DRUG'))
 const treatOptions = computed(() => listedCatalog('TREAT'))
 
 function listedCatalog(itemType) {
-  const rows = openCatalog().filter((item) => item.itemType === itemType)
-  if (!remoteItemNos.value) return rows
-  return rows.filter((item) => remoteItemNos.value.has(item.itemNo))
+  return (mockMode ? openCatalog() : remoteCatalog.value.filter((item) => item.status === 'ACTIVE')).filter((item) => item.itemType === itemType)
 }
 const locked = computed(() => ['COMMIT', 'ABATE', 'PROC'].includes(status.value) || charged.value)
 const canAbate = computed(() => Boolean(orderId.value) && !charged.value && (status.value === 'SAVE' || status.value === 'COMMIT'))
-const warnings = computed(() => stockWarnings(lines.value.filter((line) => line.itemNo && Number(line.amount) > 0)))
-const totalFee = computed(() => round2(lines.value.reduce((sum, line) => {
-  const catalog = catalogOf(line.itemNo)
-  const amount = Number(line.amount)
-  if (!catalog || !Number.isFinite(amount) || amount <= 0) return sum
-  return sum + round2(amount * catalog.price)
-}, 0)))
+const canWrite = computed(() => masterReady.value && !masterLoading.value)
+const warnings = computed(() => {
+  if (mockMode) return stockWarnings(lines.value.filter((line) => line.itemNo && Number(line.amount) > 0))
+  return lines.value.filter(lineShort).map((line) => {
+    const item = catalogOf(line.itemNo, line)
+    return `${item.itemName} 可用 ${item.stockQty}，本次 ${Number(line.amount)}。库存不足，开单不拦截。`
+  })
+})
+const totalFee = computed(() => round2(lines.value.reduce((sum, line) => sum + lineFee(line), 0)))
 const chargeText = computed(() => {
   if (charged.value) return '已收费'
   if (status.value === 'COMMIT') return '可收费'
   if (status.value === 'ABATE') return '已作废'
   return '不可收费'
 })
-const registerTo = { name: 'outpatient-module', params: { module: 'register' } }
+const patientContext = computed(() => register.value?.patientId || queryText(route.query.patientId))
+const registerTo = computed(() => ({ name: 'outpatient-module', params: { module: 'register' }, query: patientContext.value ? { patientId: patientContext.value } : {} }))
 
 function blankLine() {
   return {
@@ -103,26 +121,40 @@ function blankLine() {
   }
 }
 
-function catalogOf(itemNo) {
-  return CATALOG.find((item) => item.itemNo === itemNo) || null
+function catalogOf(itemNo, line) {
+  if (mockMode) return CATALOG.find((item) => item.itemNo === itemNo) || null
+  const snapshot = line?.sourceItem?.itemNo === itemNo ? line.sourceItem : null
+  const item = snapshot || remoteCatalog.value.find((item) => item.itemNo === itemNo)
+  if (!item) return null
+  const inventory = remoteInventory.value.find((row) => (row.itemNo || row.skuCode) === itemNo)
+  return { ...item, stockQty: item.itemType === 'DRUG' && inventory ? Number(inventory.qtyOnHand) : null }
+}
+
+function lineFee(line) {
+  const catalog = catalogOf(line.itemNo, line)
+  const amount = Number(line.amount)
+  if (!catalog || !Number.isFinite(amount) || amount <= 0) return 0
+  if (!mockMode && line.sourceItem?.itemNo === line.itemNo && amount === line.sourceItem.amount) return round2(line.sourceItem.totalFee)
+  return round2(amount * catalog.price)
 }
 
 function lineMoney(line) {
-  const catalog = catalogOf(line.itemNo)
-  const amount = Number(line.amount)
-  if (!catalog || !Number.isFinite(amount) || amount <= 0) return '—'
-  return money(amount * catalog.price)
+  if (!catalogOf(line.itemNo, line) || !Number.isFinite(Number(line.amount)) || Number(line.amount) <= 0) return '—'
+  return money(lineFee(line))
 }
 
 function lineShort(line) {
-  const catalog = catalogOf(line.itemNo)
+  const catalog = catalogOf(line.itemNo, line)
   const amount = Number(line.amount)
   if (!catalog || catalog.stockQty == null || !Number.isFinite(amount)) return false
   return amount > catalog.stockQty
 }
 
 function queryRegisterId() {
-  const value = route.query.registerId
+  return queryText(route.query.registerId)
+}
+
+function queryText(value) {
   const raw = Array.isArray(value) ? value[0] : value
   return typeof raw === 'string' ? raw.trim() : ''
 }
@@ -159,8 +191,12 @@ function applyOrder(order) {
     frequencyText: item.frequencyText || '',
     dosage: item.dosage || '',
     dosageUnit: item.dosageUnit || '',
+    sourceItem: { ...item },
   }))
   lines.value = next.length > 0 ? next : [blankLine()]
+  // 2026-10-14: keep the confirmed response even if the following list read fails.
+  orders.value = [order, ...orders.value.filter((item) => item.orderId !== order.orderId)]
+  setOrders(orders.value)
   confirmAbate.value = false
 }
 
@@ -175,6 +211,8 @@ function draftBody() {
     items: lines.value.map((line) => ({
       itemNo: line.itemNo,
       amount: line.amount,
+      // 2026-10-14: preserve the loaded response fields for an unchanged line.
+      sourceItem: line.sourceItem && line.sourceItem.itemNo === line.itemNo ? { ...line.sourceItem } : undefined,
       usageText: line.usageText,
       frequencyText: line.frequencyText,
       dosage: line.dosage,
@@ -191,21 +229,38 @@ function orderChargeText(order) {
 }
 
 async function refreshOrders() {
-  if (!register.value) {
+  const currentId = register.value?.registerId
+  const seq = ++ordersLoadSeq
+  if (!currentId) {
     orders.value = []
+    ordersReady.value = false
     return
   }
-  const listed = await listOrders(session.accessToken, register.value.registerId)
-  orders.value = listed.items
+  ordersLoading.value = true
+  ordersError.value = ''
+  try {
+    const listed = await listOrders(session.accessToken, currentId)
+    if (seq !== ordersLoadSeq || currentId !== register.value?.registerId) return
+    orders.value = listed.items
+    setOrders(orders.value)
+    ordersReady.value = true
+  } catch (error) {
+    if (seq !== ordersLoadSeq || currentId !== register.value?.registerId) return
+    ordersReady.value = false
+    ordersError.value = error instanceof ApiError ? error.message : '暂时无法读取处方列表'
+  } finally {
+    if (seq === ordersLoadSeq) ordersLoading.value = false
+  }
 }
 
 async function loadRegisters() {
   loadingRegisters.value = true
+  registersError.value = ''
   try {
     const listed = await listOrderRegisters(session.accessToken)
     registers.value = listed.items
-  } catch {
-    registers.value = []
+  } catch (error) {
+    registersError.value = error instanceof ApiError ? error.message : '暂时无法读取当日挂号'
   } finally {
     loadingRegisters.value = false
   }
@@ -213,8 +268,14 @@ async function loadRegisters() {
 
 async function loadRegister(id) {
   const seq = ++loadSeq
+  ++ordersLoadSeq
   register.value = null
   invalidMessage.value = ''
+  registerError.value = ''
+  orders.value = []
+  ordersReady.value = false
+  ordersError.value = ''
+  ordersLoading.value = false
   if (!id) {
     loadingRegister.value = false
     return
@@ -229,37 +290,44 @@ async function loadRegister(id) {
       return
     }
     register.value = found
+    setRegister(found)
     startDraft(found)
     await refreshOrders()
   } catch (error) {
     if (seq !== loadSeq) return
-    invalidMessage.value = error instanceof ApiError && error.code === 'ENCOUNTER_REQUIRED'
-      ? '请先挂号'
-      : (error instanceof ApiError ? error.message : '未找到有效挂号')
+    if (error instanceof ApiError && (error.status === 404 || error.code === 'ENCOUNTER_REQUIRED')) {
+      invalidMessage.value = error.code === 'ENCOUNTER_REQUIRED' ? '该挂号当前不能开单，请核对挂号记录。' : '未找到该挂号，请重新选择。'
+    } else {
+      registerError.value = error instanceof ApiError ? error.message : '暂时无法读取挂号'
+    }
   } finally {
     if (seq === loadSeq) loadingRegister.value = false
   }
 }
 
 function requireDoctor() {
-  if (form.doctorId.trim()) return true
+  if (orderDoctors.value.some((item) => item.doctorId === form.doctorId.trim())) return true
   errorMessage.value = '请选择开单医生'
   return false
 }
 
 async function onSave() {
-  if (busy.value || locked.value || !register.value) return
+  if (busy.value || locked.value || !register.value || !canWrite.value) return
   clearBanner()
   if (!requireDoctor()) return
   saving.value = true
+  const currentSeq = loadSeq
   try {
-    const order = await saveOrder(session.accessToken, draftBody())
+    const order = await saveOrder(session.accessToken, draftBody(), mockMode ? undefined : remoteCatalog.value)
+    if (currentSeq !== loadSeq) return
     applyOrder(order)
+    recordAction('处方已暂存', order.orderNo || order.orderId || '')
     infoMessage.value = form.diagnoseName.trim()
       ? '已暂存。暂存处方不能收费。'
       : '已暂存。诊断可以后补，不影响暂存。暂存处方不能收费。'
     await refreshOrders()
   } catch (error) {
+    if (currentSeq !== loadSeq) return
     errorMessage.value = error instanceof ApiError ? error.message : '暂存失败，请稍后重试'
   } finally {
     saving.value = false
@@ -267,20 +335,24 @@ async function onSave() {
 }
 
 async function onCommit() {
-  if (busy.value || locked.value || !register.value) return
+  if (busy.value || locked.value || !register.value || !canWrite.value) return
   clearBanner()
   if (!requireDoctor()) return
   committing.value = true
+  const currentSeq = loadSeq
   try {
-    const saved = await saveOrder(session.accessToken, draftBody())
-    applyOrder(saved)
+    const saved = await saveOrder(session.accessToken, draftBody(), mockMode ? undefined : remoteCatalog.value)
+    if (currentSeq === loadSeq) applyOrder(saved)
     const committed = await commitOrder(session.accessToken, saved.orderId)
+    if (currentSeq !== loadSeq) return
     applyOrder(committed)
+    recordAction('处方已提交', committed.orderNo || committed.orderId || '')
     infoMessage.value = form.diagnoseName.trim()
       ? '已提交，可供收费。未收费前可以作废。'
       : '已提交，可供收费。诊断未填，不影响提交。未收费前可以作废。'
     await refreshOrders()
   } catch (error) {
+    if (currentSeq !== loadSeq) return
     errorMessage.value = error instanceof ApiError ? error.message : '提交失败，请稍后重试'
     try {
       await refreshOrders()
@@ -295,13 +367,17 @@ async function onCommit() {
 async function onAbate() {
   if (busy.value || !canAbate.value) return
   abating.value = true
+  const currentSeq = loadSeq
   errorMessage.value = ''
   try {
     const order = await abateOrder(session.accessToken, orderId.value)
+    if (currentSeq !== loadSeq) return
     applyOrder(order)
+    recordAction('处方已作废', order.orderNo || order.orderId || '')
     infoMessage.value = '已作废。如需继续，请新开一张。'
     await refreshOrders()
   } catch (error) {
+    if (currentSeq !== loadSeq) return
     errorMessage.value = error instanceof ApiError ? error.message : '作废失败，请稍后重试'
   } finally {
     abating.value = false
@@ -310,26 +386,28 @@ async function onAbate() {
 }
 
 function addLine() {
-  if (locked.value) return
+  if (locked.value || busy.value || !canWrite.value) return
   lines.value = [...lines.value, blankLine()]
 }
 
 function removeLine(key) {
-  if (locked.value) return
+  if (locked.value || busy.value || !canWrite.value) return
   const next = lines.value.filter((line) => line.key !== key)
   lines.value = next.length > 0 ? next : [blankLine()]
 }
 
 async function usePicked() {
   if (!pickedId.value) return
+  const selectedPatientId = registers.value.find((item) => item.registerId === pickedId.value)?.patientId || patientContext.value
   await router.replace({
     name: 'outpatient-module',
     params: { module: 'order' },
-    query: { registerId: pickedId.value },
+    query: { registerId: pickedId.value, ...(selectedPatientId ? { patientId: selectedPatientId } : {}) },
   })
 }
 
 function openListed(id) {
+  if (busy.value) return
   const found = orders.value.find((item) => item.orderId === id)
   if (!found) return
   clearBanner()
@@ -342,28 +420,59 @@ function onNew() {
 }
 
 async function changeRegister() {
-  await router.replace({ name: 'outpatient-module', params: { module: 'order' } })
+  if (busy.value) return
+  await router.replace({ name: 'outpatient-module', params: { module: 'order' }, query: patientContext.value ? { patientId: patientContext.value } : {} })
 }
 
 onMounted(loadRegisters)
-onMounted(async () => {
+async function loadMaster() {
   if (mockMode) return
+  masterLoading.value = true
+  masterReady.value = false
+  masterError.value = ''
   try {
     const [depts, docs, catalog] = await Promise.all([
-      fetchDepartments(session.accessToken, { status: 'ACTIVE' }),
-      fetchDoctors(session.accessToken, { status: 'ACTIVE' }),
-      fetchCatalog(session.accessToken, { status: 'ACTIVE' }),
+      fetchDepartments(session.accessToken, {}),
+      fetchDoctors(session.accessToken, {}),
+      fetchCatalog(session.accessToken, {}),
     ])
-    const activeDept = new Set(depts.items.map((item) => item.departmentId))
-    remoteDoctorIds.value = new Set(
-      docs.items.filter((item) => activeDept.has(item.departmentId)).map((item) => item.doctorId),
-    )
-    remoteItemNos.value = new Set(catalog.items.map((item) => item.itemNo))
-  } catch {
-    remoteDoctorIds.value = null
-    remoteItemNos.value = null
+    // Inventory is only used for a non-blocking stock hint. Doctors can open
+    // prescriptions without inventory:read, so a permission response must
+    // not prevent the catalog and doctor data from becoming usable.
+    let inventory = { items: [] }
+    try {
+      inventory = await fetchInventory(session.accessToken, {})
+    } catch (error) {
+      if (!(error instanceof ApiError && (error.status === 403 || error.code === 'FORBIDDEN'))) throw error
+    }
+    if (catalog.items.some((item) => !item.itemNo || !item.itemName || !item.units || !['DRUG', 'TREAT'].includes(item.itemType) || !Number.isFinite(item.price) || item.price < 0)) throw new Error('invalid catalog')
+    remoteDepartments.value = depts.items
+    remoteDoctors.value = docs.items
+    remoteCatalog.value = catalog.items
+    remoteInventory.value = inventory.items
+    masterReady.value = true
+  } catch (error) {
+    remoteDepartments.value = []
+    remoteDoctors.value = []
+    remoteCatalog.value = []
+    remoteInventory.value = []
+    masterError.value = error instanceof ApiError ? error.message : '无法读取开单基础数据'
+  } finally {
+    masterLoading.value = false
   }
-})
+}
+
+function departmentLabel(current) {
+  if (mockMode) return current.departmentName || current.departmentId
+  return remoteDepartments.value.find((item) => item.departmentId === current.departmentId)?.deptName || current.departmentId || '—'
+}
+
+function doctorLabel(current) {
+  if (mockMode) return current.doctorName || current.doctorId
+  return remoteDoctors.value.find((item) => item.doctorId === current.doctorId)?.doctorName || current.doctorId || '—'
+}
+
+onMounted(loadMaster)
 
 watch(() => queryRegisterId(), (id) => {
   loadRegister(id)
@@ -380,18 +489,20 @@ watch(() => queryRegisterId(), (id) => {
       <span>开单</span>
     </p>
 
-    <header class="dash-head">
-      <h1 id="order-title">开单</h1>
-      <p class="dash-flag">门诊处方。须先有未退号的挂号；诊断建议填写，不强制。</p>
-    </header>
+    <BusinessPageHeader title-id="order-title" title="门诊开单" eyebrow="CLINICAL ORDERS" icon="order" description="聚焦本次就诊，在清晰的处方工作区完成诊断、药品和治疗项目的录入。" />
 
     <div v-if="loadingRegister" class="result-empty" role="status">正在读取挂号…</div>
 
-    <div v-else-if="!register" class="empty-panel order-empty" data-testid="order-empty">
-      <h2>请先挂号</h2>
-      <p class="muted">没有有效挂号时不能开单。</p>
-      <p v-if="invalidMessage" class="banner order-empty-banner" role="alert">{{ invalidMessage }}</p>
+    <div v-else-if="!register && registerError" class="banner clinical-read-error" role="alert"><p>{{ registerError }}。请重试当前挂号。</p><button class="button button-ghost button-compact" type="button" @click="loadRegister(queryRegisterId())">重试挂号资料</button></div>
+
+    <p v-else-if="!register && loadingRegisters" class="result-empty" role="status">正在读取当日挂号…</p>
+
+    <div v-else-if="!register && registersError" class="banner clinical-read-error" role="alert"><p>{{ registersError }}。暂时无法核对已有挂号。</p><button class="button button-ghost button-compact" type="button" @click="loadRegisters">重试当日挂号</button></div>
+
+    <BusinessEmptyState v-else-if="!register" class="order-empty clinical-order-empty" data-testid="order-empty" title="请先挂号" description="没有有效挂号时不能开单。先为患者挂号，或选择下方已有挂号，进入处方工作区。" icon="order" eyebrow="为本次就诊开立处方">
       <RouterLink class="button button-compact empty-back" :to="registerTo">去挂号</RouterLink>
+      <template #detail>
+      <p v-if="invalidMessage" class="banner order-empty-banner" role="alert">{{ invalidMessage }}</p>
       <p v-if="loadingRegisters" class="result-empty" role="status">正在读取当日挂号…</p>
       <form v-else-if="orderableRegisters.length" class="order-picker" @submit.prevent="usePicked">
         <label class="field">
@@ -399,22 +510,34 @@ watch(() => queryRegisterId(), (id) => {
           <select v-model="pickedId" data-testid="register-picker">
             <option value="">请选择</option>
             <option v-for="item in orderableRegisters" :key="item.registerId" :value="item.registerId">
-              {{ item.registerNo }} · {{ item.patientName || item.patientId }} · {{ item.departmentName }} · {{ item.doctorName }}
+              {{ item.registerNo }} · {{ item.patientName || item.patientId }} · {{ departmentLabel(item) }} · {{ doctorLabel(item) }}
             </option>
           </select>
         </label>
         <button class="button button-compact" type="submit" :disabled="!pickedId">使用该挂号</button>
       </form>
-    </div>
+      <div v-else class="clinical-empty-steps"><span><b>01</b> 有效挂号</span><i aria-hidden="true">→</i><span><b>02</b> 录入处方</span><i aria-hidden="true">→</i><span><b>03</b> 提交收费</span></div>
+      </template>
+    </BusinessEmptyState>
 
     <div v-else class="order-layout" data-testid="order-form">
-      <form class="patient-panel" @submit.prevent>
+      <form class="patient-panel clinical-order-editor" @submit.prevent>
         <div class="panel-head">
-          <h2>门诊处方</h2>
-          <button class="text-btn" type="button" @click="changeRegister">更换挂号</button>
+          <div><span class="clinical-kicker">处方工作区</span><h2>门诊处方</h2></div>
+          <button class="text-btn" type="button" :disabled="busy" @click="changeRegister">更换挂号</button>
         </div>
 
-        <fieldset class="order-fields" :disabled="locked || busy">
+        <section class="clinical-encounter-card" aria-label="本次就诊资料">
+          <div class="clinical-encounter-name"><span class="clinical-profile-avatar" aria-hidden="true">{{ register.patientName?.slice(0, 1) || '患' }}</span><div><strong>{{ register.patientName || '—' }}</strong><span>{{ register.patientNo || '患者号未提供' }}</span></div><span class="clinical-badge">本次就诊</span></div>
+          <dl class="clinical-encounter-meta"><div><dt>挂号单号</dt><dd>{{ register.registerNo || register.registerId }}</dd></div><div><dt>就诊日</dt><dd>{{ register.visitDate || '—' }}</dd></div><div><dt>挂号科室</dt><dd>{{ departmentLabel(register) }}</dd></div><div><dt>挂号医生</dt><dd>{{ doctorLabel(register) }}</dd></div></dl>
+        </section>
+
+        <p v-if="masterLoading" class="shell-status" role="status">正在读取开单数据…</p>
+        <div v-else-if="masterError" class="banner clinical-read-error" role="alert" data-testid="order-master-error"><p>{{ masterError }}。读取成功后才能暂存或提交。</p><button class="button button-ghost button-compact" type="button" @click="loadMaster">重新读取开单数据</button></div>
+        <p v-else-if="!orderDoctors.length" class="field-hint" role="status">暂无启用医生，请先维护基础数据。</p>
+
+        <fieldset class="order-fields" :disabled="locked || busy || !canWrite">
+          <div class="clinical-section-heading"><span class="clinical-section-number">01</span><div><h3>医生与诊断</h3><p>诊断建议填写，不强制</p></div><span class="clinical-recipe-tag">普通处方</span></div>
           <div class="field-grid">
             <label class="field">
               <span>处方号</span>
@@ -423,30 +546,6 @@ watch(() => queryRegisterId(), (id) => {
             <label class="field">
               <span>状态</span>
               <input :value="status ? orderStatusLabel(status) : '未保存'" disabled data-testid="order-status" />
-            </label>
-            <label class="field">
-              <span>患者</span>
-              <input :value="register.patientName || '—'" disabled />
-            </label>
-            <label class="field">
-              <span>患者号</span>
-              <input :value="register.patientNo || '—'" disabled />
-            </label>
-            <label class="field">
-              <span>挂号单号</span>
-              <input :value="register.registerNo || register.registerId" disabled />
-            </label>
-            <label class="field">
-              <span>就诊日</span>
-              <input :value="register.visitDate || '—'" disabled />
-            </label>
-            <label class="field">
-              <span>挂号科室</span>
-              <input :value="register.departmentName || register.departmentId" disabled />
-            </label>
-            <label class="field">
-              <span>挂号医生</span>
-              <input :value="register.doctorName || register.doctorId" disabled />
             </label>
             <label class="field">
               <span>开单医生 <abbr class="req" title="必填">*</abbr></span>
@@ -473,7 +572,8 @@ watch(() => queryRegisterId(), (id) => {
             </label>
           </div>
 
-          <div class="line-scroll">
+          <div class="clinical-section-heading clinical-line-heading"><span class="clinical-section-number">02</span><div><h3>处方明细</h3><p>选择药品或治疗项目，填写数量与用法</p></div><span class="clinical-count">{{ selectedLineCount }} 项</span></div>
+          <div class="line-scroll clinical-table-scroll" tabindex="0" role="region" aria-label="处方明细，可左右滚动">
             <table class="line-table">
               <caption class="sr-only">处方明细</caption>
               <thead>
@@ -489,7 +589,7 @@ watch(() => queryRegisterId(), (id) => {
                   <th>频次</th>
                   <th>剂量</th>
                   <th>剂量单位</th>
-                  <th></th>
+                  <th><span class="sr-only">操作</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -499,15 +599,16 @@ watch(() => queryRegisterId(), (id) => {
                     <td class="col-item">
                       <select v-model="line.itemNo" :data-testid="`line-item-${index}`" :aria-label="`第 ${index + 1} 行项目`">
                         <option value="">请选择</option>
+                        <option v-if="!mockMode && line.sourceItem?.itemNo === line.itemNo" :value="line.itemNo">{{ line.sourceItem.itemName }}</option>
                         <optgroup label="药品">
-                          <option v-for="item in drugOptions" :key="item.itemNo" :value="item.itemNo">{{ item.itemName }}</option>
+                          <option v-for="item in drugOptions.filter((item) => mockMode || item.itemNo !== line.sourceItem?.itemNo || line.sourceItem?.itemNo !== line.itemNo)" :key="item.itemNo" :value="item.itemNo">{{ item.itemName }}</option>
                         </optgroup>
                         <optgroup label="治疗">
-                          <option v-for="item in treatOptions" :key="item.itemNo" :value="item.itemNo">{{ item.itemName }}</option>
+                          <option v-for="item in treatOptions.filter((item) => mockMode || item.itemNo !== line.sourceItem?.itemNo || line.sourceItem?.itemNo !== line.itemNo)" :key="item.itemNo" :value="item.itemNo">{{ item.itemName }}</option>
                         </optgroup>
                       </select>
                     </td>
-                    <td>{{ catalogOf(line.itemNo)?.spec || '—' }}</td>
+                    <td>{{ catalogOf(line.itemNo, line)?.spec || '—' }}</td>
                     <td class="col-narrow">
                       <input
                         v-model="line.amount"
@@ -519,8 +620,8 @@ watch(() => queryRegisterId(), (id) => {
                         :aria-label="`第 ${index + 1} 行数量`"
                       />
                     </td>
-                    <td>{{ catalogOf(line.itemNo)?.units || '—' }}</td>
-                    <td>{{ catalogOf(line.itemNo) ? money(catalogOf(line.itemNo).price) : '—' }}</td>
+                    <td>{{ catalogOf(line.itemNo, line)?.units || '—' }}</td>
+                    <td>{{ catalogOf(line.itemNo, line) ? money(catalogOf(line.itemNo, line).price) : '—' }}</td>
                     <td>{{ lineMoney(line) }}</td>
                     <td>
                       <select v-model="line.usageText" :aria-label="`第 ${index + 1} 行用法`">
@@ -541,7 +642,7 @@ watch(() => queryRegisterId(), (id) => {
                       <input v-model="line.dosageUnit" :aria-label="`第 ${index + 1} 行剂量单位`" autocomplete="off" />
                     </td>
                     <td>
-                      <button class="text-btn text-btn-danger" type="button" @click="removeLine(line.key)">删除</button>
+                      <button class="text-btn text-btn-danger" type="button" :aria-label="`删除第 ${index + 1} 行`" @click="removeLine(line.key)">删除</button>
                     </td>
                   </tr>
                   <tr v-if="lineShort(line)" class="stock-row">
@@ -556,21 +657,19 @@ watch(() => queryRegisterId(), (id) => {
           </div>
         </fieldset>
 
-        <p class="order-total" data-testid="order-total">
-          合计 <strong>{{ money(totalFee) }}</strong> 元
-          <span class="charge-chip" :data-charge="chargeText">{{ chargeText }}</span>
-        </p>
         <ul v-if="warnings.length" class="stock-list" data-testid="stock-tip">
           <li v-for="text in warnings" :key="text">{{ text }}</li>
         </ul>
         <p v-if="errorMessage" class="banner" role="alert" data-testid="order-error">{{ errorMessage }}</p>
         <p v-if="infoMessage" class="ok-banner" role="status" data-testid="order-committed">{{ infoMessage }}</p>
 
-        <div class="panel-actions">
-          <button v-if="!locked" class="button button-ghost button-compact" type="button" data-testid="order-save" :disabled="busy" @click="onSave">
+        <div class="clinical-order-actionbar">
+          <p class="order-total" data-testid="order-total"><span>处方合计</span><span><strong>{{ money(totalFee) }}</strong> 元</span><span class="charge-chip" :data-charge="chargeText">{{ chargeText }}</span></p>
+          <div class="panel-actions">
+          <button v-if="!locked" class="button button-ghost button-compact" type="button" data-testid="order-save" :disabled="busy || !canWrite" @click="onSave">
             {{ saving ? '正在暂存…' : '暂存' }}
           </button>
-          <button v-if="!locked" class="button button-compact" type="button" data-testid="order-commit" :disabled="busy" @click="onCommit">
+          <button v-if="!locked" class="button button-compact" type="button" data-testid="order-commit" :disabled="busy || !canWrite" @click="onCommit">
             {{ committing ? '正在提交…' : '提交' }}
           </button>
           <button v-if="canAbate && !confirmAbate" class="button button-ghost button-compact" type="button" :disabled="busy" @click="confirmAbate = true">
@@ -580,20 +679,23 @@ watch(() => queryRegisterId(), (id) => {
             {{ abating ? '正在作废…' : '确认作废' }}
           </button>
           <button v-if="orderId" class="button button-ghost button-compact" type="button" :disabled="busy" @click="onNew">新开一张</button>
+          </div>
         </div>
       </form>
 
-      <aside class="patient-panel order-side">
+      <aside class="patient-panel order-side clinical-order-history">
         <div class="panel-head">
-          <h2>本挂号处方</h2>
+          <div><span class="clinical-kicker">处方历史</span><h2>本挂号处方</h2></div><span class="clinical-count">{{ orders.length }}</span>
         </div>
-        <p v-if="orders.length === 0" class="result-empty">这张挂号还没有处方。</p>
-        <ul v-else class="order-list">
+        <p v-if="ordersLoading" class="shell-status" role="status">正在读取处方列表…</p>
+        <div v-else-if="ordersError" class="banner clinical-read-error" role="alert"><p>{{ ordersError }}。当前处方状态已保留，请重试列表。</p><button class="button button-ghost button-compact" type="button" @click="refreshOrders">重试处方列表</button></div>
+        <BusinessEmptyState v-else-if="ordersReady && orders.length === 0" title="尚无处方" description="这张挂号还没有处方。暂存后可在此切换查看。" icon="order" />
+        <ul v-if="orders.length" class="order-list">
           <li v-for="item in orders" :key="item.orderId">
-            <button class="order-list-item" :class="{ 'is-active': item.orderId === orderId }" type="button" @click="openListed(item.orderId)">
-              <span>{{ item.orderNo }}</span>
-              <span>{{ orderStatusLabel(item.status) }} · {{ orderChargeText(item) }}</span>
-              <strong>{{ money(item.totalFee) }}</strong>
+            <button class="order-list-item" :class="{ 'is-active': item.orderId === orderId }" type="button" :disabled="busy" :aria-pressed="item.orderId === orderId" @click="openListed(item.orderId)">
+              <span class="clinical-history-no">{{ item.orderNo }}</span>
+              <span class="clinical-history-bottom"><span class="ticket-status" :data-status="item.status">{{ orderStatusLabel(item.status) }}</span><strong><small>¥</small> {{ money(item.totalFee) }}</strong></span>
+              <span class="clinical-history-charge">{{ orderChargeText(item) }}</span>
             </button>
           </li>
         </ul>

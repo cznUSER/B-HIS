@@ -2,7 +2,7 @@
 
 Phase1 只维护 SQL Server 脚本。目标库名 **BHIS**。
 
-契约 tip：**v0.3.10**（OpenAPI **0.3.10-draft**，P1-H03-MASTER）。001–007 历史保留。
+契约 tip：**v0.3.11-draft**（OpenAPI **0.3.11-draft**，P2-0A 用户角色科室范围）。迁移清单包括门诊主流程、基础资料、用户权限、用户操作日志与用户角色科室范围。
 
 | 文件 | 作用 |
 |------|------|
@@ -26,6 +26,22 @@ Phase1 只维护 SQL Server 脚本。目标库名 **BHIS**。
 | `sqlserver/core/007_dispense.down.sql` | 按外键依赖删除 dispense_item、dispense，不删除数据库 |
 | `sqlserver/core/008_master.up.sql` | P1-H03-MASTER：`department.sort_no`、`catalog_item.is_controlled`、`dict_item`（号别种子 `register_sort` / `sort-normal`）。库存 ADJUST 复用 006 的 `inventory_ledger`（无新流水表）。无连接串、无口令 |
 | `sqlserver/core/008_master.down.sql` | 回滚 008：删除 `dict_item`，去掉 `is_controlled` 与 `sort_no`，不删除数据库 |
+| `sqlserver/core/002_access_control.up.sql` | 用户资料与账号标记、角色排序字段、模块/权限分类/认证方式/权限/角色/用户例外目录；依赖 001 的用户和角色表。刷卡方式只保存为元数据，默认关闭，不提供刷卡登录 |
+| `sqlserver/core/002_access_control.down.sql` | 回滚用户权限目录及新增资料字段；会删除该迁移创建的权限配置，请确认后再用于回滚 |
+| `sqlserver/core/009_user_operations_audit.up.sql` | 为 `audit_log` 增加用户操作日志字段，并为已有审计行补充可推导的模块、用户名与说明；依赖 001 的 `audit_log` 和 `app_user` |
+| `sqlserver/core/009_user_operations_audit.down.sql` | 删除 009 新增的审计列；回滚会移除这些列数据 |
+| `sqlserver/core/010_diagnose.up.sql` | 可选诊断实体 `dbo.diagnose`（挂在 `register_bill`/encounter 上；SAVE/COMMIT/ABATE 生命周期）。不启用临床规则 |
+| `sqlserver/core/010_diagnose.down.sql` | 删除可选诊断表，不删除数据库 |
+| `sqlserver/core/011_user_role_scope.up.sql` | 为已分配用户角色配置显式科室范围；任意显式行（包括 DISABLED）抑制该角色的旧单科室回退；依赖 002_access_control 与 003_register |
+| `sqlserver/core/011_user_role_scope.down.sql` | 删除用户角色科室范围表，不删除数据库 |
+| `sqlserver/core/014_diagnose_permission.up.sql` | 为已有 BHIS 数据库补充独立诊断录入权限，并授予 DOCTOR；幂等，不启用临床规则 |
+| `sqlserver/core/014_diagnose_permission.down.sql` | 删除诊断录入权限及角色映射，不删除数据库 |
+| `sqlserver/core/012_inventory_batch_readonly.up.sql` | 历史隔离批次快照原型；拒绝 BHIS 和 HospDataV9，最终本机 BHIS 使用 015 |
+| `sqlserver/core/013_idempotency_record.up.sql` | 持久化幂等记录；脚本内固定 USE BHIS，隔离库使用经核对的隔离版本，不可只靠调用参数切库 |
+| `sqlserver/core/015_local_inventory_batch_readonly.up.sql` | 只允许本机开发目标 BHIS：创建空批次快照表及查询权限；不导入数据、不改变库存总量账；同事务、可重复执行 |
+| `sqlserver/core/015_local_inventory_batch_readonly.down.sql` | 仅回滚 015 创建的空表及其新建权限/药师授权；已有表、非空表或新增权限依赖拒绝回滚；不删除迁移前已有权限 |
+| `sqlserver/core/016_patient_registration_detail.up.sql` | 为 `dbo.patient` 增加会员、出生地、民族国籍、婚姻职业学历、工作单位、户籍与联系人资料；依赖 002 患者表 |
+| `sqlserver/core/016_patient_registration_detail.down.sql` | 回滚 016 新增的患者详细建档资料列 |
 
 脚本给 `sqlcmd` 用（含 `GO`）。密码不要写进命令行历史或仓库：让 `sqlcmd` 从环境变量 `SQLCMDPASSWORD` 读取。
 
@@ -57,6 +73,10 @@ sqlcmd -S <host> -U <user> -I -f 65001 -d master -i migrations/sqlserver/core/00
 sqlcmd -S <host> -U <user> -I -f 65001 -d master -i migrations/sqlserver/core/006_inventory_seed.up.sql
 sqlcmd -S <host> -U <user> -I -f 65001 -d master -i migrations/sqlserver/core/007_dispense.up.sql
 sqlcmd -S <host> -U <user> -I -f 65001 -d master -i migrations/sqlserver/core/008_master.up.sql
+sqlcmd -S <host> -U <user> -I -f 65001 -d master -i migrations/sqlserver/core/002_access_control.up.sql
+sqlcmd -S <host> -U <user> -I -f 65001 -d master -i migrations/sqlserver/core/009_user_operations_audit.up.sql
+sqlcmd -S <host> -U <user> -I -f 65001 -d master -i migrations/sqlserver/core/011_user_role_scope.up.sql
+sqlcmd -S <host> -U <user> -I -f 65001 -d master -i migrations/sqlserver/core/016_patient_registration_detail.up.sql
 ```
 
 API 默认 `Database.Driver=memory`，不连 SQL Server。切到 `sqlserver` 时，DSN 放在环境变量 `BHIS_DB_DSN` 或 gitignore 的 `config.local.yaml` / `.env.local`。

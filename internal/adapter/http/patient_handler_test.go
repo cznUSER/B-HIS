@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -36,6 +37,7 @@ func newPatientHTTP(t *testing.T) (*httptest.Server, *memory.Store, *auth.Issuer
 		Revocations: st,
 		Audit:       st,
 		Patients:    st,
+		Master:      st,
 		Tokens:      issuer,
 		Log:         log,
 		TTL:         ttl,
@@ -44,6 +46,72 @@ func newPatientHTTP(t *testing.T) (*httptest.Server, *memory.Store, *auth.Issuer
 	ts := httptest.NewServer(New(svc, log, nil, "memory", time.Minute))
 	t.Cleanup(ts.Close)
 	return ts, st, issuer
+}
+
+func TestPatientAuthorizationReadsLiveRoleAndDenyOverride(t *testing.T) {
+	ts, st, issuer := newPatientHTTP(t)
+	user := domain.User{ID: "live-rbac-doctor", Username: "live-rbac-doctor", DisplayName: "医生", Roles: []domain.Role{domain.RoleDoctor}, Status: domain.StatusActive}
+	st.Add(user)
+	token := bearerFor(t, issuer, user)
+	url := ts.URL + "/api/v1/patients"
+	post := func(name, id string) (int, []byte) {
+		t.Helper()
+		body := `{"name":"` + name + `","sex":"M","birthday":"1990-01-15","idNumber":"` + id + `","fareIdentity":"SELF"}`
+		code, raw, _ := postJSON(t, url, body, authHdr(token))
+		return code, raw
+	}
+	if code, body := post("可建档", "110101199001151234"); code != http.StatusCreated {
+		t.Fatalf("initial role permission: %d %s", code, body)
+	}
+	role := domain.AccessRole{Code: "DOCTOR", Name: "门诊医生", PermissionCodes: []string{domain.PermOrderSubmit}, Status: domain.StatusActive}
+	if err := st.UpdateAccessRole(context.Background(), role); err != nil {
+		t.Fatal(err)
+	}
+	if code, body := post("角色权限已撤销", "110101199001151235"); code != http.StatusForbidden || decodeErr(t, body).Error.Code != "FORBIDDEN" {
+		t.Fatalf("changed role permission must apply immediately: %d %s", code, body)
+	}
+	role.PermissionCodes = []string{domain.PermPatientCreate, domain.PermOrderSubmit}
+	if err := st.UpdateAccessRole(context.Background(), role); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.ReplaceUserPermissionOverrides(context.Background(), user.ID, []domain.PermissionOverride{{UserID: user.ID, PermissionCode: domain.PermPatientCreate, Effect: domain.PermissionDeny}}); err != nil {
+		t.Fatal(err)
+	}
+	if code, body := post("用户显式拒绝", "110101199001151236"); code != http.StatusForbidden || decodeErr(t, body).Error.Code != "FORBIDDEN" {
+		t.Fatalf("explicit DENY must override role grant immediately: %d %s", code, body)
+	}
+}
+
+func TestPatientAuthorizationScopedRoleCanCreateOnlyWithActiveScope(t *testing.T) {
+	ts, st, issuer := newPatientHTTP(t)
+	user := domain.User{
+		ID: "http-scoped-patient-registrar", Username: "http-scoped-patient-registrar", DisplayName: "范围挂号员",
+		Roles: []domain.Role{domain.RoleRegistrar}, Status: domain.StatusActive,
+	}
+	st.Add(user)
+	ctx := context.Background()
+	if err := st.ReplaceUserRoleScopes(ctx, user.ID, []domain.UserRoleScope{{
+		UserID: user.ID, RoleCode: string(domain.RoleRegistrar), DepartmentID: "dept-1", Status: domain.StatusActive,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	token := bearerFor(t, issuer, user)
+	base := ts.URL + "/api/v1/patients"
+	body := func(id, name string) string {
+		return `{"name":"` + name + `","sex":"M","birthday":"1990-01-15","idNumber":"` + id + `","fareIdentity":"SELF"}`
+	}
+	if code, raw, _ := postJSON(t, base, body("110101199001151242", "范围内建档"), authHdr(token)); code != http.StatusCreated {
+		t.Fatalf("active scope create %d %s", code, raw)
+	}
+	if err := st.ReplaceUserRoleScopes(ctx, user.ID, []domain.UserRoleScope{{
+		UserID: user.ID, RoleCode: string(domain.RoleRegistrar), DepartmentID: "dept-1", Status: domain.StatusDisabled,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	code, raw, _ := postJSON(t, base, body("110101199001151243", "停用范围建档"), authHdr(token))
+	if code != http.StatusForbidden || decodeErr(t, raw).Error.Code != "FORBIDDEN" {
+		t.Fatalf("disabled scope create %d %s", code, raw)
+	}
 }
 
 func bearerFor(t *testing.T, issuer *auth.Issuer, u domain.User) string {
@@ -144,7 +212,7 @@ func TestPatientHTTP(t *testing.T) {
 		},
 		{
 			name:       "create",
-			body:       `{"name":"张三","sex":"M","birthday":"1990-01-15","idType":"ID_CARD","idNumber":"110101199001151234","cardNo":"C1","phone":"13800000000","address":"浦东","fareIdentity":"SELF"}`,
+			body:       `{"name":"张三","sex":"M","birthday":"1990-01-15","idType":"ID_CARD","idNumber":"110101199001151234","cardNo":"C1","phone":"13800000000","address":"浦东","fareIdentity":"SELF","memberCardNo":"M-1001","memberLevel":"普通会员","contractUnit":"示范单位","patientCertificateNo":"病人证-001","birthPlace":"山西省太原市","ethnicity":"汉族","nationality":"中国","maritalStatus":"已婚","occupationCategory":"专业技术人员","occupation":"医生","education":"本科","workUnit":"示范医院","workUnitPhone":"03511234567","workUnitPostcode":"030000","householdAddress":"山西省太原市小店区","householdPhone":"03517654321","householdPostcode":"030012","contactName":"李四","contactAddress":"太原市示范路","contactPhone":"13900000000","contactRelation":"配偶"}`,
 			wantStatus: 201,
 		},
 	}
@@ -173,6 +241,9 @@ func TestPatientHTTP(t *testing.T) {
 				if tc.name == "create" {
 					if dto.CardStatus != "NORMAL" || dto.Address != "浦东" || dto.CardNo != "C1" {
 						t.Fatalf("%+v", dto)
+					}
+					if dto.MemberCardNo != "M-1001" || dto.MemberLevel != "普通会员" || dto.ContractUnit != "示范单位" || dto.PatientCertificateNo != "病人证-001" || dto.BirthPlace != "山西省太原市" || dto.Ethnicity != "汉族" || dto.Nationality != "中国" || dto.MaritalStatus != "已婚" || dto.OccupationCategory != "专业技术人员" || dto.Occupation != "医生" || dto.Education != "本科" || dto.WorkUnit != "示范医院" || dto.WorkUnitPhone != "03511234567" || dto.WorkUnitPostcode != "030000" || dto.HouseholdAddress != "山西省太原市小店区" || dto.HouseholdPhone != "03517654321" || dto.HouseholdPostcode != "030012" || dto.ContactName != "李四" || dto.ContactAddress != "太原市示范路" || dto.ContactPhone != "13900000000" || dto.ContactRelation != "配偶" {
+						t.Fatalf("detailed fields missing: %+v", dto)
 					}
 					created = dto
 				}
@@ -251,6 +322,30 @@ func TestPatientHTTP(t *testing.T) {
 		if dto.PatientID != created.PatientID || dto.HospPkNo != created.HospPkNo {
 			t.Fatalf("%+v", dto)
 		}
+		var list struct {
+			Items []patientJSON `json:"items"`
+		}
+		code, body = getAuth(t, base+"?"+url.Values{"patientNo": {created.PatientNo}}.Encode(), tok)
+		if code != http.StatusOK {
+			t.Fatalf("patient number search %d %s", code, body)
+		}
+		if err := json.Unmarshal(body, &list); err != nil {
+			t.Fatal(err)
+		}
+		if len(list.Items) != 1 || list.Items[0].PatientID != created.PatientID {
+			t.Fatalf("patient number search hits %+v", list.Items)
+		}
+		partialPatientNo := created.PatientNo[:len(created.PatientNo)-1]
+		code, body = getAuth(t, base+"?"+url.Values{"patientNo": {partialPatientNo}}.Encode(), tok)
+		if code != http.StatusOK {
+			t.Fatalf("partial patient number search %d %s", code, body)
+		}
+		if err := json.Unmarshal(body, &list); err != nil {
+			t.Fatal(err)
+		}
+		if len(list.Items) != 0 {
+			t.Fatalf("patient number must match exactly, got %+v", list.Items)
+		}
 		code, body = getAuth(t, base+"/00000000-0000-4000-8000-000000009999", tok)
 		if code != 404 {
 			t.Fatalf("missing %d %s", code, body)
@@ -262,9 +357,6 @@ func TestPatientHTTP(t *testing.T) {
 		code, body = getAuth(t, base+"?"+url.Values{"name": {"张"}, "cardNo": {"C1"}}.Encode(), tok)
 		if code != 200 {
 			t.Fatalf("search %d %s", code, body)
-		}
-		var list struct {
-			Items []patientJSON `json:"items"`
 		}
 		if err := json.Unmarshal(body, &list); err != nil {
 			t.Fatal(err)
@@ -306,20 +398,42 @@ func TestPatientHTTP(t *testing.T) {
 }
 
 type patientJSON struct {
-	PatientID    string `json:"patientId"`
-	HospPkNo     string `json:"hospPkNo"`
-	PatientNo    string `json:"patientNo"`
-	CardNo       string `json:"cardNo"`
-	Name         string `json:"name"`
-	Sex          string `json:"sex"`
-	Birthday     string `json:"birthday"`
-	IDNumber     string `json:"idNumber"`
-	Phone        string `json:"phone"`
-	Address      string `json:"address"`
-	FareIdentity string `json:"fareIdentity"`
-	CardStatus   string `json:"cardStatus"`
-	Status       string `json:"status"`
-	CreatedAt    string `json:"createdAt"`
+	PatientID            string `json:"patientId"`
+	HospPkNo             string `json:"hospPkNo"`
+	PatientNo            string `json:"patientNo"`
+	CardNo               string `json:"cardNo"`
+	Name                 string `json:"name"`
+	Sex                  string `json:"sex"`
+	Birthday             string `json:"birthday"`
+	IDNumber             string `json:"idNumber"`
+	Phone                string `json:"phone"`
+	Address              string `json:"address"`
+	FareIdentity         string `json:"fareIdentity"`
+	IDType               string `json:"idType"`
+	MemberCardNo         string `json:"memberCardNo"`
+	MemberLevel          string `json:"memberLevel"`
+	ContractUnit         string `json:"contractUnit"`
+	PatientCertificateNo string `json:"patientCertificateNo"`
+	BirthPlace           string `json:"birthPlace"`
+	Ethnicity            string `json:"ethnicity"`
+	Nationality          string `json:"nationality"`
+	MaritalStatus        string `json:"maritalStatus"`
+	OccupationCategory   string `json:"occupationCategory"`
+	Occupation           string `json:"occupation"`
+	Education            string `json:"education"`
+	WorkUnit             string `json:"workUnit"`
+	WorkUnitPhone        string `json:"workUnitPhone"`
+	WorkUnitPostcode     string `json:"workUnitPostcode"`
+	HouseholdAddress     string `json:"householdAddress"`
+	HouseholdPhone       string `json:"householdPhone"`
+	HouseholdPostcode    string `json:"householdPostcode"`
+	ContactName          string `json:"contactName"`
+	ContactAddress       string `json:"contactAddress"`
+	ContactPhone         string `json:"contactPhone"`
+	ContactRelation      string `json:"contactRelation"`
+	CardStatus           string `json:"cardStatus"`
+	Status               string `json:"status"`
+	CreatedAt            string `json:"createdAt"`
 }
 
 func flatFields(e errDTO) string {

@@ -28,7 +28,23 @@ export function assertUserDto(user) {
   ) {
     throw apiError(502, 'HTTP_ERROR', '用户信息不符合契约')
   }
-  return { id, username, displayName, roles }
+  const permissions = Array.isArray(user.permissions) ? user.permissions.filter((value) => typeof value === 'string') : []
+  const scopes = Array.isArray(user.scopes) ? user.scopes.filter((value) => typeof value === 'string') : []
+  const deniedPermissions = Array.isArray(user.deniedPermissions) ? user.deniedPermissions.filter((value) => typeof value === 'string') : []
+  return {
+    id,
+    username,
+    displayName,
+    roles,
+    permissions,
+    scopes,
+    deniedPermissions,
+    accessControlLoaded: user.accessControlLoaded === true,
+    super: user.super === true,
+    developer: user.developer === true,
+    mustChangePassword: user.mustChangePassword === true,
+    cannotModifyPassword: user.cannotModifyPassword === true,
+  }
 }
 
 export function assertLoginResponse(body) {

@@ -6,7 +6,7 @@
 import { apiUrl, useMock } from './config.js'
 import { apiError, readErrorResponse } from './errors.js'
 import { assertLoginRequest, assertLoginResponse, assertUserDto } from './contract.js'
-import { mockLogin, mockLogout, mockMe } from './mockAuth.js'
+import { mockChangePassword, mockLogin, mockLogout, mockMe } from './mockAuth.js'
 
 const JSON_ACCEPT = 'application/json'
 
@@ -92,7 +92,7 @@ export async function logout(accessToken) {
     }
     return
   }
-  throw await readErrorResponse(response)
+  throw await readErrorResponse(response, accessToken)
 }
 
 export async function fetchMe(accessToken) {
@@ -113,6 +113,27 @@ export async function fetchMe(accessToken) {
     throw apiError(0, 'HTTP_ERROR', '无法连接登录服务')
   }
 
-  if (!response.ok) throw await readErrorResponse(response)
+  if (!response.ok) throw await readErrorResponse(response, accessToken)
   return assertUserDto(await parseJson(response))
+}
+
+export async function changePassword(accessToken, currentPassword, newPassword) {
+  const body = { currentPassword, newPassword }
+  if (useMock()) return mockChangePassword(accessToken, body)
+  let response
+  try {
+    response = await fetch(apiUrl('/auth/change-password'), requestInit({
+      method: 'POST',
+      headers: {
+        Accept: JSON_ACCEPT,
+        'Content-Type': 'application/json; charset=utf-8',
+        ...bearer(accessToken),
+      },
+      body: JSON.stringify(body),
+    }))
+  } catch {
+    throw apiError(0, 'HTTP_ERROR', '无法连接密码服务')
+  }
+  if (response.status === 204) return
+  throw await readErrorResponse(response, accessToken)
 }

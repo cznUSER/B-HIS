@@ -14,19 +14,20 @@ npm install
 npm run dev
 ```
 
-也可用 pnpm：`pnpm install` 然后 `pnpm dev`。浏览器打开终端里提示的本地地址（默认 http://localhost:5173）。
+也可用 pnpm：`pnpm install` 然后 `pnpm dev`。浏览器打开终端里提示的本地地址（默认 http://localhost:8888）。
 
 登录成功进入首页看板 `/app`（待办、经营概况、两张分布图都是演示占位，数字为 0）。左侧「门诊业务」是建档、挂号、开单、收费、发药、退药/退费；「档案管理」里的患者建档走同一条建档路由。患者建档页可以新建和查询。挂号页可选科室和医生；没有患者时提示先建档。网站固定通过真实 API 访问 `POST/GET /api/v1/patients`、`/registers`、`/orders`、`/charges`、`/dispenses` 等接口，业务数据全部由 SQL Server 持久化。六张入口卡只在 `/app/outpatient`，不是登录后的默认页。
 
 网站默认访问真实 Go API，不启用浏览器内存 Mock。Go API 必须连接 SQL Server；前端不保存业务数据。
 
-切换到 H04 真实 API 的步骤见 [web/README.md](web/README.md)「本机真 API 联调」。联调时先按下一节启动 Go API（默认 `127.0.0.1:8080`）。
+切换到 H04 真实 API 的步骤见 [web/README.md](web/README.md)「本机真 API 联调」。联调时先按下一节启动 Go API（默认 `127.0.0.1:9999`）。
 
 ## Go 登录 API（SQL Server 必需）
 
 - Go **1.22+**
 - 默认 `Database.Driver: sqlserver`
-- 监听 `127.0.0.1:8080`
+- API 监听 `127.0.0.1:9999`
+- Host 登录页面监听 `127.0.0.1:8888`
 
 ```bash
 go run ./cmd/api -config config.example.yaml
@@ -36,14 +37,15 @@ go run ./cmd/api -config config.example.yaml
 
 | 变量 | 作用 |
 |------|------|
-| `BHIS_API_ADDR` | 监听地址，默认 `127.0.0.1:8080` |
+| `BHIS_API_ADDR` | Go API 监听地址，默认 `127.0.0.1:9999` |
+| `BHIS_WEB_ADDR` | Host 登录页面监听地址，默认 `127.0.0.1:8888` |
 | `BHIS_JWT_SECRET` | HS256 密钥 |
 | `BHIS_ACCESS_TOKEN_TTL` | access token 寿命，默认 `8h`（28800 秒）。Phase1 没有 refresh |
 | `BHIS_DB_DRIVER` | `sqlserver`（默认且唯一启用的运行时驱动）；`dameng` 仅作预留接口 |
 | `BHIS_DB_DSN` | 仅 `sqlserver` 需要。见下方占位形状 |
 | `BHIS_LOG_DIR` | 日志目录，默认 `./logs` |
 | `BHIS_LOG_LEVEL` | `debug` / `info` / `warn` / `error` |
-| `BHIS_CORS_ORIGINS` | 逗号分隔。默认放行 Vite：`http://localhost:5173`、`http://127.0.0.1:5173` |
+| `BHIS_CORS_ORIGINS` | 逗号分隔。默认放行 Vite：`http://localhost:8888`、`http://127.0.0.1:8888` |
 | `BHIS_CONFIG` | 可选 YAML 路径 |
 | `BHIS_OPEN_BROWSER` | `0` / `false` / `no` 时，host 启动后不打开浏览器 |
 
@@ -61,7 +63,7 @@ Host 在这个构建里是 **Windows 本机启动器**（还不是托盘窗）�
 
 ## Windows 双击启动
 
-一个 exe 同时提供登录页和 API，运行时不需要 Vite。数据库必须是 SQL Server。浏览器打开 http://127.0.0.1:8080/login 。演示账号是 `system` / `1`（员工默认密码；不是 SQL Server 口令）。
+一个 exe 分别提供 Go API 和登录页，运行时不需要 Vite：API 在 `127.0.0.1:9999`，页面在 http://127.0.0.1:8888/login 。数据库必须是 SQL Server。演示账号是 `system` / `1`（员工默认密码；不是 SQL Server 口令）。
 
 在仓库根目录重新构建网页并打出 exe：
 
@@ -89,9 +91,9 @@ bin\b-his-host.exe logs
 | 配置放哪 | 当前目录或 exe 同目录的 `config.local.yaml`、`config.yaml`，其次才是 `config.example.yaml`。也可以 `-config` 或 `BHIS_CONFIG`。 |
 | SQL Server | 运行必需。在 exe 旁边放 gitignore 的 `config.local.yaml`，或设置 `BHIS_DB_DRIVER=sqlserver` 和 `BHIS_DB_DSN`。不要把 DSN 或口令提交到 Git。 |
 | 不打开浏览器 | `-no-browser`，或 `BHIS_OPEN_BROWSER=0`。 |
-| 开发时的 Mock | `cd web` 后 `npm run dev` 不变，仍是 Mock（`system` / `1`）。exe 用的是 `npm run build:demo`（关闭 Mock，请求同源 `/api/v1`）。 |
+| 开发时的 Mock | `cd web` 后 `npm run dev` 不变，仍是 Mock（`system` / `1`）；Vite 占用 8888，不能与同时监听 8888 的 Host 一起启动。exe 用的是 `npm run build:demo`（关闭 Mock，请求同源 `/api/v1`）。 |
 
-启动失败时，双击打开的窗口会停住并提示按 Enter，避免报错一闪而过。端口默认 `127.0.0.1:8080`；被占用时改 `BHIS_API_ADDR` 或配置里的 `Host.ApiAddr`。日志仍在工作目录的 `./logs`（双击时工作目录一般就是 exe 所在文件夹）。
+启动时，Host 会检查 API 与页面端口。若端口由身份、健康状态和端口归属都确认的旧 B-HIS Host 占用，会先结束该 Host 并等待端口释放；独立 `cmd/api` 仅在单独占用 API 端口时可被接管。若由其他程序（例如 Vite）占用，Host 会拒绝结束该程序并报告错误。默认 API 端口为 `127.0.0.1:9999`，页面端口为 `127.0.0.1:8888`；分别可用 `BHIS_API_ADDR` / `Host.ApiAddr` 与 `BHIS_WEB_ADDR` / `Host.WebAddr` 配置。日志仍在工作目录的 `./logs`（双击时工作目录一般就是 exe 所在文件夹）。
 
 ## 内存演示账号
 
@@ -109,7 +111,7 @@ bin\b-his-host.exe logs
 登录 `200`，体为 `LoginResponse`（`expiresIn` 默认 `28800`）：
 
 ```bash
-curl -sS -D - http://127.0.0.1:8080/api/v1/auth/login \
+curl -sS -D - http://127.0.0.1:9999/api/v1/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"username":"system","password":"1"}'
 ```
@@ -131,14 +133,14 @@ curl -sS -D - http://127.0.0.1:8080/api/v1/auth/login \
 当前用户：
 
 ```bash
-curl -sS http://127.0.0.1:8080/api/v1/auth/me \
+curl -sS http://127.0.0.1:9999/api/v1/auth/me \
   -H "Authorization: Bearer $TOKEN"
 ```
 
 登出 `204` 空体。服务端把 JWT 的 `jti` 写入黑名单，之后同一 token 再访问为 `401 TOKEN_INVALID`：
 
 ```bash
-curl -sS -D - -o /dev/null -X POST http://127.0.0.1:8080/api/v1/auth/logout \
+curl -sS -D - -o /dev/null -X POST http://127.0.0.1:9999/api/v1/auth/logout \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -155,7 +157,7 @@ curl -sS -D - -o /dev/null -X POST http://127.0.0.1:8080/api/v1/auth/logout \
 | 缺字段或 JSON 不合法 | 400 | `VALIDATION_ERROR` |
 
 ```bash
-curl -sS -D - http://127.0.0.1:8080/api/v1/auth/login \
+curl -sS -D - http://127.0.0.1:9999/api/v1/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"username":"system","password":"wrong"}'
 ```
@@ -170,7 +172,7 @@ curl -sS -D - http://127.0.0.1:8080/api/v1/auth/login \
 ```
 
 ```bash
-curl -sS -D - http://127.0.0.1:8080/api/v1/auth/me
+curl -sS -D - http://127.0.0.1:9999/api/v1/auth/me
 ```
 
 `401`，`error.code` 为 `UNAUTHORIZED`。
@@ -196,7 +198,7 @@ JWT：HS256。声明 `sub`（userId）、`username`、`roles`、`iat`、`exp`、
 成功建档写审计 `patient.create`，`resource_type=Patient`。
 
 ```bash
-curl -sS -D - http://127.0.0.1:8080/api/v1/patients \
+curl -sS -D - http://127.0.0.1:9999/api/v1/patients \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"name":"张三","sex":"M","birthday":"1990-01-15","fareIdentity":"SELF"}'
@@ -225,7 +227,7 @@ SQL Server 种子与 `003_register_seed.up.sql` 一致：`dept-1` 内科、`dept
 成功挂号写审计 `register.create`，成功接诊写 `register.check-in`，成功退号写 `register.cancel`，`resource_type=Register`。接诊或退号拒绝写同一动作的 `FAIL`。
 
 ```bash
-curl -sS -D - http://127.0.0.1:8080/api/v1/registers \
+curl -sS -D - http://127.0.0.1:9999/api/v1/registers \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"patientId":"<patientId>","departmentId":"dept-1","doctorId":"doc-1","visitDate":"2026-10-12"}'

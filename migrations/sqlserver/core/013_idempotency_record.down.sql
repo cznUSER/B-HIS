@@ -1,0 +1,12 @@
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+GO
+
+USE BHIS;
+GO
+
+IF OBJECT_ID(N'dbo.idempotency_record', N'U') IS NOT NULL
+BEGIN
+    DROP TABLE dbo.idempotency_record;
+END
+GO

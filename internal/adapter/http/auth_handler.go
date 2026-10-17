@@ -10,12 +10,12 @@ import (
 
 	"github.com/cznUSER/B-HIS/internal/app"
 	"github.com/cznUSER/B-HIS/internal/auth"
+	"github.com/cznUSER/B-HIS/internal/buildinfo"
 	"github.com/cznUSER/B-HIS/internal/logging"
 )
 
-// Handler serves Auth, Patients, Registers (including check-in), Orders, Charges, Dispenses,
+// Handler serves Auth, Patients, Registers (including check-in and complete), Diagnoses, Orders, Charges, Dispenses,
 // and master data (departments, doctors, catalog, inventory adjust, dicts, users).
-// Complete, diagnoses, and deprecated /encounters are not registered.
 // recipe-check returns 501. POST /orders/{orderId}/dispense is the dispense alias. 2026-10-13
 type Handler struct {
 	svc        *app.Service
@@ -29,15 +29,24 @@ func New(svc *app.Service, log *logging.Logger, origins []string, driver string,
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/v1/auth/login", h.login)
 	mux.HandleFunc("POST /api/v1/auth/logout", h.logout)
+	mux.HandleFunc("POST /api/v1/auth/change-password", h.changePassword)
 	mux.HandleFunc("GET /api/v1/auth/me", h.me)
+	mux.HandleFunc("GET /api/v1/workbench/summary", h.dashboardSummary)
 	mux.HandleFunc("POST /api/v1/patients", h.createPatient)
 	mux.HandleFunc("GET /api/v1/patients", h.searchPatients)
 	mux.HandleFunc("GET /api/v1/patients/{patientId}", h.getPatient)
 	mux.HandleFunc("POST /api/v1/registers", h.createRegister)
 	mux.HandleFunc("GET /api/v1/registers", h.searchRegisters)
 	mux.HandleFunc("GET /api/v1/registers/{registerId}", h.getRegister)
+	mux.HandleFunc("POST /api/v1/registers/{registerId}/fee-charge", h.createRegisterFeeCharge)
 	mux.HandleFunc("POST /api/v1/registers/{registerId}/check-in", h.checkInRegister)
+	mux.HandleFunc("POST /api/v1/registers/{registerId}/complete", h.completeRegister)
 	mux.HandleFunc("POST /api/v1/registers/{registerId}/cancel", h.cancelRegister)
+	mux.HandleFunc("POST /api/v1/registers/{registerId}/diagnoses", h.createDiagnose)
+	mux.HandleFunc("GET /api/v1/registers/{registerId}/diagnoses", h.listDiagnoses)
+	mux.HandleFunc("POST /api/v1/encounters/{encounterId}/diagnoses", h.createDiagnoseEncounterAlias)
+	mux.HandleFunc("POST /api/v1/diagnoses/{diagnoseId}/commit", h.commitDiagnose)
+	mux.HandleFunc("POST /api/v1/diagnoses/{diagnoseId}/abate", h.abateDiagnose)
 	mux.HandleFunc("POST /api/v1/orders", h.createOrder)
 	mux.HandleFunc("GET /api/v1/orders", h.searchOrders)
 	mux.HandleFunc("GET /api/v1/orders/{orderId}", h.getOrder)
@@ -58,6 +67,8 @@ func New(svc *app.Service, log *logging.Logger, origins []string, driver string,
 	mux.HandleFunc("GET /api/v1/dispenses/{dispenseId}", h.getDispense)
 	mux.HandleFunc("POST /api/v1/dispenses/{dispenseId}/return", h.returnDispense)
 	mux.HandleFunc("GET /api/v1/inventory/items", h.listInventory)
+	mux.HandleFunc("GET /api/v1/inventory/ledger", h.listInventoryLedger)
+	mux.HandleFunc("GET /api/v1/inventory/batches", h.listInventoryBatches)
 	mux.HandleFunc("POST /api/v1/inventory/items/{skuId}/adjust", h.adjustInventory)
 	mux.HandleFunc("GET /api/v1/departments", h.listDepartments)
 	mux.HandleFunc("POST /api/v1/departments", h.createDepartment)
@@ -79,6 +90,24 @@ func New(svc *app.Service, log *logging.Logger, origins []string, driver string,
 	mux.HandleFunc("POST /api/v1/users", h.createUser)
 	mux.HandleFunc("PATCH /api/v1/users/{userId}", h.patchUser)
 	mux.HandleFunc("POST /api/v1/users/{userId}/reset-password", h.resetUserPassword)
+	mux.HandleFunc("GET /api/v1/access/modules", h.listAccessModules)
+	mux.HandleFunc("POST /api/v1/access/modules", h.createAccessModule)
+	mux.HandleFunc("PATCH /api/v1/access/modules/{moduleCode}", h.patchAccessModule)
+	mux.HandleFunc("GET /api/v1/access/categories", h.listPermissionCategories)
+	mux.HandleFunc("POST /api/v1/access/categories", h.createPermissionCategory)
+	mux.HandleFunc("PATCH /api/v1/access/categories/{categoryId}", h.patchPermissionCategory)
+	mux.HandleFunc("GET /api/v1/access/modes", h.listPermissionModes)
+	mux.HandleFunc("POST /api/v1/access/modes", h.createPermissionMode)
+	mux.HandleFunc("PATCH /api/v1/access/modes/{modeCode}", h.patchPermissionMode)
+	mux.HandleFunc("GET /api/v1/access/permissions", h.listAccessPermissions)
+	mux.HandleFunc("POST /api/v1/access/permissions", h.createAccessPermission)
+	mux.HandleFunc("PATCH /api/v1/access/permissions/{permissionCode}", h.patchAccessPermission)
+	mux.HandleFunc("GET /api/v1/access/roles", h.listAccessRoles)
+	mux.HandleFunc("POST /api/v1/access/roles", h.createAccessRole)
+	mux.HandleFunc("PATCH /api/v1/access/roles/{roleCode}", h.patchAccessRole)
+	mux.HandleFunc("GET /api/v1/access/users/{userId}/overrides", h.listUserPermissionOverrides)
+	mux.HandleFunc("PUT /api/v1/access/users/{userId}/overrides", h.replaceUserPermissionOverrides)
+	mux.HandleFunc("GET /api/v1/audit/user-operations", h.listUserOperations)
 	mux.HandleFunc("GET /health", h.health)
 	return withRequestID(recoverPanic(log, accessLog(log, cors(origins, mux))))
 }
@@ -131,10 +160,31 @@ func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, user)
 }
 
+func (h *Handler) changePassword(w http.ResponseWriter, r *http.Request) {
+	claims, err := h.bearerClaims(r)
+	if err != nil {
+		writeAppError(w, r, err)
+		return
+	}
+	var req struct {
+		CurrentPassword string `json:"currentPassword"`
+		NewPassword     string `json:"newPassword"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		writeAppError(w, r, err)
+		return
+	}
+	if err := h.svc.ChangePassword(r.Context(), claims, req.CurrentPassword, req.NewPassword, requestID(r.Context()), clientIP(r)); err != nil {
+		writeAppError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // healthContractVersion and healthImplementedVersion match OpenAPI info.version. 2026-10-13
 const (
-	healthContractVersion    = "0.3.10-draft"
-	healthImplementedVersion = "0.3.10-draft"
+	healthContractVersion    = buildinfo.Version
+	healthImplementedVersion = buildinfo.Version
 )
 
 func (h *Handler) health(w http.ResponseWriter, r *http.Request) {
@@ -152,7 +202,14 @@ func (h *Handler) bearerClaims(r *http.Request) (*auth.Claims, error) {
 	if err != nil {
 		return nil, err
 	}
-	return h.svc.Authenticate(r.Context(), raw)
+	claims, err := h.svc.Authenticate(r.Context(), raw)
+	if err != nil {
+		return nil, err
+	}
+	if claims.MustChangePassword && r.URL.Path != "/api/v1/auth/change-password" && r.URL.Path != "/api/v1/auth/logout" {
+		return nil, &app.Error{Status: 428, Code: app.CodePasswordChangeRequired, Message: "请先修改管理员重置的密码"}
+	}
+	return claims, nil
 }
 
 func bearerToken(r *http.Request) (string, error) {

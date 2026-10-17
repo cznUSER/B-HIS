@@ -2,8 +2,10 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -17,33 +19,37 @@ import (
 // Master-data maintenance (P1-H04-MASTER-API). 2026-10-13
 
 const (
-	CodeDeptCodeDuplicate    = "DEPT_CODE_DUPLICATE"
-	CodeDepartmentInactive   = "DEPARTMENT_INACTIVE"
-	CodeDoctorCodeDuplicate  = "DOCTOR_CODE_DUPLICATE"
-	CodeDoctorInactive       = "DOCTOR_INACTIVE"
-	CodeItemNoDuplicate      = "ITEM_NO_DUPLICATE"
-	CodeCatalogInactive      = "CATALOG_INACTIVE"
-	CodeInvalidPrice         = "INVALID_PRICE"
-	CodeAdjustResultNegative = "ADJUST_RESULT_NEGATIVE"
-	CodeNotDrugSKU           = "NOT_DRUG_SKU"
-	CodeConflict             = "CONFLICT"
-	CodeUsernameDuplicate    = "USERNAME_DUPLICATE"
-	CodeDictCodeDuplicate    = "DICT_CODE_DUPLICATE"
-	CodeDictTypeReadonly     = "DICT_TYPE_READONLY"
+	CodeDeptCodeDuplicate           = "DEPT_CODE_DUPLICATE"
+	CodeDepartmentInactive          = "DEPARTMENT_INACTIVE"
+	CodeDoctorCodeDuplicate         = "DOCTOR_CODE_DUPLICATE"
+	CodeDoctorInactive              = "DOCTOR_INACTIVE"
+	CodeItemNoDuplicate             = "ITEM_NO_DUPLICATE"
+	CodeCatalogInactive             = "CATALOG_INACTIVE"
+	CodeInvalidPrice                = "INVALID_PRICE"
+	CodeAdjustResultNegative        = "ADJUST_RESULT_NEGATIVE"
+	CodeNotDrugSKU                  = "NOT_DRUG_SKU"
+	CodeConflict                    = "CONFLICT"
+	CodeUsernameDuplicate           = "USERNAME_DUPLICATE"
+	CodeLastSystemAdmin             = "LAST_SYSTEM_ADMIN"
+	CodeUserAccessBundleUnsupported = "USER_ACCESS_BUNDLE_UNSUPPORTED"
+	CodeDictCodeDuplicate           = "DICT_CODE_DUPLICATE"
+	CodeDictTypeReadonly            = "DICT_TYPE_READONLY"
 
-	msgDepartmentInactive   = "科室已停用，不可新挂挂号或开单"
-	msgDoctorInactive       = "医生已停用，不可新选"
-	msgCatalogInactive      = "目录项已停用，不可新开单"
-	msgDeptCodeDuplicate    = "科室代码已存在"
-	msgDoctorCodeDuplicate  = "医生代码已存在"
-	msgItemNoDuplicate      = "目录编码已存在"
-	msgInvalidPrice         = "单价不合法"
-	msgAdjustResultNegative = "调整后库存不能为负"
-	msgNotDrugSKU           = "非药品或无库存 SKU"
-	msgConflict             = "库存已被他人修改"
-	msgUsernameDuplicate    = "登录名已存在"
-	msgDictCodeDuplicate    = "码表编码已存在"
-	msgDictTypeReadonly     = "该字典为只读枚举"
+	msgDepartmentInactive          = "科室已停用，不可新挂挂号或开单"
+	msgDoctorInactive              = "医生已停用，不可新选"
+	msgCatalogInactive             = "目录项已停用，不可新开单"
+	msgDeptCodeDuplicate           = "科室代码已存在"
+	msgDoctorCodeDuplicate         = "医生代码已存在"
+	msgItemNoDuplicate             = "目录编码已存在"
+	msgInvalidPrice                = "单价不合法"
+	msgAdjustResultNegative        = "调整后库存不能为负"
+	msgNotDrugSKU                  = "非药品或无库存 SKU"
+	msgConflict                    = "库存已被他人修改"
+	msgUsernameDuplicate           = "登录名已存在"
+	msgLastSystemAdmin             = "不能停用或移除最后一个系统管理员"
+	msgUserAccessBundleUnsupported = "当前存储不支持用户与权限整屏原子保存"
+	msgDictCodeDuplicate           = "码表编码已存在"
+	msgDictTypeReadonly            = "该字典为只读枚举"
 
 	dictRegisterSort = "register_sort"
 	maxQtyMilli      = int64(999999999999999999)
@@ -197,14 +203,47 @@ type PatchDictItemInput struct {
 }
 
 type UserAdminDTO struct {
-	UserID      string   `json:"userId"`
-	Username    string   `json:"username"`
-	LoginName   string   `json:"loginName"`
-	DisplayName string   `json:"displayName"`
-	Status      string   `json:"status"`
-	Roles       []string `json:"roles"`
-	CreatedAt   string   `json:"createdAt,omitempty"`
-	UpdatedAt   string   `json:"updatedAt,omitempty"`
+	UserID               string             `json:"userId"`
+	Username             string             `json:"username"`
+	LoginName            string             `json:"loginName"`
+	DisplayName          string             `json:"displayName"`
+	Description          string             `json:"description"`
+	CardNo               string             `json:"cardNo"`
+	InputCode            string             `json:"inputCode"`
+	ServiceStar          *int               `json:"serviceStar,omitempty"`
+	ExpandInterface1     *int32             `json:"expandInterface1,omitempty"`
+	ExpandInterface2     *int32             `json:"expandInterface2,omitempty"`
+	InputCodeCompareMode *int32             `json:"inputCodeCompareMode,omitempty"`
+	Status               string             `json:"status"`
+	Roles                []string           `json:"roles"`
+	RoleScopes           []UserRoleScopeDTO `json:"roleScopes"`
+	MustChangePassword   bool               `json:"mustChangePassword"`
+	CannotModifyPassword bool               `json:"cannotModifyPassword"`
+	AccountLocked        bool               `json:"accountLocked"`
+	AccountStopped       bool               `json:"accountStopped"`
+	Hidden               bool               `json:"hidden"`
+	System               bool               `json:"system"`
+	Super                bool               `json:"super"`
+	Developer            bool               `json:"developer"`
+	LastLoginAt          string             `json:"lastLoginAt,omitempty"`
+	LastLoginIP          string             `json:"lastLoginIp,omitempty"`
+	LockUntil            string             `json:"lockUntil,omitempty"`
+	PasswordChangedAt    string             `json:"passwordChangedAt,omitempty"`
+	FailedLoginCount     int                `json:"failedLoginCount"`
+	CreatedAt            string             `json:"createdAt,omitempty"`
+	UpdatedAt            string             `json:"updatedAt,omitempty"`
+}
+
+type UserRoleScopeDTO struct {
+	RoleCode     string `json:"roleCode"`
+	DepartmentID string `json:"departmentId"`
+	Status       string `json:"status"`
+}
+
+type UserRoleScopeInput struct {
+	RoleCode     string `json:"roleCode"`
+	DepartmentID string `json:"departmentId"`
+	Status       string `json:"status"`
 }
 
 type UserListDTO struct {
@@ -212,17 +251,114 @@ type UserListDTO struct {
 }
 
 type CreateUserInput struct {
-	Username    string   `json:"username"`
-	LoginName   string   `json:"loginName"`
-	DisplayName string   `json:"displayName"`
-	Roles       []string `json:"roles"`
-	Status      *string  `json:"status"`
+	Username             string                     `json:"username"`
+	LoginName            string                     `json:"loginName"`
+	DisplayName          string                     `json:"displayName"`
+	Description          string                     `json:"description"`
+	CardNo               string                     `json:"cardNo"`
+	InputCode            string                     `json:"inputCode"`
+	Password             string                     `json:"password"`
+	ServiceStar          *int                       `json:"serviceStar"`
+	ExpandInterface1     *int32                     `json:"expandInterface1"`
+	ExpandInterface2     *int32                     `json:"expandInterface2"`
+	InputCodeCompareMode *int32                     `json:"inputCodeCompareMode"`
+	Roles                []string                   `json:"roles"`
+	Status               *string                    `json:"status"`
+	MustChangePassword   *bool                      `json:"mustChangePassword"`
+	CannotModifyPassword *bool                      `json:"cannotModifyPassword"`
+	AccountStopped       *bool                      `json:"accountStopped"`
+	Hidden               *bool                      `json:"hidden"`
+	System               *bool                      `json:"system"`
+	Super                *bool                      `json:"super"`
+	Developer            *bool                      `json:"developer"`
+	PermissionOverrides  *[]PermissionOverrideInput `json:"permissionOverrides"`
+	RoleScopes           *[]UserRoleScopeInput      `json:"roleScopes"`
 }
 
 type PatchUserInput struct {
-	DisplayName *string  `json:"displayName"`
-	Status      *string  `json:"status"`
-	Roles       []string `json:"roles"`
+	DisplayName          *string                    `json:"displayName"`
+	Description          *string                    `json:"description"`
+	CardNo               *string                    `json:"cardNo"`
+	InputCode            *string                    `json:"inputCode"`
+	Password             *string                    `json:"password"`
+	ServiceStar          OptionalNullableInt        `json:"serviceStar"`
+	ExpandInterface1     OptionalNullableInt32      `json:"expandInterface1"`
+	ExpandInterface2     OptionalNullableInt32      `json:"expandInterface2"`
+	InputCodeCompareMode OptionalNullableInt32      `json:"inputCodeCompareMode"`
+	Status               *string                    `json:"status"`
+	Roles                []string                   `json:"roles"`
+	MustChangePassword   *bool                      `json:"mustChangePassword"`
+	CannotModifyPassword *bool                      `json:"cannotModifyPassword"`
+	AccountLocked        *bool                      `json:"accountLocked"`
+	AccountStopped       *bool                      `json:"accountStopped"`
+	Hidden               *bool                      `json:"hidden"`
+	System               *bool                      `json:"system"`
+	Super                *bool                      `json:"super"`
+	Developer            *bool                      `json:"developer"`
+	PermissionOverrides  *[]PermissionOverrideInput `json:"permissionOverrides"`
+	RoleScopes           *[]UserRoleScopeInput      `json:"roleScopes"`
+}
+
+type OptionalNullableInt struct {
+	Set   bool
+	Value *int
+}
+
+func (value *OptionalNullableInt) UnmarshalJSON(raw []byte) error {
+	value.Set = true
+	if strings.TrimSpace(string(raw)) == "null" {
+		value.Value = nil
+		return nil
+	}
+	var parsed int
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return err
+	}
+	value.Value = &parsed
+	return nil
+}
+
+type OptionalNullableInt32 struct {
+	Set   bool
+	Value *int32
+}
+
+func cloneInt(value *int) *int {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	return &copy
+}
+
+func cloneInt32(value *int32) *int32 {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	return &copy
+}
+
+func validateUserLegacyFields(serviceStar *int, _ *int32) []string {
+	var fields []string
+	if serviceStar != nil && (*serviceStar < 1 || *serviceStar > 5) {
+		fields = append(fields, "serviceStar")
+	}
+	return fields
+}
+
+func (value *OptionalNullableInt32) UnmarshalJSON(raw []byte) error {
+	value.Set = true
+	if strings.TrimSpace(string(raw)) == "null" {
+		value.Value = nil
+		return nil
+	}
+	var parsed int32
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return err
+	}
+	value.Value = &parsed
+	return nil
 }
 
 type masterFilter struct {
@@ -233,12 +369,16 @@ type masterFilter struct {
 }
 
 func (s *Service) ListDepartments(ctx context.Context, claims *auth.Claims, status, q string) (*DepartmentListDTO, error) {
-	if _, err := s.requireAdmin(ctx, claims); err != nil {
+	user, err := s.requireOutpatientMasterRead(ctx, claims, domain.PermEncounterCreate, domain.PermEncounterCheckIn, domain.PermOrderSubmit, domain.PermDiagnoseWrite)
+	if err != nil {
 		return nil, err
 	}
 	f, err := normalizeMasterFilter(status, q, "", "")
 	if err != nil {
 		return nil, err
+	}
+	if !hasPerm(user, domain.PermAdminAll) {
+		f.Status = domain.StatusActive
 	}
 	if s.Master == nil {
 		return nil, errors.New("master store is not configured")
@@ -336,13 +476,24 @@ func (s *Service) PatchDepartment(ctx context.Context, claims *auth.Claims, depa
 	return &dto, nil
 }
 
+func actionForUserPatch(cur, next *domain.User) string {
+	if cur != nil && next != nil && cur.Active() && !next.Active() {
+		return domain.ActionUserDeactivate
+	}
+	return domain.ActionUserUpdate
+}
+
 func (s *Service) ListDoctors(ctx context.Context, claims *auth.Claims, departmentID, status, q string) (*DoctorListDTO, error) {
-	if _, err := s.requireAdmin(ctx, claims); err != nil {
+	user, err := s.requireOutpatientMasterRead(ctx, claims, domain.PermEncounterCreate, domain.PermEncounterCheckIn, domain.PermOrderSubmit, domain.PermDiagnoseWrite)
+	if err != nil {
 		return nil, err
 	}
 	f, err := normalizeMasterFilter(status, q, departmentID, "")
 	if err != nil {
 		return nil, err
+	}
+	if !hasPerm(user, domain.PermAdminAll) {
+		f.Status = domain.StatusActive
 	}
 	if s.Master == nil {
 		return nil, errors.New("master store is not configured")
@@ -445,12 +596,16 @@ func (s *Service) PatchDoctor(ctx context.Context, claims *auth.Claims, doctorID
 }
 
 func (s *Service) ListCatalog(ctx context.Context, claims *auth.Claims, itemType, status, q string) (*CatalogListDTO, error) {
-	if _, err := s.requireAdmin(ctx, claims); err != nil {
+	user, err := s.requireOutpatientMasterRead(ctx, claims, domain.PermOrderSubmit, domain.PermOrderRecipeCheck)
+	if err != nil {
 		return nil, err
 	}
 	f, err := normalizeMasterFilter(status, q, "", itemType)
 	if err != nil {
 		return nil, err
+	}
+	if !hasPerm(user, domain.PermAdminAll) {
+		f.Status = domain.StatusActive
 	}
 	if s.Master == nil {
 		return nil, errors.New("master store is not configured")
@@ -817,7 +972,8 @@ func (s *Service) PatchDictItem(ctx context.Context, claims *auth.Claims, dictTy
 }
 
 func (s *Service) ListUsers(ctx context.Context, claims *auth.Claims, status, q string) (*UserListDTO, error) {
-	if _, err := s.requireAdmin(ctx, claims); err != nil {
+	actor, err := s.requireAdminPermission(ctx, claims, domain.PermAdminUser)
+	if err != nil {
 		return nil, err
 	}
 	status = strings.TrimSpace(status)
@@ -835,8 +991,19 @@ func (s *Service) ListUsers(ctx context.Context, claims *auth.Claims, status, q 
 	if err != nil {
 		return nil, err
 	}
+	if accessStore, ok := s.Master.(port.AccessStore); ok {
+		for i := range rows {
+			rows[i].RoleScopes, err = accessStore.ListUserRoleScopes(ctx, rows[i].ID)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
 	items := make([]UserAdminDTO, 0, len(rows))
 	for _, row := range rows {
+		if row.Hidden && !actor.Developer {
+			continue
+		}
 		items = append(items, toUserAdminDTO(row))
 	}
 	return &UserListDTO{Items: items}, nil
@@ -844,13 +1011,56 @@ func (s *Service) ListUsers(ctx context.Context, claims *auth.Claims, status, q 
 
 func (s *Service) CreateUser(ctx context.Context, claims *auth.Claims, in CreateUserInput, requestID, ip string) (*UserAdminDTO, error) {
 	start := time.Now()
-	user, err := s.requireAdminAudit(ctx, claims, start, domain.ActionUserCreate, "User", "", requestID, ip)
+	user, err := s.requireAdminPermissionAudit(ctx, claims, domain.PermAdminUser, start, domain.ActionUserCreate, "User", "", requestID, ip)
 	if err != nil {
 		return nil, err
 	}
 	username, display, roles, status, fields := normalizeUserCreate(in)
+	roles, rolesOK := s.parseAssignableRoles(ctx, in.Roles)
+	hasAdminRole, roleErr := s.hasAdminPermissionRole(ctx, in.Roles)
+	if roleErr != nil {
+		s.auditMasterErr(ctx, start, user, domain.ActionUserCreate, "User", "", requestID, ip, roleErr)
+		return nil, roleErr
+	}
+	if hasAdminRole && !canManageSystemAccess(user) {
+		e := forbidden()
+		s.auditMasterErr(ctx, start, user, domain.ActionUserCreate, "User", "", requestID, ip, e)
+		return nil, e
+	}
+	if !rolesOK {
+		fields = addField(fields, "roles")
+	}
+	fields = append(fields, validateUserProfile(in.Description, in.CardNo, in.InputCode)...)
+	fields = append(fields, validateAdminPassword(in.Password)...)
+	fields = append(fields, validateUserLegacyFields(in.ServiceStar, in.InputCodeCompareMode)...)
+	if boolDefault(in.CannotModifyPassword, false) && boolDefault(in.MustChangePassword, false) {
+		fields = addField(fields, "mustChangePassword")
+	}
+	var bundleScopes []domain.UserRoleScope
+	if in.RoleScopes != nil {
+		accessStore, ok := s.Master.(port.AccessStore)
+		if !ok {
+			return nil, &Error{Status: 501, Code: CodeUserAccessBundleUnsupported, Message: msgUserAccessBundleUnsupported}
+		}
+		var scopeFields []string
+		var scopeErr error
+		bundleScopes, scopeFields, scopeErr = normalizeAndValidateRoleScopes(ctx, s.Master, accessStore, "", roleCodes(roles), *in.RoleScopes)
+		if scopeErr != nil {
+			return nil, scopeErr
+		}
+		fields = append(fields, scopeFields...)
+	}
 	if len(fields) > 0 {
 		return nil, validationFields(fields)
+	}
+	if strings.TrimSpace(in.CardNo) != "" && !canManageProtectedUsers(user) {
+		return nil, forbidden()
+	}
+	if hasDeveloperOnlyUserCreateFields(in) && !canEditDeveloperFlags(user) {
+		return nil, forbidden()
+	}
+	if boolDefault(in.Super, false) && !canEditSuperFlag(user) {
+		return nil, forbidden()
 	}
 	if s.Master == nil {
 		return nil, errors.New("master store is not configured")
@@ -860,18 +1070,106 @@ func (s *Service) CreateUser(ctx context.Context, claims *auth.Claims, in Create
 	if err != nil {
 		return nil, err
 	}
-	row := domain.User{
-		ID: id, Username: username, DisplayName: display, PasswordHash: seed.DemoPasswordHash,
-		Roles: roles, Status: status, CreatedAt: now, UpdatedAt: now, CreatedBy: user.ID, UpdatedBy: user.ID,
+	inputCodeMode := in.InputCodeCompareMode
+	if inputCodeMode == nil {
+		mode := int32(2)
+		inputCodeMode = &mode
 	}
-	saved, err := s.Master.CreateUser(ctx, row)
+	passwordHash := seed.DemoPasswordHash
+	if strings.TrimSpace(in.Password) != "" {
+		passwordHash, err = auth.HashPassword(in.Password)
+		if err != nil {
+			return nil, err
+		}
+	}
+	row := domain.User{
+		ID: id, Username: username, DisplayName: display, PasswordHash: passwordHash,
+		Roles: roles, Status: status, CreatedAt: now, UpdatedAt: now, CreatedBy: user.ID, UpdatedBy: user.ID,
+		Description: strings.TrimSpace(in.Description), CardNo: strings.TrimSpace(in.CardNo), InputCode: strings.TrimSpace(in.InputCode),
+		ServiceStar: cloneInt(in.ServiceStar), ExpandInterface1: cloneInt32(in.ExpandInterface1), ExpandInterface2: cloneInt32(in.ExpandInterface2), InputCodeCompareMode: cloneInt32(inputCodeMode),
+		MustChangePassword: boolDefault(in.MustChangePassword, !boolDefault(in.CannotModifyPassword, false)), CannotModifyPassword: boolDefault(in.CannotModifyPassword, false),
+		AccountStopped: boolDefault(in.AccountStopped, false), Hidden: boolDefault(in.Hidden, false),
+		System: boolDefault(in.System, false), Super: boolDefault(in.Super, false), Developer: boolDefault(in.Developer, false),
+	}
+	if in.RoleScopes != nil {
+		for i := range bundleScopes {
+			bundleScopes[i].UserID = row.ID
+		}
+	}
+	if row.AccountStopped {
+		row.Status = domain.StatusDisabled
+	}
+	useAccessBundle := in.PermissionOverrides != nil || in.RoleScopes != nil
+	var bundleOverrides []domain.PermissionOverride
+	if useAccessBundle {
+		accessStore, ok := s.Master.(port.AccessStore)
+		if !ok {
+			return nil, &Error{Status: 501, Code: CodeUserAccessBundleUnsupported, Message: msgUserAccessBundleUnsupported}
+		}
+		if in.PermissionOverrides != nil {
+			bundleOverrides, fields = normalizeOverrides(id, *in.PermissionOverrides)
+			if len(fields) > 0 {
+				return nil, validationFields(fields)
+			}
+			if !canManageSystemAccess(user) {
+				for _, override := range bundleOverrides {
+					if isAdminPermissionCode(override.PermissionCode) && override.Effect == domain.PermissionAllow {
+						return nil, forbidden()
+					}
+				}
+			}
+			if fields := s.validateOverrideReferences(ctx, accessStore, bundleOverrides); len(fields) > 0 {
+				return nil, validationFields(fields)
+			}
+		}
+	}
+	atomicAudit := false
+	var saved *domain.User
+	if bundleStore, ok := s.Master.(port.AtomicUserAccessBundleStore); useAccessBundle && ok {
+		auditID, idErr := randomAuditID()
+		if idErr != nil {
+			return nil, idErr
+		}
+		event := domain.AuditEvent{
+			ID: auditID, OccurredAt: s.now().UTC(), ActorID: user.ID,
+			ActorRoles: strings.Join(user.RoleCodes(), ","), Action: domain.ActionUserCreate,
+			ResourceType: "User", ResourceID: id, Outcome: domain.OutcomeSuccess,
+			RequestID: requestID, ClientIP: ip, DurationMS: time.Since(start).Milliseconds(),
+		}
+		saved, err = bundleStore.CreateUserAccessBundleWithAudit(ctx, row, in.RoleScopes != nil, bundleScopes, in.PermissionOverrides != nil, bundleOverrides, event)
+		atomicAudit = true
+	} else if useAccessBundle {
+		return nil, &Error{Status: 501, Code: CodeUserAccessBundleUnsupported, Message: msgUserAccessBundleUnsupported}
+	} else if atomicStore, ok := s.Master.(port.AtomicUserCreateStore); ok {
+		auditID, idErr := randomAuditID()
+		if idErr != nil {
+			return nil, idErr
+		}
+		event := domain.AuditEvent{
+			ID: auditID, OccurredAt: s.now().UTC(), ActorID: user.ID,
+			ActorRoles: strings.Join(user.RoleCodes(), ","), Action: domain.ActionUserCreate,
+			ResourceType: "User", ResourceID: id, Outcome: domain.OutcomeSuccess,
+			RequestID: requestID, ClientIP: ip, DurationMS: time.Since(start).Milliseconds(),
+		}
+		saved, err = atomicStore.CreateUserWithAudit(ctx, row, event)
+		atomicAudit = true
+	} else {
+		saved, err = s.Master.CreateUser(ctx, row)
+	}
 	if err != nil {
 		mapped := mapUserWrite(err)
 		s.auditMasterErr(ctx, start, user, domain.ActionUserCreate, "User", "", requestID, ip, mapped)
 		return nil, mapped
 	}
+	if accessStore, ok := s.Master.(port.AccessStore); ok {
+		if scopes, scopeErr := accessStore.ListUserRoleScopes(ctx, saved.ID); scopeErr == nil {
+			saved.RoleScopes = scopes
+		}
+	}
 	dto := toUserAdminDTO(*saved)
-	s.auditMaster(ctx, start, user, domain.ActionUserCreate, "User", id, domain.OutcomeSuccess, "", requestID, ip)
+	if !atomicAudit {
+		s.auditMaster(ctx, start, user, domain.ActionUserCreate, "User", id, domain.OutcomeSuccess, "", requestID, ip)
+	}
 	return &dto, nil
 }
 
@@ -881,7 +1179,7 @@ func (s *Service) PatchUser(ctx context.Context, claims *auth.Claims, userID str
 	if err != nil {
 		return nil, err
 	}
-	if !hasPerm(actorUser, domain.PermAdminAll) {
+	if !hasPerm(actorUser, domain.PermAdminUser) {
 		e := forbidden()
 		s.auditMaster(ctx, start, actorUser, domain.ActionUserUpdate, "User", userID, domain.OutcomeFail, e.Code, requestID, ip)
 		return nil, e
@@ -910,6 +1208,36 @@ func (s *Service) PatchUser(ctx context.Context, claims *auth.Claims, userID str
 			fields = addField(fields, "displayName")
 		}
 	}
+	if in.Description != nil {
+		next.Description = strings.TrimSpace(*in.Description)
+	}
+	if in.CardNo != nil {
+		next.CardNo = strings.TrimSpace(*in.CardNo)
+	}
+	if in.InputCode != nil {
+		next.InputCode = strings.TrimSpace(*in.InputCode)
+	}
+	if in.Password != nil && strings.TrimSpace(*in.Password) != "" {
+		if passwordHash, hashErr := auth.HashPassword(*in.Password); hashErr != nil {
+			return nil, hashErr
+		} else {
+			next.PasswordHash = passwordHash
+			next.MustChangePassword = true
+			next.PasswordChangedAt = time.Time{}
+		}
+	}
+	if in.ServiceStar.Set {
+		next.ServiceStar = cloneInt(in.ServiceStar.Value)
+	}
+	if in.ExpandInterface1.Set {
+		next.ExpandInterface1 = cloneInt32(in.ExpandInterface1.Value)
+	}
+	if in.ExpandInterface2.Set {
+		next.ExpandInterface2 = cloneInt32(in.ExpandInterface2.Value)
+	}
+	if in.InputCodeCompareMode.Set {
+		next.InputCodeCompareMode = cloneInt32(in.InputCodeCompareMode.Value)
+	}
 	if in.Status != nil {
 		next.Status = strings.TrimSpace(*in.Status)
 		if next.Status != domain.StatusActive && next.Status != domain.StatusDisabled && next.Status != domain.StatusInactive {
@@ -917,15 +1245,155 @@ func (s *Service) PatchUser(ctx context.Context, claims *auth.Claims, userID str
 		}
 	}
 	if in.Roles != nil {
-		roles, ok := parseRoles(in.Roles)
+		roles, ok := s.parseAssignableRoles(ctx, in.Roles)
+		hasAdminRole, roleErr := s.hasAdminPermissionRole(ctx, in.Roles)
+		if roleErr != nil {
+			s.auditMasterErr(ctx, start, actorUser, domain.ActionUserUpdate, "User", userID, requestID, ip, roleErr)
+			return nil, roleErr
+		}
+		if hasAdminRole && !canManageSystemAccess(actorUser) {
+			e := forbidden()
+			s.auditMasterErr(ctx, start, actorUser, domain.ActionUserUpdate, "User", userID, requestID, ip, e)
+			return nil, e
+		}
 		if !ok {
 			fields = addField(fields, "roles")
 		}
 		next.Roles = roles
 		replace = true
 	}
+	if in.MustChangePassword != nil {
+		next.MustChangePassword = *in.MustChangePassword
+	}
+	if in.CannotModifyPassword != nil {
+		next.CannotModifyPassword = *in.CannotModifyPassword
+	}
+	if in.AccountLocked != nil {
+		next.AccountLocked = *in.AccountLocked
+		if !*in.AccountLocked {
+			next.LockUntil = time.Time{}
+			next.FailedLoginCount = 0
+		} else {
+			next.LockUntil = time.Time{}
+		}
+	}
+	if in.AccountStopped != nil {
+		next.AccountStopped = *in.AccountStopped
+		if *in.AccountStopped {
+			next.Status = domain.StatusDisabled
+		} else if in.Status == nil && next.Status == domain.StatusDisabled {
+			next.Status = domain.StatusActive
+		}
+	}
+	if in.Hidden != nil {
+		next.Hidden = *in.Hidden
+	}
+	if in.System != nil {
+		next.System = *in.System
+	}
+	if in.Super != nil {
+		next.Super = *in.Super
+	}
+	if in.Developer != nil {
+		next.Developer = *in.Developer
+	}
+	if len(validateUserProfile(next.Description, next.CardNo, next.InputCode)) > 0 {
+		fields = append(fields, validateUserProfile(next.Description, next.CardNo, next.InputCode)...)
+	}
+	if in.Password != nil {
+		fields = append(fields, validateAdminPassword(*in.Password)...)
+	}
+	fields = append(fields, validateUserLegacyFields(next.ServiceStar, next.InputCodeCompareMode)...)
+	if in.CardNo != nil && !canManageProtectedUsers(actorUser) {
+		e := forbidden()
+		s.auditMaster(ctx, start, actorUser, domain.ActionUserUpdate, "User", userID, domain.OutcomeFail, e.Code, requestID, ip)
+		return nil, e
+	}
+	if hasDeveloperOnlyUserPatchFields(in) && !canEditDeveloperFlags(actorUser) {
+		e := forbidden()
+		s.auditMaster(ctx, start, actorUser, domain.ActionUserUpdate, "User", userID, domain.OutcomeFail, e.Code, requestID, ip)
+		return nil, e
+	}
+	if in.Super != nil && !canEditSuperFlag(actorUser) {
+		e := forbidden()
+		s.auditMaster(ctx, start, actorUser, domain.ActionUserUpdate, "User", userID, domain.OutcomeFail, e.Code, requestID, ip)
+		return nil, e
+	}
+	if isProtectedUser(cur) && !canManageProtectedUsers(actorUser) {
+		e := forbidden()
+		s.auditMaster(ctx, start, actorUser, domain.ActionUserUpdate, "User", userID, domain.OutcomeFail, e.Code, requestID, ip)
+		return nil, e
+	}
+	if cur.Hidden && !actorUser.Developer {
+		e := forbidden()
+		s.auditMaster(ctx, start, actorUser, domain.ActionUserUpdate, "User", userID, domain.OutcomeFail, e.Code, requestID, ip)
+		return nil, e
+	}
+	useAccessBundle := in.PermissionOverrides != nil || in.RoleScopes != nil || in.Roles != nil
+	var bundleOverrides []domain.PermissionOverride
+	var bundleScopes []domain.UserRoleScope
+	if in.RoleScopes != nil {
+		accessStore, ok := s.Master.(port.AccessStore)
+		if !ok {
+			return nil, &Error{Status: 501, Code: CodeUserAccessBundleUnsupported, Message: msgUserAccessBundleUnsupported}
+		}
+		var scopeFields []string
+		var scopeErr error
+		bundleScopes, scopeFields, scopeErr = normalizeAndValidateRoleScopes(ctx, s.Master, accessStore, userID, roleCodes(next.Roles), *in.RoleScopes)
+		if scopeErr != nil {
+			return nil, scopeErr
+		}
+		if len(scopeFields) > 0 {
+			return nil, validationFields(scopeFields)
+		}
+	}
+	if useAccessBundle {
+		accessStore, ok := s.Master.(port.AccessStore)
+		if !ok {
+			return nil, &Error{Status: 501, Code: CodeUserAccessBundleUnsupported, Message: msgUserAccessBundleUnsupported}
+		}
+		if in.PermissionOverrides != nil {
+			var overrideFields []string
+			bundleOverrides, overrideFields = normalizeOverrides(userID, *in.PermissionOverrides)
+			if len(overrideFields) > 0 {
+				return nil, validationFields(overrideFields)
+			}
+			if !canManageSystemAccess(actorUser) {
+				for _, override := range bundleOverrides {
+					if isAdminPermissionCode(override.PermissionCode) && override.Effect == domain.PermissionAllow {
+						return nil, forbidden()
+					}
+				}
+			}
+			if overrideFields := s.validateOverrideReferences(ctx, accessStore, bundleOverrides); len(overrideFields) > 0 {
+				return nil, validationFields(overrideFields)
+			}
+		}
+	}
 	if len(fields) > 0 {
 		return nil, validationFields(fields)
+	}
+	if next.CannotModifyPassword && next.MustChangePassword {
+		e := &Error{Status: 409, Code: CodePasswordChangeNotAllowed, Message: "该账号禁止自行修改密码，不能设置强制改密"}
+		return nil, e
+	}
+	if !sameUserAuthorization(cur, &next) {
+		next.AuthVersion++
+	}
+	if cur.HasSystemRole() && (next.Status != domain.StatusActive || !next.HasSystemRole()) {
+		if _, atomic := s.Master.(port.AtomicUserWriteStore); !atomic {
+			if access, ok := s.Master.(port.AccessStore); ok {
+				count, countErr := access.CountSystemAdmins(ctx)
+				if countErr != nil {
+					return nil, countErr
+				}
+				if count <= 1 {
+					e := &Error{Status: 409, Code: CodeLastSystemAdmin, Message: msgLastSystemAdmin}
+					s.auditMaster(ctx, start, actorUser, actionForUserPatch(cur, &next), "User", userID, domain.OutcomeFail, e.Code, requestID, ip)
+					return nil, e
+				}
+			}
+		}
 	}
 	now := s.now().UTC()
 	next.UpdatedAt = now
@@ -934,20 +1402,59 @@ func (s *Service) PatchUser(ctx context.Context, claims *auth.Claims, userID str
 	if cur.Active() && !next.Active() {
 		action = domain.ActionUserDeactivate
 	}
-	saved, err := s.Master.UpdateUser(ctx, next, replace)
+	atomicAudit := false
+	var saved *domain.User
+	if bundleStore, ok := s.Master.(port.AtomicUserAccessBundleStore); useAccessBundle && ok {
+		auditID, idErr := randomAuditID()
+		if idErr != nil {
+			return nil, idErr
+		}
+		event := domain.AuditEvent{
+			ID: auditID, OccurredAt: s.now().UTC(), ActorID: actorUser.ID,
+			ActorRoles: strings.Join(actorUser.RoleCodes(), ","), Action: action,
+			ResourceType: "User", ResourceID: userID, Outcome: domain.OutcomeSuccess,
+			RequestID: requestID, ClientIP: ip, DurationMS: time.Since(start).Milliseconds(),
+		}
+		saved, err = bundleStore.UpdateUserAccessBundleWithAudit(ctx, next, replace, in.RoleScopes != nil, bundleScopes, in.PermissionOverrides != nil, bundleOverrides, event)
+		atomicAudit = true
+	} else if useAccessBundle {
+		return nil, &Error{Status: 501, Code: CodeUserAccessBundleUnsupported, Message: msgUserAccessBundleUnsupported}
+	} else if atomicStore, ok := s.Master.(port.AtomicUserWriteStore); ok {
+		auditID, idErr := randomAuditID()
+		if idErr != nil {
+			return nil, idErr
+		}
+		event := domain.AuditEvent{
+			ID: auditID, OccurredAt: s.now().UTC(), ActorID: actorUser.ID,
+			ActorRoles: strings.Join(actorUser.RoleCodes(), ","), Action: action,
+			ResourceType: "User", ResourceID: userID, Outcome: domain.OutcomeSuccess,
+			RequestID: requestID, ClientIP: ip, DurationMS: time.Since(start).Milliseconds(),
+		}
+		saved, err = atomicStore.UpdateUserWithAudit(ctx, next, replace, event)
+		atomicAudit = true
+	} else {
+		saved, err = s.Master.UpdateUser(ctx, next, replace)
+	}
 	if err != nil {
 		mapped := mapUserWrite(err)
 		s.auditMasterErr(ctx, start, actorUser, action, "User", userID, requestID, ip, mapped)
 		return nil, mapped
 	}
+	if accessStore, ok := s.Master.(port.AccessStore); ok {
+		if scopes, scopeErr := accessStore.ListUserRoleScopes(ctx, saved.ID); scopeErr == nil {
+			saved.RoleScopes = scopes
+		}
+	}
 	dto := toUserAdminDTO(*saved)
-	s.auditMaster(ctx, start, actorUser, action, "User", userID, domain.OutcomeSuccess, "", requestID, ip)
+	if !atomicAudit {
+		s.auditMaster(ctx, start, actorUser, action, "User", userID, domain.OutcomeSuccess, "", requestID, ip)
+	}
 	return &dto, nil
 }
 
 func (s *Service) ResetUserPassword(ctx context.Context, claims *auth.Claims, userID, requestID, ip string) error {
 	start := time.Now()
-	actorUser, err := s.requireAdminAudit(ctx, claims, start, domain.ActionUserResetPassword, "User", userID, requestID, ip)
+	actorUser, err := s.requireAdminPermissionAudit(ctx, claims, domain.PermAdminUser, start, domain.ActionUserResetPassword, "User", userID, requestID, ip)
 	if err != nil {
 		return err
 	}
@@ -957,12 +1464,46 @@ func (s *Service) ResetUserPassword(ctx context.Context, claims *auth.Claims, us
 		s.auditMasterErr(ctx, start, actorUser, domain.ActionUserResetPassword, "User", userID, requestID, ip, e)
 		return e
 	}
-	if err := s.Master.ResetPassword(ctx, userID, seed.DemoPasswordHash, actorUser.ID, s.now().UTC()); err != nil {
+	target, findErr := s.Users.FindByID(ctx, userID)
+	if errors.Is(findErr, port.ErrNotFound) {
+		e := notFound()
+		s.auditMasterErr(ctx, start, actorUser, domain.ActionUserResetPassword, "User", userID, requestID, ip, e)
+		return e
+	}
+	if findErr != nil {
+		return findErr
+	}
+	if target.CannotModifyPassword {
+		e := &Error{Status: 409, Code: CodePasswordChangeNotAllowed, Message: "该账号禁止自行修改密码，无法强制改密"}
+		s.auditMasterErr(ctx, start, actorUser, domain.ActionUserResetPassword, "User", userID, requestID, ip, e)
+		return e
+	}
+	at := s.now().UTC()
+	atomicAudit := false
+	if atomicStore, ok := s.Master.(port.AtomicPasswordResetStore); ok {
+		auditID, idErr := randomAuditID()
+		if idErr != nil {
+			return idErr
+		}
+		event := domain.AuditEvent{
+			ID: auditID, OccurredAt: at, ActorID: actorUser.ID,
+			ActorRoles: strings.Join(actorUser.RoleCodes(), ","), Action: domain.ActionUserResetPassword,
+			ResourceType: "User", ResourceID: userID, Outcome: domain.OutcomeSuccess,
+			RequestID: requestID, ClientIP: ip, DurationMS: time.Since(start).Milliseconds(),
+		}
+		err = atomicStore.ResetPasswordWithAudit(ctx, userID, seed.DemoPasswordHash, actorUser.ID, event)
+		atomicAudit = true
+	} else {
+		err = s.Master.ResetPassword(ctx, userID, seed.DemoPasswordHash, actorUser.ID, at)
+	}
+	if err != nil {
 		mapped := mapUserWrite(err)
 		s.auditMasterErr(ctx, start, actorUser, domain.ActionUserResetPassword, "User", userID, requestID, ip, mapped)
 		return mapped
 	}
-	s.auditMaster(ctx, start, actorUser, domain.ActionUserResetPassword, "User", userID, domain.OutcomeSuccess, "", requestID, ip)
+	if !atomicAudit {
+		s.auditMaster(ctx, start, actorUser, domain.ActionUserResetPassword, "User", userID, domain.OutcomeSuccess, "", requestID, ip)
+	}
 	return nil
 }
 
@@ -1040,22 +1581,51 @@ func (s *Service) loadCatalog(ctx context.Context, id string) (*domain.CatalogIt
 }
 
 func (s *Service) requireAdmin(ctx context.Context, claims *auth.Claims) (*domain.User, error) {
+	return s.requireAdminPermission(ctx, claims, domain.PermAdminAll)
+}
+
+// requireOutpatientMasterRead gates the reference data used by outpatient
+// workstations without granting any system-settings maintenance capability.
+// The existing outpatient permissions are the source of truth for the read
+// use cases: registration staff need encounter permissions, while clinicians
+// need order/diagnosis permissions. Access administrators also need the
+// department/doctor lists to edit role scopes; those admin permissions grant
+// read-only reference access, while writes remain protected by admin:*.
+// Non-admin callers are restricted to active rows by the list methods above.
+func (s *Service) requireOutpatientMasterRead(ctx context.Context, claims *auth.Claims, permissions ...string) (*domain.User, error) {
 	user, err := s.actor(ctx, claims)
 	if err != nil {
 		return nil, err
 	}
-	if !hasPerm(user, domain.PermAdminAll) {
+	if hasPerm(user, domain.PermAdminAll) ||
+		hasAnyPermModule(user, "master", domain.PermAdminUser, domain.PermAdminRole, domain.PermAdminPermission) ||
+		hasAnyPermModule(user, "outpatient", permissions...) {
+		return user, nil
+	}
+	return nil, forbidden()
+}
+
+func (s *Service) requireAdminPermission(ctx context.Context, claims *auth.Claims, permission string) (*domain.User, error) {
+	user, err := s.actor(ctx, claims)
+	if err != nil {
+		return nil, err
+	}
+	if !hasPerm(user, permission) {
 		return nil, forbidden()
 	}
 	return user, nil
 }
 
 func (s *Service) requireAdminAudit(ctx context.Context, claims *auth.Claims, start time.Time, action, resourceType, resourceID, requestID, ip string) (*domain.User, error) {
+	return s.requireAdminPermissionAudit(ctx, claims, domain.PermAdminAll, start, action, resourceType, resourceID, requestID, ip)
+}
+
+func (s *Service) requireAdminPermissionAudit(ctx context.Context, claims *auth.Claims, permission string, start time.Time, action, resourceType, resourceID, requestID, ip string) (*domain.User, error) {
 	user, err := s.actor(ctx, claims)
 	if err != nil {
 		return nil, err
 	}
-	if !hasPerm(user, domain.PermAdminAll) {
+	if !hasPerm(user, permission) {
 		e := forbidden()
 		s.auditMaster(ctx, start, user, action, resourceType, resourceID, domain.OutcomeFail, e.Code, requestID, ip)
 		return nil, e
@@ -1337,11 +1907,76 @@ func normalizeUserCreate(in CreateUserInput) (username, display string, roles []
 			fields = addField(fields, "status")
 		}
 	}
-	parsed, ok := parseRoles(in.Roles)
-	if !ok {
-		fields = addField(fields, "roles")
+	return username, display, []domain.Role{}, status, fields
+}
+
+func (s *Service) parseAssignableRoles(ctx context.Context, in []string) ([]domain.Role, bool) {
+	if in == nil {
+		return []domain.Role{}, true
 	}
-	return username, display, parsed, status, fields
+	if s.Master == nil {
+		return parseRoles(in)
+	}
+	store, ok := s.Master.(port.AccessStore)
+	if !ok || store == nil {
+		return parseRoles(in)
+	}
+	rows, err := store.ListAccessRoles(ctx)
+	if err != nil {
+		return nil, false
+	}
+	valid := make(map[string]bool, len(rows))
+	for _, role := range rows {
+		if role.Status == domain.StatusActive {
+			valid[strings.ToUpper(role.Code)] = true
+		}
+	}
+	seen := make(map[string]bool, len(in))
+	roles := make([]domain.Role, 0, len(in))
+	for _, raw := range in {
+		code := strings.ToUpper(strings.TrimSpace(raw))
+		if code == "" || len(code) > 32 || !valid[code] {
+			return nil, false
+		}
+		if !seen[code] {
+			seen[code] = true
+			roles = append(roles, domain.Role(code))
+		}
+	}
+	return roles, true
+}
+
+func (s *Service) hasAdminPermissionRole(ctx context.Context, codes []string) (bool, error) {
+	if len(codes) == 0 {
+		return false, nil
+	}
+	wanted := make(map[string]bool, len(codes))
+	for _, code := range codes {
+		wanted[strings.ToUpper(strings.TrimSpace(code))] = true
+	}
+	if store, ok := s.Master.(port.AccessStore); ok && store != nil {
+		roles, err := store.ListAccessRoles(ctx)
+		if err != nil {
+			return false, err
+		}
+		for _, role := range roles {
+			if wanted[strings.ToUpper(role.Code)] && roleHasAdminPermission(role) {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+	for role := range domain.RolePermissions {
+		if !wanted[strings.ToUpper(string(role))] {
+			continue
+		}
+		for _, permission := range domain.RolePermissions[role] {
+			if isAdminPermissionCode(permission) {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
 }
 
 func parseRoles(in []string) ([]domain.Role, bool) {
@@ -1364,6 +1999,91 @@ func parseRoles(in []string) ([]domain.Role, bool) {
 		}
 	}
 	return out, true
+}
+
+func hasRoleCode(codes []string, want string) bool {
+	for _, code := range codes {
+		if strings.EqualFold(strings.TrimSpace(code), want) {
+			return true
+		}
+	}
+	return false
+}
+
+func boolDefault(v *bool, fallback bool) bool {
+	if v == nil {
+		return fallback
+	}
+	return *v
+}
+
+func validateUserProfile(description, cardNo, inputCode string) []string {
+	var fields []string
+	if utf8.RuneCountInString(strings.TrimSpace(description)) > 512 {
+		fields = addField(fields, "description")
+	}
+	if len(strings.TrimSpace(cardNo)) > 64 {
+		fields = addField(fields, "cardNo")
+	}
+	if len(strings.TrimSpace(inputCode)) > 64 {
+		fields = addField(fields, "inputCode")
+	}
+	return fields
+}
+
+func validateAdminPassword(password string) []string {
+	if strings.TrimSpace(password) == "" {
+		return nil
+	}
+	if len(password) < 8 || len(password) > 72 {
+		return []string{"password"}
+	}
+	return nil
+}
+
+func hasDeveloperOnlyUserCreateFields(in CreateUserInput) bool {
+	return boolDefault(in.Hidden, false) || boolDefault(in.System, false) || boolDefault(in.Developer, false)
+}
+
+func hasDeveloperOnlyUserPatchFields(in PatchUserInput) bool {
+	return in.Hidden != nil || in.System != nil || in.Developer != nil
+}
+
+func canManageProtectedUsers(actor *domain.User) bool {
+	return actor != nil && (actor.Developer || actor.Super)
+}
+
+func canEditDeveloperFlags(actor *domain.User) bool {
+	return actor != nil && actor.Developer
+}
+
+func canEditSuperFlag(actor *domain.User) bool {
+	return actor != nil && (actor.Developer || actor.Super)
+}
+
+func canManageSystemAccess(actor *domain.User) bool {
+	return actor != nil && (actor.Developer || actor.Super || actor.HasSystemRole())
+}
+
+func isProtectedUser(target *domain.User) bool {
+	return target != nil && (target.System || target.Super || target.Developer || target.Hidden)
+}
+
+func sameUserAuthorization(a, b *domain.User) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	if a.Status != b.Status || a.AccountLocked != b.AccountLocked || a.AccountStopped != b.AccountStopped ||
+		a.MustChangePassword != b.MustChangePassword || a.CannotModifyPassword != b.CannotModifyPassword ||
+		a.Hidden != b.Hidden || a.System != b.System || a.Super != b.Super || a.Developer != b.Developer || len(a.Roles) != len(b.Roles) {
+		return false
+	}
+	for i := range a.Roles {
+		if a.Roles[i] != b.Roles[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func mergeControlled(flag, alt *bool, fallback bool) (bool, bool) {
@@ -1492,9 +2212,78 @@ func mapUserWrite(err error) error {
 		return notFound()
 	case errors.Is(err, port.ErrDuplicateUsername):
 		return &Error{Status: 409, Code: CodeUsernameDuplicate, Message: msgUsernameDuplicate}
+	case errors.Is(err, port.ErrLastSystemAdmin):
+		return &Error{Status: 409, Code: CodeLastSystemAdmin, Message: msgLastSystemAdmin}
+	case errors.Is(err, port.ErrAuditUnavailable):
+		return &Error{Status: 503, Code: CodeAuditUnavailable, Message: msgAuditUnavailable, Details: map[string]any{"retryable": true}}
+	case errors.Is(err, port.ErrUserAdminBusy):
+		return &Error{Status: 503, Code: CodeUserAdminBusy, Message: msgUserAdminBusy, Details: map[string]any{"retryable": true}}
+	case errors.Is(err, port.ErrDuplicateUserRoleScope):
+		return &Error{Status: 409, Code: "ROLE_SCOPE_CONFLICT", Message: "用户角色科室范围已被并发修改，请刷新后重试", Details: map[string]any{"retryable": true}}
+	case errors.Is(err, port.ErrInvalidUserRoleScope):
+		return validationFields([]string{"roleScopes"})
 	default:
 		return err
 	}
+}
+
+func normalizeAndValidateRoleScopes(ctx context.Context, master port.MasterStore, access port.AccessStore, userID string, assignedRoles []string, input []UserRoleScopeInput) ([]domain.UserRoleScope, []string, error) {
+	roles, err := access.ListAccessRoles(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	knownRoles := make(map[string]bool, len(roles))
+	for _, role := range roles {
+		if role.Status == domain.StatusActive {
+			knownRoles[role.Code] = true
+		}
+	}
+	assigned := make(map[string]bool, len(assignedRoles))
+	for _, role := range assignedRoles {
+		assigned[strings.ToUpper(strings.TrimSpace(role))] = true
+	}
+	departments, err := master.ListDepartments(ctx, port.DepartmentQuery{})
+	if err != nil {
+		return nil, nil, err
+	}
+	departmentStatus := make(map[string]string, len(departments))
+	for _, department := range departments {
+		departmentStatus[department.DepartmentID] = department.Status
+	}
+
+	fields := make([]string, 0)
+	rows := make([]domain.UserRoleScope, 0, len(input))
+	seen := make(map[string]bool, len(input))
+	for i, item := range input {
+		roleCode := strings.ToUpper(strings.TrimSpace(item.RoleCode))
+		departmentID := strings.TrimSpace(item.DepartmentID)
+		status := strings.ToUpper(strings.TrimSpace(item.Status))
+		prefix := "roleScopes[" + strconv.Itoa(i) + "]."
+		if roleCode == "" || !knownRoles[roleCode] || !assigned[roleCode] {
+			fields = addField(fields, prefix+"roleCode")
+		}
+		if departmentID == "" || departmentStatus[departmentID] == "" || status == domain.StatusActive && departmentStatus[departmentID] != domain.StatusActive {
+			fields = addField(fields, prefix+"departmentId")
+		}
+		if status != domain.StatusActive && status != domain.StatusDisabled {
+			fields = addField(fields, prefix+"status")
+		}
+		key := roleCode + "\x00" + departmentID
+		if seen[key] {
+			fields = addField(fields, prefix+"departmentId")
+		}
+		seen[key] = true
+		rows = append(rows, domain.UserRoleScope{UserID: userID, RoleCode: roleCode, DepartmentID: departmentID, Status: status})
+	}
+	return rows, fields, nil
+}
+
+func roleCodes(roles []domain.Role) []string {
+	codes := make([]string, 0, len(roles))
+	for _, role := range roles {
+		codes = append(codes, string(role))
+	}
+	return codes
 }
 
 func toDepartmentDTO(d domain.Department) DepartmentDTO {
@@ -1537,9 +2326,22 @@ func toUserAdminDTO(u domain.User) UserAdminDTO {
 	if roles == nil {
 		roles = []string{}
 	}
+	roleScopes := make([]UserRoleScopeDTO, 0, len(u.RoleScopes))
+	for _, scope := range u.RoleScopes {
+		roleScopes = append(roleScopes, UserRoleScopeDTO{RoleCode: scope.RoleCode, DepartmentID: scope.DepartmentID, Status: scope.Status})
+	}
 	return UserAdminDTO{
-		UserID: u.ID, Username: u.Username, LoginName: u.Username, DisplayName: u.DisplayName, Status: u.Status, Roles: roles,
-		CreatedAt: formatMasterTime(u.CreatedAt), UpdatedAt: formatMasterTime(u.UpdatedAt),
+		UserID: u.ID, Username: u.Username, LoginName: u.Username, DisplayName: u.DisplayName,
+		Description: u.Description, CardNo: u.CardNo, InputCode: u.InputCode, ServiceStar: cloneInt(u.ServiceStar),
+		ExpandInterface1: cloneInt32(u.ExpandInterface1), ExpandInterface2: cloneInt32(u.ExpandInterface2),
+		InputCodeCompareMode: cloneInt32(u.InputCodeCompareMode), Status: u.Status, Roles: roles, RoleScopes: roleScopes,
+		MustChangePassword: u.MustChangePassword, CannotModifyPassword: u.CannotModifyPassword,
+		AccountLocked: u.AccountLocked, AccountStopped: u.AccountStopped, Hidden: u.Hidden,
+		System: u.System, Super: u.Super, Developer: u.Developer,
+		LastLoginAt: formatMasterTime(u.LastLoginAt), LastLoginIP: u.LastLoginIP,
+		LockUntil: formatMasterTime(u.LockUntil), PasswordChangedAt: formatMasterTime(u.PasswordChangedAt),
+		FailedLoginCount: u.FailedLoginCount,
+		CreatedAt:        formatMasterTime(u.CreatedAt), UpdatedAt: formatMasterTime(u.UpdatedAt),
 	}
 }
 

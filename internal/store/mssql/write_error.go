@@ -26,7 +26,8 @@ func classifyWriteError(err error) error {
 			msg = msErr.Message + " " + msg
 		}
 	}
-	if strings.Contains(msg, "ux_patient_") {
+	msg = strings.ToLower(msg)
+	if strings.Contains(msg, "ux_patient_") || strings.Contains(msg, "pk_access_permission") || strings.Contains(msg, "pk_access_module") || strings.Contains(msg, "pk_permission_category") || strings.Contains(msg, "pk_permission_mode") || strings.Contains(msg, "ux_access_module_code") || strings.Contains(msg, "pk_user_role_scope") {
 		dup = true
 	}
 	if !dup {
@@ -57,6 +58,14 @@ func classifyWriteError(err error) error {
 		return port.ErrDuplicateUsername
 	case strings.Contains(msg, "ux_dict_item_type_code"):
 		return port.ErrDuplicateDictCode
+	case strings.Contains(msg, "pk_access_permission"), strings.Contains(msg, "dbo.access_permission"):
+		return port.ErrDuplicateAccessPermission
+	case strings.Contains(msg, "pk_user_role_scope"):
+		return port.ErrDuplicateUserRoleScope
+	case strings.Contains(msg, "pk_access_module"), strings.Contains(msg, "pk_permission_category"), strings.Contains(msg, "pk_permission_mode"), strings.Contains(msg, "ux_access_module_code"), strings.Contains(msg, "dbo.access_module"), strings.Contains(msg, "dbo.permission_category"), strings.Contains(msg, "dbo.permission_mode"):
+		return port.ErrDuplicateAccessCatalog
+	case strings.Contains(msg, "dbo.access_role"):
+		return port.ErrDuplicateUsername
 	default:
 		return err
 	}

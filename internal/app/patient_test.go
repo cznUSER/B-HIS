@@ -9,6 +9,7 @@ import (
 
 	"github.com/cznUSER/B-HIS/internal/auth"
 	"github.com/cznUSER/B-HIS/internal/domain"
+	"github.com/cznUSER/B-HIS/internal/port"
 	"github.com/cznUSER/B-HIS/internal/store/memory"
 	"github.com/cznUSER/B-HIS/internal/store/seed"
 )
@@ -41,6 +42,53 @@ func validInput() CreatePatientInput {
 		Name: "张三", Sex: "M", Birthday: "1990-01-15", FareIdentity: "SELF",
 		IDType: "ID_CARD", IDNumber: "110101199001151234", Phone: "13800000000",
 		Address: strPtr("上海市浦东新区示例路 1 号"),
+	}
+}
+
+func TestCreatePatientDetailedFieldsRoundTrip(t *testing.T) {
+	svc, _ := newPatientSvc(t)
+	in := validInput()
+	in.CardNo = "C-20261017"
+	in.MemberCardNo = "M-1001"
+	in.MemberLevel = "普通会员"
+	in.ContractUnit = "示范单位"
+	in.PatientCertificateNo = "病人证-001"
+	in.BirthPlace = "山西省太原市"
+	in.Ethnicity = "汉族"
+	in.Nationality = "中国"
+	in.MaritalStatus = "已婚"
+	in.OccupationCategory = "专业技术人员"
+	in.Occupation = "医生"
+	in.Education = "本科"
+	in.WorkUnit = "示范医院"
+	in.WorkUnitPhone = "03511234567"
+	in.WorkUnitPostcode = "030000"
+	in.HouseholdAddress = "山西省太原市小店区"
+	in.HouseholdPhone = "03517654321"
+	in.HouseholdPostcode = "030012"
+	in.ContactName = "李四"
+	in.ContactAddress = "太原市示范路"
+	in.ContactPhone = "13900000000"
+	in.ContactRelation = "配偶"
+
+	dto, err := svc.CreatePatient(context.Background(), systemClaims(), in, "req-details", "127.0.0.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertDetailedPatientDTO(t, *dto)
+	loaded, err := svc.GetPatient(context.Background(), systemClaims(), dto.PatientID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertDetailedPatientDTO(t, *loaded)
+}
+
+func assertDetailedPatientDTO(t *testing.T, dto PatientDTO) {
+	t.Helper()
+	got := []string{dto.CardNo, dto.IDType, dto.MemberCardNo, dto.MemberLevel, dto.ContractUnit, dto.PatientCertificateNo, dto.BirthPlace, dto.Ethnicity, dto.Nationality, dto.MaritalStatus, dto.OccupationCategory, dto.Occupation, dto.Education, dto.WorkUnit, dto.WorkUnitPhone, dto.WorkUnitPostcode, dto.HouseholdAddress, dto.HouseholdPhone, dto.HouseholdPostcode, dto.ContactName, dto.ContactAddress, dto.ContactPhone, dto.ContactRelation}
+	want := []string{"C-20261017", "ID_CARD", "M-1001", "普通会员", "示范单位", "病人证-001", "山西省太原市", "汉族", "中国", "已婚", "专业技术人员", "医生", "本科", "示范医院", "03511234567", "030000", "山西省太原市小店区", "03517654321", "030012", "李四", "太原市示范路", "13900000000", "配偶"}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("detailed patient fields got %v want %v", got, want)
 	}
 }
 
@@ -259,6 +307,40 @@ func TestPatientSearchGetAndAuthz(t *testing.T) {
 	}
 }
 
+func TestCreatePatientWithScopedOutpatientPermission(t *testing.T) {
+	svc, st := newPatientSvc(t)
+	svc.Master = st
+	ctx := context.Background()
+	user := domain.User{
+		ID: "scoped-patient-registrar", Username: "scoped-patient-registrar", DisplayName: "范围挂号员",
+		Roles: []domain.Role{domain.RoleRegistrar}, Status: domain.StatusActive,
+	}
+	st.Add(user)
+	if err := st.ReplaceUserRoleScopes(ctx, user.ID, []domain.UserRoleScope{{
+		UserID: user.ID, RoleCode: string(domain.RoleRegistrar), DepartmentID: "dept-1", Status: domain.StatusActive,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	claims := &auth.Claims{Roles: []string{string(domain.RoleRegistrar)}}
+	claims.Subject = user.ID
+	in := validInput()
+	in.IDNumber = "110101199001151240"
+	if _, err := svc.CreatePatient(ctx, claims, in, "req-scoped-active", "127.0.0.1"); err != nil {
+		t.Fatalf("active scoped registrar create: %v", err)
+	}
+	if err := st.ReplaceUserRoleScopes(ctx, user.ID, []domain.UserRoleScope{{
+		UserID: user.ID, RoleCode: string(domain.RoleRegistrar), DepartmentID: "dept-1", Status: domain.StatusDisabled,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	in.IDNumber = "110101199001151241"
+	_, err := svc.CreatePatient(ctx, claims, in, "req-scoped-disabled", "127.0.0.1")
+	var ae *Error
+	if !errors.As(err, &ae) || ae.Status != 403 || ae.Code != CodeForbidden {
+		t.Fatalf("disabled scoped registrar create: %v", err)
+	}
+}
+
 func TestCreatePatientIdempotency(t *testing.T) {
 	svc, _ := newPatientSvc(t)
 	ctx := context.Background()
@@ -282,5 +364,39 @@ func TestCreatePatientIdempotency(t *testing.T) {
 	var ae *Error
 	if !errors.As(err, &ae) || ae.Status != 409 || ae.Code != CodeIdempotencyConflict {
 		t.Fatalf("conflict: %v", err)
+	}
+	changed = in
+	changed.MemberLevel = "金卡"
+	_, err = svc.CreatePatient(ctx, systemClaims(), changed, "req-i4", "127.0.0.1")
+	if !errors.As(err, &ae) || ae.Status != 409 || ae.Code != CodeIdempotencyConflict {
+		t.Fatalf("detailed field change must conflict: %v", err)
+	}
+}
+
+func TestCreatePatientIdempotencySurvivesServiceRestart(t *testing.T) {
+	store := memory.New()
+	firstService := &Service{Users: store, Audit: store, Patients: store, Now: func() time.Time { return patientClock }}
+	in := validInput()
+	in.IdempotencyKey = "restart-patient-1"
+	first, err := firstService.CreatePatient(context.Background(), systemClaims(), in, "req-restart-1", "127.0.0.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	secondService := &Service{Users: store, Audit: store, Patients: store, Now: func() time.Time { return patientClock }}
+	second, err := secondService.CreatePatient(context.Background(), systemClaims(), in, "req-restart-2", "127.0.0.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.PatientID != first.PatientID {
+		t.Fatalf("restart replay patient = %s, want %s", second.PatientID, first.PatientID)
+	}
+
+	rows, err := store.Search(context.Background(), port.PatientQuery{IDNumber: in.IDNumber, Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("patient rows after restart replay = %d, want 1", len(rows))
 	}
 }

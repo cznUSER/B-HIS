@@ -6,11 +6,43 @@
 
 import { apiError } from './errors.js'
 import { assertLoginRequest, assertLoginResponse, assertUserDto } from './contract.js'
-import { loginAccountFromMaster } from '../master/store.js'
+import { changeUserPassword, loginAccountFromMaster } from '../master/store.js'
+import { mockAccessForUser } from '../master/api.js'
 
 const REVOKED_KEY = 'bhis.revoked.v1'
 const TOKEN_TTL_SECONDS = 28800
 const FAILURE_LIMIT = 5
+
+function permissionsForRoles(roles = []) {
+  const permissions = new Set()
+  for (const role of roles) {
+    if (role === 'SYSTEM') permissions.add('admin:*')
+    if (role === 'REGISTRAR') {
+      permissions.add('patient:create')
+      permissions.add('encounter:create')
+      permissions.add('encounter:check-in')
+      permissions.add('encounter:cancel')
+    }
+    if (role === 'DOCTOR') {
+      permissions.add('patient:create')
+      permissions.add('encounter:check-in')
+      permissions.add('diagnose:write')
+      permissions.add('order:submit')
+    }
+    if (role === 'CASHIER') {
+      permissions.add('patient:create')
+      permissions.add('charge:pay')
+      permissions.add('charge:refund')
+    }
+    if (role === 'PHARMACIST') {
+      permissions.add('order:recipe-check')
+      permissions.add('dispense:create')
+      permissions.add('dispense:return')
+      permissions.add('inventory:read')
+    }
+  }
+  return [...permissions].sort()
+}
 
 const ACCOUNTS = {
   system: {
@@ -21,6 +53,8 @@ const ACCOUNTS = {
       username: 'system',
       displayName: '系统管理员',
       roles: ['SYSTEM'],
+      mustChangePassword: false,
+      cannotModifyPassword: false,
     },
   },
   disabled: {
@@ -31,6 +65,8 @@ const ACCOUNTS = {
       username: 'disabled',
       displayName: '已停用账号',
       roles: ['REGISTRAR'],
+      mustChangePassword: false,
+      cannotModifyPassword: false,
     },
   },
 }
@@ -80,6 +116,14 @@ function issueToken(user) {
     username: user.username,
     displayName: user.displayName,
     roles: user.roles,
+    permissions: user.permissions,
+    scopes: user.scopes,
+    deniedPermissions: user.deniedPermissions,
+    accessControlLoaded: user.accessControlLoaded === true,
+    super: user.super === true,
+    developer: user.developer === true,
+    mustChangePassword: user.mustChangePassword === true,
+    cannotModifyPassword: user.cannotModifyPassword === true,
     iat: now,
     exp: now + TOKEN_TTL_SECONDS,
     jti: crypto.randomUUID(),
@@ -149,7 +193,8 @@ export function mockLogin(request) {
   }
 
   failureCount.delete(username)
-  const user = assertUserDto(account.user)
+  const access = mockAccessForUser(account.user)
+  const user = assertUserDto({ ...account.user, ...access, accessControlLoaded: true })
   return assertLoginResponse({
     accessToken: issueToken(user),
     tokenType: 'Bearer',
@@ -165,12 +210,41 @@ export function mockLogout(accessToken) {
   writeRevoked(revoked)
 }
 
+export function mockChangePassword(accessToken, request) {
+  const payload = readToken(accessToken)
+  if (!payload.mustChangePassword) {
+    throw apiError(403, 'PASSWORD_CHANGE_REQUIRED', '当前账号没有待完成的密码重置')
+  }
+  if (payload.cannotModifyPassword) {
+    throw apiError(403, 'PASSWORD_CHANGE_NOT_ALLOWED', '当前账号不允许自行修改密码')
+  }
+  changeUserPassword(payload.sub, request.currentPassword, request.newPassword)
+  const revoked = readRevoked()
+  revoked.add(payload.jti)
+  writeRevoked(revoked)
+}
+
 export function mockMe(accessToken) {
   const payload = readToken(accessToken)
-  return assertUserDto({
+  const account = loginAccountFromMaster(payload.username)
+  const currentUser = account?.user || {
     id: payload.sub,
     username: payload.username,
     displayName: payload.displayName,
     roles: payload.roles,
+    mustChangePassword: payload.mustChangePassword === true,
+    cannotModifyPassword: payload.cannotModifyPassword === true,
+    super: payload.super === true,
+    developer: payload.developer === true,
+  }
+  const access = account ? mockAccessForUser(currentUser) : {
+    permissions: Array.isArray(payload.permissions) ? payload.permissions : permissionsForRoles(payload.roles),
+    scopes: Array.isArray(payload.scopes) ? payload.scopes : [],
+    deniedPermissions: Array.isArray(payload.deniedPermissions) ? payload.deniedPermissions : [],
+  }
+  return assertUserDto({
+    ...currentUser,
+    ...access,
+    accessControlLoaded: account ? true : payload.accessControlLoaded === true,
   })
 }

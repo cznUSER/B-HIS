@@ -25,6 +25,6 @@ $env:GOARCH = "amd64"
 go build -o (Join-Path $Root "bin\b-his-host.exe") ./cmd/host
 
 Write-Host "Built bin\b-his-host.exe"
-Write-Host "Double-click it. Browser opens http://127.0.0.1:8080/login"
+Write-Host "Double-click it. Browser opens http://127.0.0.1:8888/login (API: 127.0.0.1:9999)"
 Write-Host "Demo account: system / 1"
 Write-Host "Optional: put config.local.yaml next to the exe (do not commit secrets)."

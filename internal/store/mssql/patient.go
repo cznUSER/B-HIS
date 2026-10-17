@@ -11,12 +11,15 @@ import (
 	"github.com/cznUSER/B-HIS/internal/port"
 )
 
-// SQL follows migrations/sqlserver/core/002_patient. Do not add columns here.
+// SQL follows migrations/sqlserver/core/002_patient and 016_patient_registration_detail.
 // Empty id_number / card_no are stored as NULL so the filtered unique indexes allow repeats.
 // Birthday ≤ today is enforced in the app; the table CHECK only requires birthday > 1900-01-01.
 
 const patientCols = `patient_id, hosp_pk_no, patient_no, card_no, name, sex, birthday,
-	id_type, id_number, phone, address, fare_identity, card_status, status, created_at`
+	id_type, id_number, phone, address, fare_identity, member_card_no, member_level, contract_unit,
+	patient_certificate_no, birth_place, ethnicity, nationality, marital_status, occupation_category,
+	occupation, education, work_unit, work_unit_phone, work_unit_postcode, household_address, household_phone, household_postcode,
+	contact_name, contact_address, contact_phone, contact_relation, card_status, status, created_at`
 
 func (s *Store) Create(ctx context.Context, p domain.Patient) error {
 	idNumber := nullIfEmpty(p.IDNumber)
@@ -53,35 +56,7 @@ func (s *Store) Create(ctx context.Context, p domain.Patient) error {
 	case "hosp":
 		return port.ErrDuplicateBusinessNo
 	}
-	_, err = s.db.ExecContext(ctx, `
-		INSERT INTO dbo.patient (
-			patient_id, hosp_pk_no, patient_no, card_no, name, sex, birthday,
-			id_type, id_number, phone, address, fare_identity, card_status, status,
-			created_at, created_by, updated_at, updated_by, is_deleted
-		) VALUES (
-			@patient_id, @hosp_pk_no, @patient_no, @card_no, @name, @sex, @birthday,
-			@id_type, @id_number, @phone, @address, @fare_identity, @card_status, @status,
-			@created_at, @created_by, @updated_at, @updated_by, 0
-		)`,
-		sql.Named("patient_id", p.PatientID),
-		sql.Named("hosp_pk_no", p.HospPkNo),
-		sql.Named("patient_no", nullIfEmpty(p.PatientNo)),
-		sql.Named("card_no", cardNo),
-		sql.Named("name", p.Name),
-		sql.Named("sex", nullIfEmpty(p.Sex)),
-		sql.Named("birthday", p.Birthday),
-		sql.Named("id_type", nullIfEmpty(p.IDType)),
-		sql.Named("id_number", idNumber),
-		sql.Named("phone", nullIfEmpty(p.Phone)),
-		sql.Named("address", nullIfEmpty(p.Address)),
-		sql.Named("fare_identity", nullIfEmpty(p.FareIdentity)),
-		sql.Named("card_status", p.CardStatus),
-		sql.Named("status", p.Status),
-		sql.Named("created_at", p.CreatedAt.UTC()),
-		sql.Named("created_by", nullIfEmpty(p.CreatedBy)),
-		sql.Named("updated_at", p.UpdatedAt.UTC()),
-		sql.Named("updated_by", nullIfEmpty(p.UpdatedBy)),
-	)
+	err = insertPatient(ctx, s.db, p)
 	if err != nil {
 		return classifyWriteError(err)
 	}
@@ -110,6 +85,7 @@ func (s *Store) Search(ctx context.Context, q port.PatientQuery) ([]domain.Patie
 	rows, err := s.db.QueryContext(ctx, `SELECT TOP (@limit) `+patientCols+`
 		FROM dbo.patient
 		WHERE is_deleted = 0
+		  AND (@patient_no IS NULL OR patient_no = @patient_no)
 		  AND (@card_no IS NULL OR card_no = @card_no)
 		  AND (@id_number IS NULL OR id_number = @id_number)
 		  AND (@hosp_pk_no IS NULL OR hosp_pk_no = @hosp_pk_no)
@@ -117,6 +93,7 @@ func (s *Store) Search(ctx context.Context, q port.PatientQuery) ([]domain.Patie
 		  AND (@address IS NULL OR address LIKE @address ESCAPE '\')
 		ORDER BY created_at, patient_id`,
 		sql.Named("limit", limit),
+		sql.Named("patient_no", nullIfEmpty(q.PatientNo)),
 		sql.Named("card_no", nullIfEmpty(q.CardNo)),
 		sql.Named("id_number", nullIfEmpty(q.IDNumber)),
 		sql.Named("hosp_pk_no", nullIfEmpty(q.HospPkNo)),
@@ -148,10 +125,18 @@ type scanner interface {
 func scanPatient(sc scanner) (*domain.Patient, error) {
 	var p domain.Patient
 	var patientNo, cardNo, sex, idType, idNumber, phone, address, fare sql.NullString
+	var memberCardNo, memberLevel, contractUnit, patientCertificateNo, birthPlace sql.NullString
+	var ethnicity, nationality, maritalStatus, occupationCategory, occupation, education sql.NullString
+	var workUnit, workUnitPhone, workUnitPostcode, householdAddress sql.NullString
+	var householdPhone, householdPostcode sql.NullString
+	var contactName, contactAddress, contactPhone, contactRelation sql.NullString
 	var birthday time.Time
 	if err := sc.Scan(
 		&p.PatientID, &p.HospPkNo, &patientNo, &cardNo, &p.Name, &sex, &birthday,
-		&idType, &idNumber, &phone, &address, &fare, &p.CardStatus, &p.Status, &p.CreatedAt,
+		&idType, &idNumber, &phone, &address, &fare, &memberCardNo, &memberLevel, &contractUnit,
+		&patientCertificateNo, &birthPlace, &ethnicity, &nationality, &maritalStatus, &occupationCategory,
+		&occupation, &education, &workUnit, &workUnitPhone, &workUnitPostcode, &householdAddress, &householdPhone, &householdPostcode,
+		&contactName, &contactAddress, &contactPhone, &contactRelation, &p.CardStatus, &p.Status, &p.CreatedAt,
 	); err != nil {
 		return nil, err
 	}
@@ -164,6 +149,27 @@ func scanPatient(sc scanner) (*domain.Patient, error) {
 	p.Phone = phone.String
 	p.Address = address.String
 	p.FareIdentity = fare.String
+	p.MemberCardNo = memberCardNo.String
+	p.MemberLevel = memberLevel.String
+	p.ContractUnit = contractUnit.String
+	p.PatientCertificateNo = patientCertificateNo.String
+	p.BirthPlace = birthPlace.String
+	p.Ethnicity = ethnicity.String
+	p.Nationality = nationality.String
+	p.MaritalStatus = maritalStatus.String
+	p.OccupationCategory = occupationCategory.String
+	p.Occupation = occupation.String
+	p.Education = education.String
+	p.WorkUnit = workUnit.String
+	p.WorkUnitPhone = workUnitPhone.String
+	p.WorkUnitPostcode = workUnitPostcode.String
+	p.HouseholdAddress = householdAddress.String
+	p.HouseholdPhone = householdPhone.String
+	p.HouseholdPostcode = householdPostcode.String
+	p.ContactName = contactName.String
+	p.ContactAddress = contactAddress.String
+	p.ContactPhone = contactPhone.String
+	p.ContactRelation = contactRelation.String
 	return &p, nil
 }
 

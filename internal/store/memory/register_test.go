@@ -102,3 +102,47 @@ func TestCheckInRegister(t *testing.T) {
 		}
 	}
 }
+
+func TestCompleteRegister(t *testing.T) {
+	st := New()
+	ctx := context.Background()
+	at := time.Date(2026, 10, 15, 9, 0, 0, 0, time.UTC)
+	insert := func(id, status string) {
+		t.Helper()
+		err := st.CreateRegister(ctx, domain.Register{
+			RegisterID: id, RegisterNo: id + "-no", PatientID: "patient-1", DepartmentID: "dept-1", DoctorID: "doc-1",
+			VisitDate: at, Status: status, RegisteredAt: at,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	insert("r-diagnosing", domain.RegisterStatusDiagnosing)
+	got, err := st.CompleteRegister(ctx, "r-diagnosing", "op-1", at)
+	if err != nil || got.Status != domain.RegisterStatusDiagnosed || got.UpdatedBy != "op-1" || !got.UpdatedAt.Equal(at) {
+		t.Fatalf("complete: got=%+v err=%v", got, err)
+	}
+	if _, err := st.CompleteRegister(ctx, "r-diagnosing", "op-2", at.Add(time.Minute)); !errors.Is(err, port.ErrRegisterNotComplete) {
+		t.Fatalf("second complete error = %v", err)
+	}
+	unchanged, err := st.GetRegister(ctx, "r-diagnosing")
+	if err != nil || unchanged.Status != domain.RegisterStatusDiagnosed || unchanged.UpdatedBy != "op-1" {
+		t.Fatalf("second complete changed row: %+v err=%v", unchanged, err)
+	}
+	if _, err := st.CompleteRegister(ctx, "missing", "op-1", at); !errors.Is(err, port.ErrNotFound) {
+		t.Fatalf("missing error = %v", err)
+	}
+	for _, status := range []string{domain.RegisterStatusNormal, domain.RegisterStatusUsed, domain.RegisterStatusBack, domain.RegisterStatusDiagnosed, domain.RegisterStatusPaused} {
+		id := "r-" + status
+		insert(id, status)
+		before, _ := st.GetRegister(ctx, id)
+		if _, err := st.CompleteRegister(ctx, id, "op-9", at); !errors.Is(err, port.ErrRegisterNotComplete) {
+			t.Fatalf("status %s error = %v", status, err)
+		}
+		after, _ := st.GetRegister(ctx, id)
+		if after.Status != before.Status || !after.UpdatedAt.Equal(before.UpdatedAt) || after.UpdatedBy != before.UpdatedBy {
+			t.Fatalf("status %s changed: before=%+v after=%+v", status, before, after)
+		}
+	}
+}

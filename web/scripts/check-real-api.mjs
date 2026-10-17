@@ -59,7 +59,7 @@ function mockOff() {
 function resolveBase() {
   const configured = String(process.env.VITE_API_BASE_URL || '/api/v1').trim()
   if (/^https?:\/\//i.test(configured)) return configured.replace(/\/+$/, '')
-  const proxy = String(process.env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8080').trim().replace(/\/+$/, '')
+  const proxy = String(process.env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:9999').trim().replace(/\/+$/, '')
   const suffix = configured.startsWith('/') ? configured : `/${configured}`
   return `${proxy}${suffix}`.replace(/\/+$/, '')
 }

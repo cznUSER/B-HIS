@@ -16,6 +16,10 @@ import (
 func (s *Store) CommitDispense(_ context.Context, d domain.Dispense) (*domain.Dispense, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.commitDispenseLocked(d)
+}
+
+func (s *Store) commitDispenseLocked(d domain.Dispense) (*domain.Dispense, error) {
 	if _, ok := s.dispenses[d.DispenseID]; ok {
 		return nil, port.ErrDuplicateBusinessNo
 	}
@@ -108,6 +112,10 @@ func (s *Store) CommitDispense(_ context.Context, d domain.Dispense) (*domain.Di
 func (s *Store) CommitReturn(_ context.Context, dispenseID, reason, operatorID string, at time.Time, lines []port.ReturnLine) (*domain.Dispense, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.commitReturnLocked(dispenseID, reason, operatorID, at, lines)
+}
+
+func (s *Store) commitReturnLocked(dispenseID, reason, operatorID string, at time.Time, lines []port.ReturnLine) (*domain.Dispense, error) {
 	stored, ok := s.dispenses[dispenseID]
 	if !ok || stored.IsDeleted {
 		return nil, port.ErrNotFound
@@ -187,6 +195,107 @@ func (s *Store) CommitReturn(_ context.Context, dispenseID, reason, operatorID s
 	return &out, nil
 }
 
+func (s *Store) CreateDispenseWithIdempotency(_ context.Context, d domain.Dispense, scope, key, requestHash string, expiresAt time.Time) (domain.Dispense, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	mapKey := idempotencyMapKey(scope, key)
+	now := time.Now().UTC()
+	if record, ok := s.idempotency[mapKey]; ok {
+		if !record.expiresAt.IsZero() && !now.Before(record.expiresAt) {
+			delete(s.idempotency, mapKey)
+		} else {
+			if record.requestHash != requestHash {
+				return domain.Dispense{}, false, port.ErrIdempotencyConflict
+			}
+			switch record.state {
+			case idempotencyPending:
+				return domain.Dispense{}, false, port.ErrIdempotencyInProgress
+			case idempotencyCompleted:
+				existing, ok := s.dispenses[record.resourceID]
+				if !ok || existing.IsDeleted {
+					return domain.Dispense{}, false, port.ErrNotFound
+				}
+				return cloneDispense(existing), true, nil
+			default:
+				return domain.Dispense{}, false, port.ErrIdempotencyInProgress
+			}
+		}
+	}
+	s.idempotency[mapKey] = idempotencyRecord{scope: scope, key: key, requestHash: requestHash, state: idempotencyPending, expiresAt: expiresAt.UTC()}
+	saved, err := s.commitDispenseLocked(d)
+	if err != nil {
+		delete(s.idempotency, mapKey)
+		return domain.Dispense{}, false, err
+	}
+	s.idempotency[mapKey] = idempotencyRecord{scope: scope, key: key, requestHash: requestHash, state: idempotencyCompleted, resourceID: saved.DispenseID, expiresAt: expiresAt.UTC()}
+	return cloneDispense(*saved), false, nil
+}
+
+func (s *Store) LookupDispenseIdempotency(_ context.Context, scope, key, requestHash string) (*domain.Dispense, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	mapKey := idempotencyMapKey(scope, key)
+	record, ok := s.idempotency[mapKey]
+	if !ok {
+		return nil, false, nil
+	}
+	if !record.expiresAt.IsZero() && !time.Now().UTC().Before(record.expiresAt) {
+		delete(s.idempotency, mapKey)
+		return nil, false, nil
+	}
+	if record.requestHash != requestHash {
+		return nil, false, port.ErrIdempotencyConflict
+	}
+	if record.state == idempotencyPending {
+		return nil, false, port.ErrIdempotencyInProgress
+	}
+	d, ok := s.dispenses[record.resourceID]
+	if !ok || d.IsDeleted {
+		return nil, false, port.ErrNotFound
+	}
+	out := cloneDispense(d)
+	return &out, true, nil
+}
+
+// ReturnDispenseWithIdempotency keeps the idempotency record and stock/ledger
+// return mutation under one memory lock. The original dispense is the replay
+// resource, so a service restart cannot apply the return twice.
+func (s *Store) ReturnDispenseWithIdempotency(_ context.Context, dispenseID, reason, operatorID string, at time.Time, lines []port.ReturnLine, scope, key, requestHash string, expiresAt time.Time) (domain.Dispense, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	mapKey := idempotencyMapKey(scope, key)
+	now := time.Now().UTC()
+	if record, ok := s.idempotency[mapKey]; ok {
+		if !record.expiresAt.IsZero() && !now.Before(record.expiresAt) {
+			delete(s.idempotency, mapKey)
+		} else {
+			if record.requestHash != requestHash {
+				return domain.Dispense{}, false, port.ErrIdempotencyConflict
+			}
+			switch record.state {
+			case idempotencyPending:
+				return domain.Dispense{}, false, port.ErrIdempotencyInProgress
+			case idempotencyCompleted:
+				existing, ok := s.dispenses[record.resourceID]
+				if !ok || existing.IsDeleted {
+					return domain.Dispense{}, false, port.ErrNotFound
+				}
+				return cloneDispense(existing), true, nil
+			default:
+				return domain.Dispense{}, false, port.ErrIdempotencyInProgress
+			}
+		}
+	}
+	s.idempotency[mapKey] = idempotencyRecord{scope: scope, key: key, requestHash: requestHash, state: idempotencyPending, expiresAt: expiresAt.UTC()}
+	saved, err := s.commitReturnLocked(dispenseID, reason, operatorID, at, lines)
+	if err != nil {
+		delete(s.idempotency, mapKey)
+		return domain.Dispense{}, false, err
+	}
+	s.idempotency[mapKey] = idempotencyRecord{scope: scope, key: key, requestHash: requestHash, state: idempotencyCompleted, resourceID: saved.DispenseID, expiresAt: expiresAt.UTC()}
+	return cloneDispense(*saved), false, nil
+}
+
 func (s *Store) GetDispense(_ context.Context, dispenseID string) (*domain.Dispense, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -239,6 +348,81 @@ func (s *Store) ListInventory(_ context.Context, itemNo string) ([]domain.Invent
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ItemNo < out[j].ItemNo })
 	return out, nil
+}
+
+func (s *Store) ListInventoryLedger(_ context.Context, query port.InventoryLedgerQuery) ([]domain.InventoryLedgerEntry, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	inventoryByID := make(map[string]domain.InventoryItem, len(s.inventory))
+	balances := make(map[string]int64, len(s.inventory))
+	for _, item := range s.inventory {
+		if item.IsDeleted {
+			continue
+		}
+		inventoryByID[item.SkuID] = item
+		balances[item.SkuID] = item.QtyOnHandMilli
+	}
+
+	all := make([]domain.InventoryLedgerEntry, 0, len(s.ledgers))
+	for _, ledger := range s.ledgers {
+		item, ok := inventoryByID[ledger.SkuID]
+		if !ok {
+			continue
+		}
+		operator := ledger.CreatedBy
+		if user, ok := s.byID[ledger.CreatedBy]; ok && user.DisplayName != "" {
+			operator = user.DisplayName
+		}
+		all = append(all, domain.InventoryLedgerEntry{
+			InventoryLedger: ledger,
+			SkuCode:         item.ItemNo,
+			OperatorName:    operator,
+		})
+	}
+	sort.Slice(all, func(i, j int) bool {
+		if all[i].CreatedAt.Equal(all[j].CreatedAt) {
+			return all[i].LedgerID > all[j].LedgerID
+		}
+		return all[i].CreatedAt.After(all[j].CreatedAt)
+	})
+
+	for i := range all {
+		all[i].QtyAfterMilli = balances[all[i].SkuID]
+		balances[all[i].SkuID] -= all[i].QtyDeltaMilli
+	}
+
+	out := make([]domain.InventoryLedgerEntry, 0)
+	for _, row := range all {
+		if query.SkuCode != "" && row.SkuCode != query.SkuCode {
+			continue
+		}
+		if query.BizType != "" && row.BizType != query.BizType {
+			continue
+		}
+		createdAt := row.CreatedAt.UTC()
+		if query.HasFrom && createdAt.Before(query.FromAt) {
+			continue
+		}
+		if query.HasTo && !createdAt.Before(query.ToAt) {
+			continue
+		}
+		if query.HasCursor && !ledgerBeforeCursor(createdAt, row.LedgerID, query.CursorAt, query.CursorLedgerID) {
+			continue
+		}
+		out = append(out, row)
+		if query.Limit > 0 && len(out) >= query.Limit {
+			break
+		}
+	}
+	return out, nil
+}
+
+func ledgerBeforeCursor(createdAt time.Time, ledgerID string, cursorAt time.Time, cursorLedgerID string) bool {
+	if createdAt.Equal(cursorAt) {
+		return ledgerID < cursorLedgerID
+	}
+	return createdAt.Before(cursorAt)
 }
 
 func (s *Store) QtyOnHandMilli(ctx context.Context, itemNo string) (int64, error) {

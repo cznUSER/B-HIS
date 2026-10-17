@@ -104,7 +104,7 @@ export function resolveRegisterId(source) {
   return registerId || encounterId
 }
 
-function normalizeItems(rows) {
+function normalizeItems(rows, catalogRows = null) {
   const items = []
   for (const row of Array.isArray(rows) ? rows : []) {
     const current = row && typeof row === 'object' ? row : {}
@@ -116,7 +116,17 @@ function normalizeItems(rows) {
     const blank = !itemNo && amountBlank(current.amount) && !usageText && !frequencyText && !dosage && !dosageUnit
     if (blank) continue
     if (!itemNo) throw apiError(400, 'VALIDATION_ERROR', '请选择项目')
-    const catalog = findCatalogItem(itemNo)
+    // 2026-10-14: an unchanged loaded line owns its server response fields;
+    // a newly selected item has no matching snapshot and uses live catalog data.
+    const snapshot = current.sourceItem && current.sourceItem.itemNo === itemNo
+      && asText(current.sourceItem.itemName)
+      && asText(current.sourceItem.units)
+      && Number.isFinite(Number(current.sourceItem.price))
+      ? current.sourceItem
+      : null
+    const catalog = snapshot || (Array.isArray(catalogRows)
+      ? catalogRows.find((item) => item && item.itemNo === itemNo)
+      : findCatalogItem(itemNo))
     if (!catalog) throw apiError(409, 'CATALOG_ITEM_NOT_FOUND', '项目不在目录中')
     const amount = typeof current.amount === 'number' ? current.amount : Number(asText(String(current.amount ?? '')))
     if (!Number.isFinite(amount) || amount <= 0) throw apiError(409, 'ORDER_INVALID_AMOUNT', '数量必须大于 0')
@@ -161,20 +171,25 @@ function headerFields(source, request) {
   return request
 }
 
-export function assertCreateOrderRequest(input) {
+export function assertCreateOrderRequest(input, catalogRows = null) {
   const source = input && typeof input === 'object' ? input : {}
   const registerId = resolveRegisterId(source)
   if (!registerId) throw apiError(409, 'ENCOUNTER_REQUIRED', '请先挂号')
   const request = headerFields(source, {
     registerId,
     recipeSort: RECIPE_SORT,
-    items: normalizeItems(source.items),
+    items: normalizeItems(source.items, catalogRows),
   })
   if (asText(source.recipeSort)) request.recipeSort = asText(source.recipeSort)
   return request
 }
 
-export function assertPatchOrderRequest(input) {
+// 2026-10-14 P1-H05-WEB-USABILITY: real mode supplies the live master snapshot.
+export function assertCreateOrderRequestWithCatalog(input, catalogRows) {
+  return assertCreateOrderRequest(input, assertLiveCatalog(catalogRows))
+}
+
+export function assertPatchOrderRequest(input, catalogRows = null) {
   const source = input && typeof input === 'object' ? input : {}
   const request = headerFields(source, {})
   if (Object.prototype.hasOwnProperty.call(source, 'diagnoseName')) {
@@ -182,7 +197,7 @@ export function assertPatchOrderRequest(input) {
     if (diagnoseName.length > 80) throw apiError(400, 'VALIDATION_ERROR', '诊断简述过长')
     request.diagnoseName = diagnoseName
   }
-  if (Object.prototype.hasOwnProperty.call(source, 'items')) request.items = normalizeItems(source.items)
+  if (Object.prototype.hasOwnProperty.call(source, 'items')) request.items = normalizeItems(source.items, catalogRows)
   const registerId = asText(source.registerId)
   const encounterId = asText(source.encounterId)
   if (registerId && encounterId && registerId !== encounterId) {
@@ -191,6 +206,17 @@ export function assertPatchOrderRequest(input) {
   if (registerId) request.registerId = registerId
   else if (encounterId) request.registerId = encounterId
   return request
+}
+
+export function assertPatchOrderRequestWithCatalog(input, catalogRows) {
+  return assertPatchOrderRequest(input, assertLiveCatalog(catalogRows))
+}
+
+function assertLiveCatalog(rows) {
+  if (!Array.isArray(rows) || rows.some((item) => !item || !asText(item.itemNo) || !asText(item.itemName) || !asText(item.units) || !['DRUG', 'TREAT'].includes(item.itemType) || !Number.isFinite(item.price) || item.price < 0)) {
+    throw apiError(502, 'HTTP_ERROR', '项目目录无法读取')
+  }
+  return rows.filter((item) => item.status === 'ACTIVE')
 }
 
 function assertItemDto(raw, index) {

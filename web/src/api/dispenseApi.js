@@ -22,7 +22,7 @@ import {
   mockSearchPending,
   resetMockDispenses,
 } from './mockDispenses.js'
-import { findCatalogItem, assertOrderDto, assertOrderList } from './orderContract.js'
+import { assertOrderDto, assertOrderList } from './orderContract.js'
 import { fetchPatient, searchPatients } from './patientApi.js'
 import { assertPatientList, todayInShanghai } from './patientContract.js'
 
@@ -67,6 +67,12 @@ function text(value) {
 function numberOr(value, fallback) {
   const number = Number(value)
   return Number.isFinite(number) ? number : fallback
+}
+
+// 2026-10-14: only a valid zero-row response is an empty list.
+function listItems(body, label) {
+  if (!body || !Array.isArray(body.items)) throw apiError(500, 'HTTP_ERROR', `${label}响应无法读取`)
+  return body.items
 }
 
 function isUuid(value) {
@@ -124,7 +130,7 @@ async function getJson(path, accessToken) {
     headers: { Accept: JSON_ACCEPT, ...bearer(accessToken) },
   })
   if (response.status === 404) return null
-  if (!response.ok) throw presentDispenseError(await readErrorResponse(response))
+  if (!response.ok) throw presentDispenseError(await readErrorResponse(response, accessToken))
   return parseJson(response)
 }
 
@@ -140,7 +146,7 @@ async function postJson(path, accessToken, body, idempotencyKey, okStatus) {
     headers,
     body: JSON.stringify(body),
   })
-  if (response.status !== okStatus) throw presentDispenseError(await readErrorResponse(response))
+  if (response.status !== okStatus) throw presentDispenseError(await readErrorResponse(response, accessToken))
   return parseJson(response)
 }
 
@@ -180,8 +186,7 @@ async function listCharges(accessToken, query) {
     if (query[key]) params.set(key, query[key])
   }
   const body = await getJson(`/charges?${params.toString()}`, accessToken)
-  const items = body && Array.isArray(body.items) ? body.items : []
-  return items.map((item) => assertChargeDto(item))
+  return listItems(body, '收费列表').map((item) => assertChargeDto(item))
 }
 
 function dedupeBy(list, key) {
@@ -219,8 +224,7 @@ async function findPatients(accessToken, keyword) {
 
 async function listRegisters(accessToken, registerNo) {
   const body = await getJson(`/registers?registerNo=${encodeURIComponent(registerNo)}`, accessToken)
-  const items = body && Array.isArray(body.items) ? body.items : []
-  return items
+  return listItems(body, '挂号列表')
     .map((item) => ({
       registerId: text(item && item.registerId),
       registerNo: text(item && item.registerNo),
@@ -230,12 +234,7 @@ async function listRegisters(accessToken, registerNo) {
 
 async function listOrdersByNo(accessToken, orderNo) {
   const body = await getJson(`/orders?orderNo=${encodeURIComponent(orderNo)}`, accessToken)
-  if (!body) return []
-  try {
-    return assertOrderList(body).items
-  } catch {
-    return []
-  }
+  return assertOrderList(body).items
 }
 
 async function chargesForPatients(accessToken, patients) {
@@ -256,17 +255,13 @@ async function chargesForUuid(accessToken, id) {
   found.push(...await listCharges(accessToken, { registerId: id, ...range }))
   const orderBody = await getJson(`/orders/${encodeURIComponent(id)}`, accessToken)
   if (orderBody) {
-    try {
-      const order = assertOrderDto(orderBody)
-      const rows = await listCharges(accessToken, {
-        patientId: order.patientId,
-        registerId: order.registerId,
-        ...range,
-      })
-      found.push(...rows.filter((row) => row.orderId === order.orderId))
-    } catch {
-      // 不是处方号时忽略，待发仍可由收费单命中。
-    }
+    const order = assertOrderDto(orderBody)
+    const rows = await listCharges(accessToken, {
+      patientId: order.patientId,
+      registerId: order.registerId,
+      ...range,
+    })
+    found.push(...rows.filter((row) => row.orderId === order.orderId))
   }
   return dedupeBy(found, 'chargeId')
 }
@@ -320,24 +315,14 @@ function loadRegister(accessToken, registerId, cache) {
 function loadOrder(accessToken, orderId, cache) {
   return remember(cache.order, orderId, async () => {
     const body = await getJson(`/orders/${encodeURIComponent(orderId)}`, accessToken)
-    if (!body) return null
-    try {
-      return assertOrderDto(body)
-    } catch {
-      return null
-    }
+    return assertOrderDto(body)
   })
 }
 
 function loadCharge(accessToken, chargeId, cache) {
   return remember(cache.charge, chargeId, async () => {
     const body = await getJson(`/charges/${encodeURIComponent(chargeId)}`, accessToken)
-    if (!body) return null
-    try {
-      return assertChargeDto(body)
-    } catch {
-      return null
-    }
+    return assertChargeDto(body)
   })
 }
 
@@ -346,10 +331,10 @@ async function loadStock(accessToken) {
     method: 'GET',
     headers: { Accept: JSON_ACCEPT, ...bearer(accessToken) },
   })
-  if (!response.ok) throw presentDispenseError(await readErrorResponse(response))
+  if (!response.ok) throw presentDispenseError(await readErrorResponse(response, accessToken))
   const body = await parseJson(response)
   const map = new Map()
-  const items = body && Array.isArray(body.items) ? body.items : []
+  const items = listItems(body, '库存列表')
   for (const item of items) {
     const row = item && typeof item === 'object' ? item : {}
     const code = text(row.itemNo) || text(row.skuCode)
@@ -363,8 +348,7 @@ async function fetchDispenseList(accessToken, params) {
   const query = params.toString()
   const path = query ? `${DISPENSE_ROUTES.collection}?${query}` : DISPENSE_ROUTES.collection
   const body = await getJson(path, accessToken)
-  const items = body && Array.isArray(body.items) ? body.items : []
-  return items.map((item) => assertDispenseDto(item))
+  return listItems(body, '发药列表').map((item) => assertDispenseDto(item))
 }
 
 function dispensesForCharge(accessToken, chargeId, cache) {
@@ -379,9 +363,7 @@ function drugMeta(order, chargeItem) {
   const match = items.find((item) => item.orderItemId && item.orderItemId === chargeItem.orderItemId)
     || items.find((item) => item.itemNo === chargeItem.itemNo)
   if (match) return match.itemType === 'DRUG' ? match : null
-  const catalog = findCatalogItem(chargeItem.itemNo)
-  if (catalog) return catalog.itemType === 'DRUG' ? catalog : null
-  return { itemNo: chargeItem.itemNo, spec: '', units: '' }
+  throw apiError(500, 'HTTP_ERROR', '处方与收费明细不一致，请刷新后重试')
 }
 
 function netForChargeItem(slips, chargeItemId) {
@@ -522,11 +504,10 @@ async function presentSlip(accessToken, dto, cache) {
   const charge = dto.chargeId ? await loadCharge(accessToken, dto.chargeId, cache) : null
   const items = dto.items.map((item) => {
     const orderLine = order && order.items.find((row) => row.orderItemId === item.orderItemId || row.itemNo === item.itemNo)
-    const catalog = findCatalogItem(item.itemNo)
     return {
       ...item,
-      spec: (orderLine && orderLine.spec) || (catalog && catalog.spec) || '',
-      units: item.units || (orderLine && orderLine.units) || (catalog && catalog.units) || '',
+      spec: (orderLine && orderLine.spec) || '',
+      units: item.units || (orderLine && orderLine.units) || '',
       returnableQty: round2(item.dispenseQty - item.returnedQty),
     }
   })
@@ -551,6 +532,23 @@ async function presentSlip(accessToken, dto, cache) {
     summary: items.map((item) => `${item.itemName} × ${formatQty(item.dispenseQty)}`).join('、'),
     lineDispenseStatus: aggregateStatus(items),
     status: dto.status,
+  }
+}
+
+// 2026-10-14 P1-H05-WEB-USABILITY: retain the successful write DTO if label reads fail.
+async function presentWrittenSlip(accessToken, dto, cache) {
+  try {
+    return await presentSlip(accessToken, dto, cache)
+  } catch {
+    const items = dto.items.map((item) => ({ ...item, returnableQty: round2(item.dispenseQty - item.returnedQty) }))
+    return {
+      ...dto,
+      operateAt: dto.dispensedAt,
+      items,
+      summary: items.map((item) => `${item.itemName || item.itemNo} × ${formatQty(item.dispenseQty)}`).join('、'),
+      lineDispenseStatus: aggregateStatus(items),
+      refreshWarning: '操作已成功，单据详情刷新失败，请重试刷新。',
+    }
   }
 }
 
@@ -644,16 +642,22 @@ export async function confirmDispense(accessToken, input) {
       })),
     }
     if (group.chargeId) payload.chargeId = group.chargeId
-    const body = await postJson(
-      DISPENSE_ROUTES.collection,
-      accessToken,
-      payload,
-      idempotencyKey(input, index, groups.length),
-      201,
-    )
-    slips.push(await presentSlip(accessToken, assertDispenseDto(body), cache))
+    try {
+      const body = await postJson(
+        DISPENSE_ROUTES.collection,
+        accessToken,
+        payload,
+        idempotencyKey(input, index, groups.length),
+        201,
+      )
+      slips.push(await presentWrittenSlip(accessToken, assertDispenseDto(body), cache))
+    } catch (error) {
+      // 2026-10-14: previous orders are already written; expose their receipts on a later failure.
+      if (slips.length) error.partialDispenses = slips
+      throw error
+    }
   }
-  return { ...slips[0], dispenses: slips }
+  return { ...slips[0], dispenses: slips, refreshWarning: slips.find((slip) => slip.refreshWarning)?.refreshWarning || '' }
 }
 
 export async function listDispenses(accessToken, input = {}) {
@@ -714,7 +718,7 @@ export async function fetchDispense(accessToken, dispenseId) {
     headers: { Accept: JSON_ACCEPT, ...bearer(accessToken) },
   })
   if (response.status === 404) throw apiError(404, 'NOT_FOUND', '未找到发药单')
-  if (!response.ok) throw presentDispenseError(await readErrorResponse(response))
+  if (!response.ok) throw presentDispenseError(await readErrorResponse(response, accessToken))
   return presentSlip(accessToken, assertDispenseDto(await parseJson(response)), newCache())
 }
 
@@ -751,7 +755,7 @@ export async function returnDispense(accessToken, input) {
     text(input.idempotencyKey) || crypto.randomUUID(),
     200,
   )
-  const slip = await presentSlip(accessToken, assertDispenseDto(body), newCache())
+  const slip = await presentWrittenSlip(accessToken, assertDispenseDto(body), newCache())
   return {
     ...slip,
     reason,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"math"
 	"time"
 
@@ -633,7 +634,7 @@ func scanDict(sc scanner) (*domain.DictItem, error) {
 
 func (s *Store) ListUsers(ctx context.Context, q port.UserQuery) ([]domain.User, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT user_id, username, display_name, status, created_at, updated_at
+		SELECT `+userAdminColumns+`
 		FROM dbo.app_user
 		WHERE is_deleted = 0
 		  AND (@status IS NULL OR status = @status)
@@ -648,8 +649,8 @@ func (s *Store) ListUsers(ctx context.Context, q port.UserQuery) ([]domain.User,
 	defer rows.Close()
 	out := make([]domain.User, 0)
 	for rows.Next() {
-		var u domain.User
-		if err := rows.Scan(&u.ID, &u.Username, &u.DisplayName, &u.Status, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		u, err := scanAdminUser(rows)
+		if err != nil {
 			return nil, err
 		}
 		roles, err := loadRoles(ctx, s.db, u.ID)
@@ -657,37 +658,62 @@ func (s *Store) ListUsers(ctx context.Context, q port.UserQuery) ([]domain.User,
 			return nil, err
 		}
 		u.Roles = roles
-		out = append(out, u)
+		out = append(out, *u)
 	}
 	return out, rows.Err()
 }
 
 func (s *Store) CreateUser(ctx context.Context, u domain.User) (*domain.User, error) {
+	return s.createUser(ctx, u, nil)
+}
+
+func (s *Store) CreateUserWithAudit(ctx context.Context, u domain.User, event domain.AuditEvent) (*domain.User, error) {
+	return s.createUser(ctx, u, &event)
+}
+
+func (s *Store) createUser(ctx context.Context, u domain.User, event *domain.AuditEvent) (*domain.User, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = tx.Rollback() }()
-	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO dbo.app_user (
-			user_id, username, display_name, password_hash, status, created_at, created_by, updated_at, updated_by
-		) VALUES (
-			@user_id, @username, @display_name, @password_hash, @status, @created_at, @created_by, @updated_at, @updated_by
-		)`,
+	args := []any{
 		sql.Named("user_id", u.ID),
 		sql.Named("username", u.Username),
 		sql.Named("display_name", u.DisplayName),
 		sql.Named("password_hash", u.PasswordHash),
 		sql.Named("status", u.Status),
+	}
+	args = append(args, userLifecycleArgs(u)...)
+	args = append(args,
 		sql.Named("created_at", u.CreatedAt.UTC()),
 		sql.Named("created_by", nullIfEmpty(u.CreatedBy)),
 		sql.Named("updated_at", u.UpdatedAt.UTC()),
 		sql.Named("updated_by", nullIfEmpty(u.UpdatedBy)),
-	); err != nil {
+	)
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO dbo.app_user (
+			user_id, username, display_name, password_hash, status,
+			description, card_no, input_code, service_star, expand_interface1, expand_interface2, input_code_compare_mode,
+			must_change_password, cannot_modify_password, account_locked, account_stopped,
+			hidden, is_system, is_super, is_developer, last_login_at, last_login_ip, lock_until, password_changed_at,
+			failed_login_count, auth_version, created_at, created_by, updated_at, updated_by
+		) VALUES (
+			@user_id, @username, @display_name, @password_hash, @status,
+			@description, @card_no, @input_code, @service_star, @expand_interface1, @expand_interface2, @input_code_compare_mode,
+			@must_change_password, @cannot_modify_password, @account_locked, @account_stopped,
+			@hidden, @is_system, @is_super, @is_developer, @last_login_at, @last_login_ip, @lock_until, @password_changed_at,
+			@failed_login_count, @auth_version, @created_at, @created_by, @updated_at, @updated_by
+		)`, args...); err != nil {
 		return nil, classifyWriteError(err)
 	}
 	if err := insertRoles(ctx, tx, u.ID, u.Roles); err != nil {
 		return nil, err
+	}
+	if event != nil {
+		if err := appendAudit(ctx, tx, *event); err != nil {
+			return nil, fmt.Errorf("%w: %v", port.ErrAuditUnavailable, err)
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
@@ -705,15 +731,23 @@ func (s *Store) UpdateUser(ctx context.Context, u domain.User, replaceRoles bool
 		return nil, err
 	}
 	defer func() { _ = tx.Rollback() }()
+	updateArgs := []any{sql.Named("display_name", u.DisplayName), sql.Named("status", u.Status), sql.Named("password_hash", u.PasswordHash)}
+	updateArgs = append(updateArgs, userLifecycleArgs(u)...)
+	updateArgs = append(updateArgs, sql.Named("updated_at", u.UpdatedAt.UTC()), sql.Named("updated_by", nullIfEmpty(u.UpdatedBy)), sql.Named("user_id", u.ID))
 	res, err := tx.ExecContext(ctx, `
 		UPDATE dbo.app_user
-		SET display_name = @display_name, status = @status, updated_at = @updated_at, updated_by = @updated_by
+		SET display_name = @display_name, status = @status, password_hash = @password_hash, description = @description, card_no = @card_no,
+			input_code = @input_code, service_star=@service_star, expand_interface1=@expand_interface1,
+			expand_interface2=@expand_interface2, input_code_compare_mode=@input_code_compare_mode,
+			must_change_password = @must_change_password,
+			cannot_modify_password = @cannot_modify_password, account_locked = @account_locked,
+			account_stopped = @account_stopped, hidden = @hidden, is_system = @is_system,
+			is_super = @is_super, is_developer = @is_developer, last_login_at = @last_login_at,
+			last_login_ip = @last_login_ip, lock_until = @lock_until, password_changed_at = @password_changed_at,
+			failed_login_count = @failed_login_count, auth_version = @auth_version,
+			updated_at = @updated_at, updated_by = @updated_by
 		WHERE user_id = @user_id AND is_deleted = 0`,
-		sql.Named("display_name", u.DisplayName),
-		sql.Named("status", u.Status),
-		sql.Named("updated_at", u.UpdatedAt.UTC()),
-		sql.Named("updated_by", nullIfEmpty(u.UpdatedBy)),
-		sql.Named("user_id", u.ID),
+		updateArgs...,
 	)
 	if err != nil {
 		return nil, err
@@ -742,7 +776,8 @@ func (s *Store) UpdateUser(ctx context.Context, u domain.User, replaceRoles bool
 func (s *Store) ResetPassword(ctx context.Context, userID, passwordHash, operatorID string, at time.Time) error {
 	res, err := s.db.ExecContext(ctx, `
 		UPDATE dbo.app_user
-		SET password_hash = @password_hash, updated_at = @updated_at, updated_by = @updated_by
+		SET password_hash = @password_hash, must_change_password = 1, password_changed_at = @updated_at,
+			auth_version = auth_version + 1, updated_at = @updated_at, updated_by = @updated_by
 		WHERE user_id = @user_id AND is_deleted = 0`,
 		sql.Named("password_hash", passwordHash),
 		sql.Named("updated_at", at.UTC()),
@@ -762,12 +797,46 @@ func (s *Store) ResetPassword(ctx context.Context, userID, passwordHash, operato
 	return nil
 }
 
+func (s *Store) ResetPasswordWithAudit(ctx context.Context, userID, passwordHash, operatorID string, event domain.AuditEvent) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	at := event.OccurredAt.UTC()
+	if at.IsZero() {
+		at = time.Now().UTC()
+	}
+	res, err := tx.ExecContext(ctx, `
+		UPDATE dbo.app_user
+		SET password_hash = @password_hash, must_change_password = 1, password_changed_at = @updated_at,
+			auth_version = auth_version + 1, updated_at = @updated_at, updated_by = @updated_by
+		WHERE user_id = @user_id AND is_deleted = 0`,
+		sql.Named("password_hash", passwordHash),
+		sql.Named("updated_at", at),
+		sql.Named("updated_by", nullIfEmpty(operatorID)),
+		sql.Named("user_id", userID),
+	)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return port.ErrNotFound
+	}
+	if err := appendAudit(ctx, tx, event); err != nil {
+		return fmt.Errorf("%w: %v", port.ErrAuditUnavailable, err)
+	}
+	return tx.Commit()
+}
+
 func (s *Store) adminUser(ctx context.Context, userID string) (*domain.User, error) {
-	var u domain.User
-	err := s.db.QueryRowContext(ctx, `
-		SELECT user_id, username, display_name, status, created_at, updated_at
-		FROM dbo.app_user WHERE user_id = @user_id AND is_deleted = 0`, sql.Named("user_id", userID)).
-		Scan(&u.ID, &u.Username, &u.DisplayName, &u.Status, &u.CreatedAt, &u.UpdatedAt)
+	u, err := scanAdminUser(s.db.QueryRowContext(ctx, `
+		SELECT `+userAdminColumns+`
+		FROM dbo.app_user WHERE user_id = @user_id AND is_deleted = 0`, sql.Named("user_id", userID)))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, port.ErrNotFound
 	}
@@ -779,7 +848,7 @@ func (s *Store) adminUser(ctx context.Context, userID string) (*domain.User, err
 		return nil, err
 	}
 	u.Roles = roles
-	return &u, nil
+	return u, nil
 }
 
 type roleQuery interface {

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"net/http/httptest"
 	"strings"
@@ -50,18 +51,33 @@ func TestMasterHTTP(t *testing.T) {
 		ID: "00000000-0000-4000-8000-0000000000d2", Username: "pharmacist", DisplayName: "药房",
 		Roles: []domain.Role{domain.RolePharmacist}, Status: domain.StatusActive,
 	}
+	registrar := domain.User{
+		ID: "00000000-0000-4000-8000-0000000000d3", Username: "registrar", DisplayName: "挂号员",
+		Roles: []domain.Role{domain.RoleRegistrar}, Status: domain.StatusActive,
+	}
+	accessAdmin := domain.User{
+		ID: "00000000-0000-4000-8000-0000000000d4", Username: "access-admin", DisplayName: "角色管理员",
+		Roles: []domain.Role{"ROLE_ADMIN"}, Status: domain.StatusActive,
+	}
 	st.Add(doc)
 	st.Add(pharm)
+	st.Add(registrar)
+	st.Add(accessAdmin)
+	if err := st.CreateAccessRole(context.Background(), domain.AccessRole{Code: "ROLE_ADMIN", Name: "角色管理员", PermissionCodes: []string{domain.PermAdminRole}, Status: domain.StatusActive}); err != nil {
+		t.Fatal(err)
+	}
 	docTok := bearerFor(t, issuer, doc)
 	pharmTok := bearerFor(t, issuer, pharm)
+	registrarTok := bearerFor(t, issuer, registrar)
+	accessAdminTok := bearerFor(t, issuer, accessAdmin)
 	api := ts.URL + "/api/v1"
 
 	t.Run("health", func(t *testing.T) {
 		code, body := getAuth(t, ts.URL+"/health", "")
 		if code != 200 ||
-			!strings.Contains(string(body), `"version":"0.3.10-draft"`) ||
-			!strings.Contains(string(body), `"contractVersion":"0.3.10-draft"`) ||
-			!strings.Contains(string(body), `"implementedVersion":"0.3.10-draft"`) {
+			!strings.Contains(string(body), `"version":"0.3.11-draft"`) ||
+			!strings.Contains(string(body), `"contractVersion":"0.3.11-draft"`) ||
+			!strings.Contains(string(body), `"implementedVersion":"0.3.11-draft"`) {
 			t.Fatalf("%d %s", code, body)
 		}
 	})
@@ -72,8 +88,36 @@ func TestMasterHTTP(t *testing.T) {
 			t.Fatalf("anon %d %s", code, body)
 		}
 		code, body = getAuth(t, api+"/departments", docTok)
-		if code != 403 || decodeErr(t, body).Error.Code != "FORBIDDEN" {
+		if code != 200 || !strings.Contains(string(body), `"departmentId":"dept-1"`) {
 			t.Fatalf("doctor departments %d %s", code, body)
+		}
+		code, body = getAuth(t, api+"/doctors?departmentId=dept-1", docTok)
+		if code != 200 || !strings.Contains(string(body), `"doctorId":"doc-1"`) {
+			t.Fatalf("doctor doctors %d %s", code, body)
+		}
+		code, body = getAuth(t, api+"/catalog-items", docTok)
+		if code != 200 || !strings.Contains(string(body), `"itemNo":"DRUG-A"`) {
+			t.Fatalf("doctor catalog %d %s", code, body)
+		}
+		code, body = getAuth(t, api+"/inventory/items", docTok)
+		if code != 403 || decodeErr(t, body).Error.Code != "FORBIDDEN" {
+			t.Fatalf("doctor inventory remains optional %d %s", code, body)
+		}
+		code, body = getAuth(t, api+"/departments", registrarTok)
+		if code != 200 || !strings.Contains(string(body), `"departmentId":"dept-1"`) {
+			t.Fatalf("registrar departments %d %s", code, body)
+		}
+		code, body = getAuth(t, api+"/doctors?departmentId=dept-1", registrarTok)
+		if code != 200 || !strings.Contains(string(body), `"doctorId":"doc-1"`) {
+			t.Fatalf("registrar doctors %d %s", code, body)
+		}
+		code, body = getAuth(t, api+"/catalog-items", registrarTok)
+		if code != 403 || decodeErr(t, body).Error.Code != "FORBIDDEN" {
+			t.Fatalf("registrar catalog %d %s", code, body)
+		}
+		code, body = getAuth(t, api+"/departments", accessAdminTok)
+		if code != 200 || !strings.Contains(string(body), `"departmentId":"dept-1"`) {
+			t.Fatalf("access admin reference read %d %s", code, body)
 		}
 		code, body = getAuth(t, api+"/dicts", docTok)
 		if code != 200 || !strings.Contains(string(body), "register_sort") || !strings.Contains(string(body), `"dictType":"sex"`) {
@@ -267,8 +311,8 @@ func TestMasterHTTP(t *testing.T) {
 		if code != 409 || decodeErr(t, body).Error.Code != "USERNAME_DUPLICATE" {
 			t.Fatalf("dup %d %s", code, body)
 		}
-		code, body, _ = postJSON(t, api+"/users", `{"username":"clerk-new","displayName":"新挂号员","roles":["registrar"]}`, authHdr(tok))
-		if code != 201 || strings.Contains(strings.ToLower(string(body)), "password") || strings.Contains(string(body), "$2a$") {
+		code, body, _ = postJSON(t, api+"/users", `{"username":"clerk-new","displayName":"新挂号员","roles":["registrar"],"permissionOverrides":[{"permissionCode":"charge:refund","moduleCode":"outpatient","departmentId":"dept-1","effect":"DENY"}]}`, authHdr(tok))
+		if code != 201 || strings.Contains(string(body), "$2a$") || strings.Contains(strings.ToLower(string(body)), "passwordhash") {
 			t.Fatalf("create %d %s", code, body)
 		}
 		var created struct {
@@ -277,6 +321,10 @@ func TestMasterHTTP(t *testing.T) {
 		}
 		if err := json.Unmarshal(body, &created); err != nil || created.UserID == "" || len(created.Roles) != 1 || created.Roles[0] != "REGISTRAR" {
 			t.Fatalf("dto %v %s", err, body)
+		}
+		overrides, err := st.ListUserPermissionOverrides(context.Background(), created.UserID)
+		if err != nil || len(overrides) != 1 || overrides[0].Effect != domain.PermissionDeny {
+			t.Fatalf("bundle overrides err=%v rows=%+v", err, overrides)
 		}
 		code, body, _ = postJSON(t, api+"/auth/login", `{"username":"clerk-new","password":"1"}`, nil)
 		if code != 200 || !strings.Contains(string(body), "accessToken") {

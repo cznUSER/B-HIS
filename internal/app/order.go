@@ -36,6 +36,7 @@ const (
 	msgNotImplemented          = "尚未实现"
 
 	idemScopeOrderCreate = "order.create"
+	orderIdempotencyTTL  = 24 * time.Hour
 	orderSearchLimit     = 100
 	maxOrderItems        = 200
 )
@@ -171,17 +172,13 @@ func NotImplemented() *Error {
 // CreateOrder stores a SAVE sheet. registerId must name a register whose status is not BACK.
 // Items may be empty. A non-empty line must reference an active catalog item_no and amount>0.
 // patientId, when sent, must match the register. departmentId and doctorId default to the register.
-// POST requires order:submit or admin:* (DOCTOR, SYSTEM). Idempotency-Key is process-local. 2026-10-12
+// POST requires order:submit or admin:* (DOCTOR, SYSTEM). An SQL-backed store
+// persists the idempotency record with the order header and item rows. 2026-10-15
 func (s *Service) CreateOrder(ctx context.Context, claims *auth.Claims, in CreateOrderInput, requestID, ip string) (*OrderDTO, error) {
 	start := time.Now()
 	user, err := s.actor(ctx, claims)
 	if err != nil {
 		return nil, err
-	}
-	if !hasPerm(user, domain.PermOrderSubmit) {
-		e := forbidden()
-		s.auditOrder(ctx, start, user, domain.ActionOrderCreate, "", domain.OutcomeFail, e.Code, requestID, ip)
-		return nil, e
 	}
 	canon, fields := normalizeOrderCreate(in)
 	if in.IdempotencyKey != "" && !validIdempotencyKey(in.IdempotencyKey) {
@@ -211,6 +208,11 @@ func (s *Service) CreateOrder(ctx context.Context, claims *auth.Claims, in Creat
 	if canon.DepartmentID != "" {
 		dept = canon.DepartmentID
 	}
+	if !hasPermScope(user, domain.PermOrderSubmit, "outpatient", dept) {
+		e := forbidden()
+		s.auditOrder(ctx, start, user, domain.ActionOrderCreate, "", domain.OutcomeFail, e.Code, requestID, ip)
+		return nil, e
+	}
 	doctor := reg.DoctorID
 	if canon.DoctorID != "" {
 		doctor = canon.DoctorID
@@ -229,6 +231,8 @@ func (s *Service) CreateOrder(ctx context.Context, claims *auth.Claims, in Creat
 	now := s.now().UTC()
 	var created domain.Order
 	var createErr error
+	var replayed bool
+	atomicIdemStore, atomicIdem := s.Orders.(port.AtomicOrderIdempotencyStore)
 	for attempt := 0; attempt < 5; attempt++ {
 		id, err := newUUID()
 		if err != nil {
@@ -265,9 +269,15 @@ func (s *Service) CreateOrder(ctx context.Context, claims *auth.Claims, in Creat
 			UpdatedAt:     now,
 			UpdatedBy:     user.ID,
 		}
-		createErr = s.Orders.CreateOrder(ctx, order)
+		if atomicIdem && in.IdempotencyKey != "" {
+			created, replayed, createErr = atomicIdemStore.CreateOrderWithIdempotency(ctx, order, idemScopeOrderCreate, in.IdempotencyKey, hash, time.Now().UTC().Add(orderIdempotencyTTL))
+		} else {
+			createErr = s.Orders.CreateOrder(ctx, order)
+			if createErr == nil {
+				created = order
+			}
+		}
 		if createErr == nil {
-			created = order
 			break
 		}
 		if errors.Is(createErr, port.ErrDuplicateBusinessNo) {
@@ -276,10 +286,24 @@ func (s *Service) CreateOrder(ctx context.Context, claims *auth.Claims, in Creat
 		break
 	}
 	if createErr != nil {
-		return nil, createErr
+		switch {
+		case errors.Is(createErr, port.ErrIdempotencyConflict):
+			e := &Error{Status: 409, Code: CodeIdempotencyConflict, Message: msgIdempotencyConflict}
+			s.auditOrder(ctx, start, user, domain.ActionOrderCreate, "", domain.OutcomeFail, e.Code, requestID, ip)
+			return nil, e
+		case errors.Is(createErr, port.ErrIdempotencyInProgress):
+			e := &Error{Status: 409, Code: CodeIdempotencyInProgress, Message: msgIdempotencyInProgress}
+			s.auditOrder(ctx, start, user, domain.ActionOrderCreate, "", domain.OutcomeFail, e.Code, requestID, ip)
+			return nil, e
+		default:
+			return nil, createErr
+		}
 	}
 	dto := toOrderDTO(created)
-	if in.IdempotencyKey != "" {
+	if replayed {
+		return &dto, nil
+	}
+	if in.IdempotencyKey != "" && !atomicIdem {
 		stored, err := s.saveOrderIdem(in.IdempotencyKey, hash, dto)
 		if err != nil {
 			return nil, err
@@ -294,8 +318,12 @@ func (s *Service) CreateOrder(ctx context.Context, claims *auth.Claims, in Creat
 
 // SearchOrders returns an AND of the given filters. With no filters the list is empty.
 func (s *Service) SearchOrders(ctx context.Context, claims *auth.Claims, q OrderSearch) (*OrderListDTO, error) {
-	if _, err := s.actor(ctx, claims); err != nil {
+	user, err := s.actor(ctx, claims)
+	if err != nil {
 		return nil, err
+	}
+	if !hasAnyPermModule(user, "outpatient", domain.PermEncounterCreate, domain.PermEncounterCheckIn, domain.PermEncounterCancel, domain.PermOrderSubmit, domain.PermChargePay, domain.PermChargeRefund, domain.PermDispenseCreate, domain.PermDispenseReturn) {
+		return nil, forbidden()
 	}
 	q.RegisterID = strings.TrimSpace(q.RegisterID)
 	q.EncounterID = strings.TrimSpace(q.EncounterID)
@@ -326,6 +354,9 @@ func (s *Service) SearchOrders(ctx context.Context, claims *auth.Claims, q Order
 	}
 	items := make([]OrderDTO, 0, len(rows))
 	for _, row := range rows {
+		if !hasAnyPermScope(user, "outpatient", row.DepartmentID, domain.PermEncounterCreate, domain.PermEncounterCheckIn, domain.PermEncounterCancel, domain.PermOrderSubmit, domain.PermChargePay, domain.PermChargeRefund, domain.PermDispenseCreate, domain.PermDispenseReturn) {
+			continue
+		}
 		items = append(items, toOrderDTO(row))
 	}
 	return &OrderListDTO{Items: items}, nil
@@ -333,8 +364,12 @@ func (s *Service) SearchOrders(ctx context.Context, claims *auth.Claims, q Order
 
 // GetOrder returns one sheet or 404 NOT_FOUND.
 func (s *Service) GetOrder(ctx context.Context, claims *auth.Claims, orderID string) (*OrderDTO, error) {
-	if _, err := s.actor(ctx, claims); err != nil {
+	user, err := s.actor(ctx, claims)
+	if err != nil {
 		return nil, err
+	}
+	if !hasAnyPermModule(user, "outpatient", domain.PermEncounterCreate, domain.PermEncounterCheckIn, domain.PermEncounterCancel, domain.PermOrderSubmit, domain.PermChargePay, domain.PermChargeRefund, domain.PermDispenseCreate, domain.PermDispenseReturn) {
+		return nil, forbidden()
 	}
 	orderID = strings.TrimSpace(orderID)
 	if orderID == "" {
@@ -350,6 +385,9 @@ func (s *Service) GetOrder(ctx context.Context, claims *auth.Claims, orderID str
 	if err != nil {
 		return nil, err
 	}
+	if !hasAnyPermScope(user, "outpatient", o.DepartmentID, domain.PermEncounterCreate, domain.PermEncounterCheckIn, domain.PermEncounterCancel, domain.PermOrderSubmit, domain.PermChargePay, domain.PermChargeRefund, domain.PermDispenseCreate, domain.PermDispenseReturn) {
+		return nil, forbidden()
+	}
 	dto := toOrderDTO(*o)
 	return &dto, nil
 }
@@ -359,9 +397,6 @@ func (s *Service) PatchOrder(ctx context.Context, claims *auth.Claims, orderID s
 	user, err := s.actor(ctx, claims)
 	if err != nil {
 		return nil, err
-	}
-	if !hasPerm(user, domain.PermOrderSubmit) {
-		return nil, forbidden()
 	}
 	orderID = strings.TrimSpace(orderID)
 	if orderID == "" {
@@ -423,6 +458,9 @@ func (s *Service) PatchOrder(ctx context.Context, claims *auth.Claims, orderID s
 		}
 		next.RecipeSort = r
 	}
+	if !hasPermScope(user, domain.PermOrderSubmit, "outpatient", next.DepartmentID) {
+		return nil, forbidden()
+	}
 	replace := false
 	if in.Items != nil {
 		lines, total, err := s.prepareItems(ctx, *in.Items)
@@ -464,11 +502,6 @@ func (s *Service) CommitOrder(ctx context.Context, claims *auth.Claims, orderID,
 		return nil, err
 	}
 	orderID = strings.TrimSpace(orderID)
-	if !hasPerm(user, domain.PermOrderSubmit) {
-		e := forbidden()
-		s.auditOrder(ctx, start, user, domain.ActionOrderCommit, orderID, domain.OutcomeFail, e.Code, requestID, ip)
-		return nil, e
-	}
 	if orderID == "" {
 		return nil, notFound()
 	}
@@ -481,6 +514,11 @@ func (s *Service) CommitOrder(ctx context.Context, claims *auth.Claims, orderID,
 	}
 	if err != nil {
 		return nil, err
+	}
+	if !hasPermScope(user, domain.PermOrderSubmit, "outpatient", cur.DepartmentID) {
+		e := forbidden()
+		s.auditOrder(ctx, start, user, domain.ActionOrderCommit, orderID, domain.OutcomeFail, e.Code, requestID, ip)
+		return nil, e
 	}
 	if cur.Status != domain.OrderStatusSave {
 		e := &Error{Status: 409, Code: CodeOrderNotCommittable, Message: msgOrderNotCommittable}
@@ -536,11 +574,6 @@ func (s *Service) AbateOrder(ctx context.Context, claims *auth.Claims, orderID, 
 		return nil, err
 	}
 	orderID = strings.TrimSpace(orderID)
-	if !hasPerm(user, domain.PermOrderSubmit) {
-		e := forbidden()
-		s.auditOrder(ctx, start, user, domain.ActionOrderAbate, orderID, domain.OutcomeFail, e.Code, requestID, ip)
-		return nil, e
-	}
 	if orderID == "" {
 		return nil, notFound()
 	}
@@ -553,6 +586,11 @@ func (s *Service) AbateOrder(ctx context.Context, claims *auth.Claims, orderID, 
 	}
 	if err != nil {
 		return nil, err
+	}
+	if !hasPermScope(user, domain.PermOrderSubmit, "outpatient", cur.DepartmentID) {
+		e := forbidden()
+		s.auditOrder(ctx, start, user, domain.ActionOrderAbate, orderID, domain.OutcomeFail, e.Code, requestID, ip)
+		return nil, e
 	}
 	if cur.Charged {
 		e := &Error{Status: 409, Code: CodeOrderChargedNotAbatable, Message: msgOrderChargedNotAbatable}
@@ -586,6 +624,9 @@ func (s *Service) requireOpenRegister(ctx context.Context, registerID string) (*
 	if r.Status == domain.RegisterStatusBack {
 		return nil, &Error{Status: 409, Code: CodeEncounterRequired, Message: msgEncounterRequired}
 	}
+	if e := s.ensureRegisterNotExpired(r); e != nil {
+		return nil, e
+	}
 	return r, nil
 }
 
@@ -595,7 +636,10 @@ func (s *Service) requireDeptDoctor(ctx context.Context, departmentID, doctorID 
 		return err
 	}
 	doc, err := s.Registers.GetDoctor(ctx, doctorID)
-	return gateActiveDoctor(doc, err)
+	if err := gateActiveDoctor(doc, err); err != nil {
+		return err
+	}
+	return gateDoctorDepartment(doc, departmentID)
 }
 
 func (s *Service) prepareItems(ctx context.Context, inputs []OrderItemInput) ([]domain.OrderItem, int64, error) {
@@ -914,7 +958,7 @@ func (s *Service) auditOrder(ctx context.Context, start time.Time, user *domain.
 	if outcome != domain.OutcomeSuccess {
 		level = "warn"
 	}
-	s.record(ctx, start, domain.AuditEvent{
+	event := s.enrichBusinessAudit(ctx, domain.AuditEvent{
 		ActorID:      actor,
 		ActorRoles:   roles,
 		Action:       action,
@@ -924,7 +968,8 @@ func (s *Service) auditOrder(ctx context.Context, start time.Time, user *domain.
 		ErrorCode:    errorCode,
 		RequestID:    requestID,
 		ClientIP:     ip,
-	}, level)
+	})
+	s.record(ctx, start, event, level)
 }
 
 func (s *Service) auditOrderErr(ctx context.Context, start time.Time, user *domain.User, action, resourceID, requestID, ip string, err error) {

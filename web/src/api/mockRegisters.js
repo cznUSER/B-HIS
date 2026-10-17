@@ -75,6 +75,12 @@ function rejectCheckIn() {
   })
 }
 
+function rejectComplete() {
+  throw apiError(409, 'REGISTER_NOT_COMPLETE', '当前状态不允许完成就诊', {
+    requestId: `mock-${crypto.randomUUID()}`,
+  })
+}
+
 export function resetMockRegisters() {
   memory.seq = 0
   memory.registers = []
@@ -208,6 +214,21 @@ export function mockCheckInRegister(accessToken, registerId, options) {
     ...current,
     status: 'DIAGNOSING',
   })
+  state.registers.splice(index, 1, next)
+  writeState(state)
+  return copyRegister(next)
+}
+
+export function mockCompleteRegister(accessToken, registerId) {
+  requireSession(accessToken)
+  const id = typeof registerId === 'string' ? registerId.trim() : ''
+  if (!id) throw apiError(404, 'NOT_FOUND', '未找到挂号单')
+  const state = readState()
+  const index = state.registers.findIndex((item) => item.registerId === id)
+  if (index < 0) throw apiError(404, 'NOT_FOUND', '未找到挂号单')
+  const current = state.registers[index]
+  if (current.status !== 'DIAGNOSING') rejectComplete()
+  const next = copyRegister({ ...current, status: 'DIAGNOSED' })
   state.registers.splice(index, 1, next)
   writeState(state)
   return copyRegister(next)

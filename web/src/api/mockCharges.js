@@ -3,8 +3,12 @@
 
 import { apiError } from './errors.js'
 import { mockMe } from './mockAuth.js'
-import { PAY_CASH, formatOperate } from './chargeContract.js'
+import { PAY_CASH, formatOperate, moneyCents } from './chargeContract.js'
 import { todayInShanghai } from './patientContract.js'
+import { mockAllStoredPatients } from './mockPatients.js'
+import { mockListOrderRegisters, mockListOrders, mockMarkOrderCharged } from './mockOrders.js'
+import { registerIsOrderable } from './orderContract.js'
+import { listInventoryItems } from '../master/store.js'
 
 const STORAGE_KEY = 'bhis.charges.v1'
 
@@ -181,6 +185,7 @@ function seed() {
   const charges = [
     buildCharge(sun, at(9, 15), 'SF20261012005', id('00000000ch05'), ['00000000ci05a', '00000000ci05b']),
     buildCharge(zhou, at(9, 40), 'SF20261012006', id('00000000ch06'), ['00000000ci06a', '00000000ci06b']),
+    buildDiscountedCharge(at(10, 5)),
   ]
   const payments = charges.map((charge, index) => ({
     paymentId: id(`00000000pm0${index + 5}`),
@@ -222,6 +227,36 @@ function buildCharge(subject, operateAt, squareNo, chargeId, itemSuffixes) {
     abatedFromId: null,
     operateAt,
     items,
+  }
+}
+
+function buildDiscountedCharge(operateAt) {
+  const item = line('GML', '感冒灵颗粒', 2, 1500, 30)
+  return {
+    storedOrder: false,
+    chargeId: id('00000000ch07'),
+    squareNo: 'SF20261012007',
+    orderId: id('00000000o07'),
+    encounterId: id('000000000r07'),
+    registerId: id('000000000r07'),
+    registerSummary: 'GH20261012007 · 内科 · 李医生',
+    patientId: id('000000000c07'),
+    patientNo: 'P2026101207',
+    patientName: '郑优惠全退',
+    recipeNo: 'CF20261012007',
+    totalFeeCents: 3000,
+    squareFeeCents: 2700,
+    favourableFeeCents: 300,
+    status: 'NORMAL',
+    successorSquareId: null,
+    abatedFromId: null,
+    operateAt,
+    items: [{
+      chargeItemId: id('00000000ci07a'),
+      orderItemId: id('00000000oi070'),
+      ...copyItem(item),
+      refundedQty: 0,
+    }],
   }
 }
 
@@ -276,18 +311,62 @@ export function resetMockCharges() {
   if (store) store.removeItem(STORAGE_KEY)
 }
 
-function findSubject(state, patientId) {
+// 2026-10-14: existing fixture scenes stay available; new subjects derive from the same
+// patient/register/order stores used by their pages, including checked-in encounters.
+function synchronizedState(accessToken) {
+  const state = readState()
+  const registers = mockListOrderRegisters(accessToken).items
+  const orders = mockListOrders(accessToken, {}).items
+  const inventory = new Map(listInventoryItems().items.map((item) => [item.itemNo, item.qtyOnHand]))
+  const subjects = state.subjects.filter((item) => !item.storedOrder)
+  for (const patient of mockAllStoredPatients(accessToken)) {
+    const visits = registers.filter((item) => item.patientId === patient.patientId)
+    const base = { patientId: patient.patientId, patientNo: patient.patientNo || '', patientName: patient.name, storedOrder: true }
+    if (visits.length === 0) subjects.push({ ...base, key: patient.patientId, register: null, order: null })
+    for (const register of visits) {
+      const summary = [register.registerNo, register.departmentName, register.doctorName].filter(Boolean).join(' · ')
+      const encounter = { ...register, encounterId: register.registerId, summary }
+      const bills = orders.filter((item) => item.registerId === register.registerId && item.status !== 'ABATE')
+      if (bills.length === 0) subjects.push({ ...base, key: register.registerId, register: encounter, order: null })
+      for (const order of bills) {
+        const charged = state.charges.filter((item) => item.orderId === order.orderId && item.status === 'NORMAL')
+        subjects.push({
+          ...base, key: order.orderId, register: encounter,
+          order: {
+            orderId: order.orderId, recipeNo: order.orderNo, status: order.status, charged: order.charged,
+            items: order.items.map((item) => {
+              const paid = charged.flatMap((bill) => bill.items).find((row) => row.orderItemId === item.orderItemId)
+              return {
+                orderItemId: item.orderItemId, itemNo: item.itemNo, itemType: item.itemType,
+                itemName: item.itemName, spec: item.spec || '', qty: item.amount, unit: item.units,
+                unitPriceCents: moneyCents(item.price), lineFeeCents: moneyCents(item.totalFee),
+                stockAvailable: item.itemType === 'DRUG' ? (inventory.get(item.itemNo) ?? 0) : null,
+                dispensedQty: paid ? paid.dispensedQty || 0 : 0, returnedQty: paid ? paid.returnedQty || 0 : 0,
+              }
+            }),
+          },
+        })
+      }
+    }
+  }
+  return { ...state, subjects }
+}
+
+function findSubject(state, subject) {
+  const patientId = typeof subject === 'string' ? subject : subject && subject.patientId
+  const orderId = subject && typeof subject === 'object' ? subject.orderId : ''
+  if (orderId) return state.subjects.find((item) => item.order && item.order.orderId === orderId && (!patientId || item.patientId === patientId)) || null
   return state.subjects.find((item) => item.patientId === patientId) || null
 }
 
 function sceneOf(subject) {
-  if (!subject.register || subject.register.status !== 'NORMAL') return 'NO_REGISTER'
-  if (!subject.order || subject.order.status !== 'COMMIT') return 'NO_COMMIT'
+  if (!registerIsOrderable(subject.register)) return 'NO_REGISTER'
+  if (!subject.order || !['COMMIT', 'PROC'].includes(subject.order.status)) return 'NO_COMMIT'
   if (subject.order.charged) {
     const blocked = subject.order.items.some((item) => (item.dispensedQty || 0) > (item.returnedQty || 0))
     return blocked ? 'DISPENSED' : 'CHARGED'
   }
-  const short = subject.order.items.some((item) => item.qty > item.stockAvailable)
+  const short = subject.order.items.some((item) => item.stockAvailable != null && item.qty > item.stockAvailable)
   return short ? 'STOCK' : 'PENDING'
 }
 
@@ -301,6 +380,7 @@ const SCENE_LABEL = {
 }
 
 function stockHint(item) {
+  if (item.stockAvailable == null) return '不占库存'
   if (item.qty > item.stockAvailable) {
     return `库存不足（可用 ${item.stockAvailable}，需要 ${item.qty}）`
   }
@@ -309,6 +389,9 @@ function stockHint(item) {
 
 function presentPreviewItem(item, index) {
   return {
+    orderItemId: item.orderItemId,
+    itemType: item.itemType,
+    spec: item.spec || '',
     lineNo: index + 1,
     itemNo: item.itemNo,
     itemName: item.itemName,
@@ -317,14 +400,14 @@ function presentPreviewItem(item, index) {
     unitPriceCents: item.unitPriceCents,
     lineFeeCents: item.qty * item.unitPriceCents,
     stockAvailable: item.stockAvailable,
-    stockSufficient: item.qty <= item.stockAvailable,
+    stockSufficient: item.stockAvailable == null || item.qty <= item.stockAvailable,
     stockHint: stockHint(item),
   }
 }
 
 export function mockLookup(accessToken, keyword) {
   requireSession(accessToken)
-  const state = readState()
+  const state = synchronizedState(accessToken)
   const query = typeof keyword === 'string' ? keyword.trim() : ''
   const items = state.subjects
     .filter((subject) => {
@@ -338,6 +421,9 @@ export function mockLookup(accessToken, keyword) {
     .map((subject) => {
       const scene = sceneOf(subject)
       return {
+        key: subject.key || subject.patientId,
+        orderId: subject.order ? subject.order.orderId : '',
+        registerId: subject.register ? subject.register.registerId : '',
         patientId: subject.patientId,
         patientNo: subject.patientNo,
         patientName: subject.patientName,
@@ -352,7 +438,7 @@ export function mockLookup(accessToken, keyword) {
 
 export function mockLoadPending(accessToken, patientId) {
   requireSession(accessToken)
-  const state = readState()
+  const state = synchronizedState(accessToken)
   const subject = findSubject(state, patientId)
   if (!subject) throw apiError(404, 'NOT_FOUND', '未找到患者')
   const scene = sceneOf(subject)
@@ -427,7 +513,7 @@ export function mockPay(accessToken, input) {
   if (payType !== PAY_CASH) {
     throw apiError(400, 'VALIDATION_ERROR', '电子支付为预留，不能收款')
   }
-  const state = readState()
+  const state = synchronizedState(accessToken)
   const subject = state.subjects.find((item) => item.order && item.order.orderId === orderId)
   if (!subject) throw apiError(404, 'NOT_FOUND', '未找到待收处方')
   const scene = sceneOf(subject)
@@ -451,6 +537,7 @@ export function mockPay(accessToken, input) {
   const operateAt = nowInShanghai()
   const squareNo = nextSquareNo(state)
   const charge = {
+    storedOrder: subject.storedOrder === true,
     chargeId: crypto.randomUUID(),
     squareNo,
     orderId: subject.order.orderId,
@@ -470,9 +557,11 @@ export function mockPay(accessToken, input) {
     operateAt,
     items: items.map((item) => ({
       chargeItemId: crypto.randomUUID(),
-      orderItemId: crypto.randomUUID(),
+      orderItemId: item.orderItemId || crypto.randomUUID(),
       itemNo: item.itemNo,
+      itemType: item.itemType,
       itemName: item.itemName,
+      spec: item.spec || '',
       qty: item.qty,
       unit: item.unit,
       unitPriceCents: item.unitPriceCents,
@@ -495,6 +584,7 @@ export function mockPay(accessToken, input) {
     succeededAt: charge.operateAt,
   }
   subject.order.charged = true
+  if (subject.storedOrder) mockMarkOrderCharged(subject.order.orderId)
   state.charges.push(charge)
   state.payments.push(payment)
   writeState(state)
@@ -534,6 +624,7 @@ function presentRefundItem(item) {
   const outstanding = (item.dispensedQty || 0) - (item.returnedQty || 0)
   return {
     chargeItemId: item.chargeItemId,
+    orderItemId: item.orderItemId,
     itemNo: item.itemNo,
     itemName: item.itemName,
     qty: item.qty,
@@ -617,6 +708,14 @@ export function mockRefund(accessToken, chargeId, input) {
   if (plan.some((row) => (row.item.dispensedQty || 0) - (row.item.returnedQty || 0) > 0)) {
     throw apiError(409, 'REFUND_REQUIRES_RETURN', '已发药，请先退药再退费')
   }
+  const hasDiscount = Number(charge.favourableFeeCents || 0) > 0 || Number(charge.favourableFee || 0) > 0
+  const fullRefundRequested = charge.items.every((item) => {
+    const row = plan.find((candidate) => candidate.item.chargeItemId === item.chargeItemId)
+    return row && row.qty === item.qty - (item.refundedQty || 0)
+  })
+  if (hasDiscount && !fullRefundRequested) {
+    throw apiError(409, 'PARTIAL_REFUND_DISCOUNT_UNSUPPORTED', '含优惠收费单暂不支持部分退费')
+  }
   let refundCents = 0
   const remainItems = []
   for (const row of plan) {
@@ -628,6 +727,7 @@ export function mockRefund(accessToken, chargeId, input) {
     }
     refundCents += row.qty * item.unitPriceCents
   }
+  if (hasDiscount && fullRefundRequested) refundCents = Number(charge.squareFeeCents || 0)
   for (const row of plan) {
     const item = row.item
     item.refundedQty = (item.refundedQty || 0) + row.qty
@@ -635,9 +735,11 @@ export function mockRefund(accessToken, chargeId, input) {
     if (remainQty > 0) {
       remainItems.push({
         chargeItemId: crypto.randomUUID(),
-        orderItemId: crypto.randomUUID(),
+        orderItemId: item.orderItemId,
         itemNo: item.itemNo,
+        itemType: item.itemType,
         itemName: item.itemName,
+        spec: item.spec || '',
         qty: remainQty,
         unit: item.unit,
         unitPriceCents: item.unitPriceCents,
@@ -656,9 +758,11 @@ export function mockRefund(accessToken, chargeId, input) {
     const remainQty = item.qty - (item.refundedQty || 0)
     remainItems.push({
       chargeItemId: crypto.randomUUID(),
-      orderItemId: crypto.randomUUID(),
+      orderItemId: item.orderItemId,
       itemNo: item.itemNo,
+      itemType: item.itemType,
       itemName: item.itemName,
+      spec: item.spec || '',
       qty: remainQty,
       unit: item.unit,
       unitPriceCents: item.unitPriceCents,
@@ -676,6 +780,7 @@ export function mockRefund(accessToken, chargeId, input) {
   if (remainFee > 0) {
     const squareNo = nextSquareNo(state)
     newSquare = {
+      storedOrder: charge.storedOrder === true,
       chargeId: crypto.randomUUID(),
       squareNo,
       orderId: charge.orderId,
@@ -718,4 +823,26 @@ export function mockRefund(accessToken, chargeId, input) {
     refundPayment: presentPayment(payment),
     fullRefund: newSquare == null,
   }
+}
+
+// 2026-10-14: dispense imports only paid dynamic lines, never the unrelated fixtures.
+export function mockStoredPaidCharges(accessToken) {
+  requireSession(accessToken)
+  return readState().charges.filter((charge) => charge.storedOrder).map((charge) => ({
+    ...charge, items: charge.items.map((item) => ({ ...item })),
+  }))
+}
+
+// Quantity writeback shares the charge refund gate; stock belongs to the inventory store.
+export function mockUpdateChargeDispenseQuantities(accessToken, lines) {
+  requireSession(accessToken)
+  const state = readState()
+  const items = new Map(state.charges.filter((charge) => charge.storedOrder).flatMap((charge) => charge.items).map((item) => [item.chargeItemId, item]))
+  for (const line of lines) {
+    const item = items.get(line.chargeItemId)
+    if (!item) continue
+    item.dispensedQty = line.dispensedNet + line.returnedQty
+    item.returnedQty = line.returnedQty
+  }
+  writeState(state)
 }

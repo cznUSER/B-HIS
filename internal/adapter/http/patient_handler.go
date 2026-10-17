@@ -35,11 +35,12 @@ func (h *Handler) searchPatients(w http.ResponseWriter, r *http.Request) {
 	}
 	q := r.URL.Query()
 	list, err := h.svc.SearchPatients(r.Context(), claims, app.PatientSearch{
-		CardNo:   q.Get("cardNo"),
-		IDNumber: q.Get("idNumber"),
-		Name:     q.Get("name"),
-		HospPkNo: q.Get("hospPkNo"),
-		Address:  q.Get("address"),
+		PatientNo: q.Get("patientNo"),
+		CardNo:    q.Get("cardNo"),
+		IDNumber:  q.Get("idNumber"),
+		Name:      q.Get("name"),
+		HospPkNo:  q.Get("hospPkNo"),
+		Address:   q.Get("address"),
 	})
 	if err != nil {
 		writeAppError(w, r, err)

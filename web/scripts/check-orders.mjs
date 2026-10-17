@@ -213,6 +213,15 @@ const server = http.createServer(async (req, res) => {
     })
     return
   }
+  // 2026-10-14: real normalization must read an HTTP catalog, never a mock fallback.
+  if (req.method === 'GET' && url.pathname === '/api/v1/catalog-items') {
+    json(200, { items: [
+      { itemNo: 'DRUG-A', itemName: '接口药品 A', itemType: 'DRUG', spec: '0.25g×24', units: '盒', price: 10, status: 'ACTIVE' },
+      { itemNo: 'DRUG-B', itemName: '接口药品 B', itemType: 'DRUG', units: '盒', price: 8, status: 'ACTIVE' },
+      { itemNo: 'TREAT-1', itemName: '接口治疗项目', itemType: 'TREAT', units: '次', price: 15, status: 'ACTIVE' },
+    ] })
+    return
+  }
   if (req.method === 'GET' && url.pathname === `/api/v1/patients/${PATIENT_ID_HTTP}`) {
     json(200, {
       patientId: PATIENT_ID_HTTP,
@@ -307,8 +316,8 @@ process.env.VITE_API_BASE_URL = `http://127.0.0.1:${port}/api/v1`
 
 try {
   const found = await fetchOrderRegister('header.payload.sig', REGISTER_ID_HTTP)
-  assert(found.status === 'NORMAL' && found.patientName === '李演示' && found.doctorName === '张医生', 'real register')
-  assert(found.departmentName === '内科', 'dept name')
+  assert(found.status === 'NORMAL' && found.patientName === '李演示' && found.doctorName === '', 'real register uses no mock doctor name')
+  assert(found.departmentName === '', 'real department name is enriched by live master in the view')
   const day = await listOrderRegisters('header.payload.sig')
   assert(day.items.length === 1 && day.items[0].registerId === REGISTER_ID_HTTP, 'today registers')
   const listCall = calls.find((item) => item.method === 'GET' && item.path === '/api/v1/registers')
@@ -327,7 +336,7 @@ try {
   assert(!Object.prototype.hasOwnProperty.call(posted, 'encounterId'), 'post keeps registerId')
   assert(posted.doctorId === 'doc-2' && posted.diagnoseName === '上感', 'doctor and diagnose')
   assert(posted.recipeSort === 'NORMAL', 'ordinary recipe')
-  assert(posted.items[0].itemNo === 'DRUG-A' && posted.items[0].amount === 2 && posted.items[0].price === 10, 'catalog line')
+  assert(posted.items[0].itemNo === 'DRUG-A' && posted.items[0].amount === 2 && posted.items[0].price === 10 && posted.items[0].itemName === '接口药品 A' && posted.items[0].units === '盒', 'live catalog line')
   assert(typeof post.headers['idempotency-key'] === 'string', 'create idempotency')
 
   const edited = await saveOrder('header.payload.sig', draft({

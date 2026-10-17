@@ -1,0 +1,10 @@
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+GO
+
+USE BHIS;
+GO
+
+IF OBJECT_ID(N'dbo.diagnose', N'U') IS NOT NULL
+    DROP TABLE dbo.diagnose;
+GO

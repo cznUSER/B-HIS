@@ -4,6 +4,7 @@ import (
 	"context"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/cznUSER/B-HIS/internal/domain"
 	"github.com/cznUSER/B-HIS/internal/port"
@@ -14,6 +15,10 @@ import (
 func (s *Store) Create(_ context.Context, p domain.Patient) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.createPatientLocked(p)
+}
+
+func (s *Store) createPatientLocked(p domain.Patient) error {
 	if _, ok := s.patients[p.PatientID]; ok {
 		return port.ErrDuplicateBusinessNo
 	}
@@ -33,6 +38,41 @@ func (s *Store) Create(_ context.Context, p domain.Patient) error {
 	}
 	s.patients[p.PatientID] = p
 	return nil
+}
+
+// CreateWithIdempotency keeps the key and patient mutation under the same
+// memory lock, matching the SQL transaction contract used by the MSSQL store.
+func (s *Store) CreateWithIdempotency(_ context.Context, p domain.Patient, scope, key, requestHash string, expiresAt time.Time) (domain.Patient, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	mapKey := idempotencyMapKey(scope, key)
+	now := time.Now().UTC()
+	if record, ok := s.idempotency[mapKey]; ok {
+		if !record.expiresAt.IsZero() && !now.Before(record.expiresAt) {
+			delete(s.idempotency, mapKey)
+		} else {
+			if record.requestHash != requestHash {
+				return domain.Patient{}, false, port.ErrIdempotencyConflict
+			}
+			switch record.state {
+			case idempotencyPending:
+				return domain.Patient{}, false, port.ErrIdempotencyInProgress
+			case idempotencyCompleted:
+				existing, ok := s.patients[record.resourceID]
+				if !ok || existing.IsDeleted {
+					return domain.Patient{}, false, port.ErrNotFound
+				}
+				return existing, true, nil
+			}
+		}
+	}
+	s.idempotency[mapKey] = idempotencyRecord{scope: scope, key: key, requestHash: requestHash, state: idempotencyPending, expiresAt: expiresAt.UTC()}
+	if err := s.createPatientLocked(p); err != nil {
+		delete(s.idempotency, mapKey)
+		return domain.Patient{}, false, err
+	}
+	s.idempotency[mapKey] = idempotencyRecord{scope: scope, key: key, requestHash: requestHash, state: idempotencyCompleted, resourceID: p.PatientID, expiresAt: expiresAt.UTC()}
+	return p, false, nil
 }
 
 func (s *Store) Get(_ context.Context, patientID string) (*domain.Patient, error) {
@@ -74,6 +114,9 @@ func (s *Store) Search(_ context.Context, q port.PatientQuery) ([]domain.Patient
 
 func patientMatches(p domain.Patient, q port.PatientQuery) bool {
 	if p.IsDeleted {
+		return false
+	}
+	if q.PatientNo != "" && p.PatientNo != q.PatientNo {
 		return false
 	}
 	if q.CardNo != "" && p.CardNo != q.CardNo {

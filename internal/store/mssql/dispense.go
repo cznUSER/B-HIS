@@ -40,7 +40,18 @@ func (s *Store) CommitDispense(ctx context.Context, d domain.Dispense) (*domain.
 		return nil, err
 	}
 	defer func() { _ = tx.Rollback() }()
+	out, err := s.commitDispenseTx(ctx, tx, d)
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
 
+func (s *Store) commitDispenseTx(ctx context.Context, tx *sql.Tx, d domain.Dispense) (*domain.Dispense, error) {
+	var err error
 	var orderStatus string
 	err = tx.QueryRowContext(ctx, `
 		SELECT status FROM dbo.order_sheet WITH (UPDLOCK, ROWLOCK)
@@ -173,9 +184,6 @@ func (s *Store) CommitDispense(ctx context.Context, d domain.Dispense) (*domain.
 	if n == 0 {
 		return nil, port.ErrIllegalStateTransition
 	}
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
 	out := d
 	return &out, nil
 }
@@ -187,6 +195,17 @@ func (s *Store) CommitReturn(ctx context.Context, dispenseID, reason, operatorID
 		return nil, err
 	}
 	defer func() { _ = tx.Rollback() }()
+	out, err := s.commitReturnTx(ctx, tx, dispenseID, reason, operatorID, at, lines)
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (s *Store) commitReturnTx(ctx context.Context, tx *sql.Tx, dispenseID, reason, operatorID string, at time.Time, lines []port.ReturnLine) (*domain.Dispense, error) {
 	cur, err := loadDispense(ctx, tx, dispenseID, true)
 	if err != nil {
 		return nil, err
@@ -283,10 +302,204 @@ func (s *Store) CommitReturn(ctx context.Context, dispenseID, reason, operatorID
 	); err != nil {
 		return nil, err
 	}
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
 	return cur, nil
+}
+
+// CreateDispenseWithIdempotency keeps the key, stock mutation, inventory
+// ledger, dispense header/items, and order transition in one serializable
+// transaction. A rollback removes the PENDING marker and every side effect.
+func (s *Store) CreateDispenseWithIdempotency(ctx context.Context, d domain.Dispense, scope, key, requestHash string, expiresAt time.Time) (domain.Dispense, bool, error) {
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		return domain.Dispense{}, false, err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var savedHash, state string
+	var resourceID sql.NullString
+	var savedExpires time.Time
+	err = tx.QueryRowContext(ctx, `
+		SELECT request_hash, state, resource_id, expires_at
+		FROM dbo.idempotency_record WITH (UPDLOCK, HOLDLOCK)
+		WHERE scope=@scope AND idem_key=@idem_key`,
+		sql.Named("scope", scope), sql.Named("idem_key", key)).Scan(&savedHash, &state, &resourceID, &savedExpires)
+	if err == nil {
+		if !savedExpires.After(time.Now().UTC()) {
+			if _, err := tx.ExecContext(ctx, `DELETE FROM dbo.idempotency_record WHERE scope=@scope AND idem_key=@idem_key`, sql.Named("scope", scope), sql.Named("idem_key", key)); err != nil {
+				return domain.Dispense{}, false, err
+			}
+		} else {
+			if savedHash != requestHash {
+				return domain.Dispense{}, false, port.ErrIdempotencyConflict
+			}
+			switch state {
+			case "PENDING":
+				return domain.Dispense{}, false, port.ErrIdempotencyInProgress
+			case "COMPLETED":
+				if !resourceID.Valid || resourceID.String == "" {
+					return domain.Dispense{}, false, port.ErrNotFound
+				}
+				existing, getErr := loadDispense(ctx, tx, resourceID.String, false)
+				if getErr != nil {
+					return domain.Dispense{}, false, getErr
+				}
+				if err := tx.Commit(); err != nil {
+					return domain.Dispense{}, false, err
+				}
+				return *existing, true, nil
+			default:
+				return domain.Dispense{}, false, port.ErrIdempotencyInProgress
+			}
+		}
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return domain.Dispense{}, false, err
+	}
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO dbo.idempotency_record(scope, idem_key, request_hash, state, resource_type, resource_id, created_at, expires_at)
+		VALUES(@scope, @idem_key, @request_hash, 'PENDING', 'Dispense', NULL, SYSUTCDATETIME(), @expires_at)`,
+		sql.Named("scope", scope), sql.Named("idem_key", key), sql.Named("request_hash", requestHash), sql.Named("expires_at", expiresAt.UTC())); err != nil {
+		return domain.Dispense{}, false, err
+	}
+	saved, err := s.commitDispenseTx(ctx, tx, d)
+	if err != nil {
+		return domain.Dispense{}, false, err
+	}
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE dbo.idempotency_record
+		SET state='COMPLETED', resource_type='Dispense', resource_id=@resource_id, completed_at=SYSUTCDATETIME()
+		WHERE scope=@scope AND idem_key=@idem_key`,
+		sql.Named("resource_id", saved.DispenseID), sql.Named("scope", scope), sql.Named("idem_key", key)); err != nil {
+		return domain.Dispense{}, false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return domain.Dispense{}, false, err
+	}
+	return *saved, false, nil
+}
+
+func (s *Store) LookupDispenseIdempotency(ctx context.Context, scope, key, requestHash string) (*domain.Dispense, bool, error) {
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		return nil, false, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	var savedHash, state string
+	var resourceID sql.NullString
+	var expiresAt time.Time
+	err = tx.QueryRowContext(ctx, `
+		SELECT request_hash, state, resource_id, expires_at
+		FROM dbo.idempotency_record WITH (UPDLOCK, HOLDLOCK)
+		WHERE scope=@scope AND idem_key=@idem_key`,
+		sql.Named("scope", scope), sql.Named("idem_key", key)).Scan(&savedHash, &state, &resourceID, &expiresAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		if err := tx.Commit(); err != nil {
+			return nil, false, err
+		}
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	if !expiresAt.After(time.Now().UTC()) {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM dbo.idempotency_record WHERE scope=@scope AND idem_key=@idem_key`, sql.Named("scope", scope), sql.Named("idem_key", key)); err != nil {
+			return nil, false, err
+		}
+		if err := tx.Commit(); err != nil {
+			return nil, false, err
+		}
+		return nil, false, nil
+	}
+	if savedHash != requestHash {
+		return nil, false, port.ErrIdempotencyConflict
+	}
+	if state == "PENDING" {
+		return nil, false, port.ErrIdempotencyInProgress
+	}
+	if !resourceID.Valid || resourceID.String == "" {
+		return nil, false, port.ErrNotFound
+	}
+	d, err := loadDispense(ctx, tx, resourceID.String, false)
+	if errors.Is(err, port.ErrNotFound) {
+		return nil, false, port.ErrNotFound
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, false, err
+	}
+	return d, true, nil
+}
+
+// ReturnDispenseWithIdempotency keeps the key, stock credit, RETURN ledger,
+// dispense item/header updates in one serializable transaction.
+func (s *Store) ReturnDispenseWithIdempotency(ctx context.Context, dispenseID, reason, operatorID string, at time.Time, lines []port.ReturnLine, scope, key, requestHash string, expiresAt time.Time) (domain.Dispense, bool, error) {
+	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		return domain.Dispense{}, false, err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var savedHash, state string
+	var resourceID sql.NullString
+	var savedExpires time.Time
+	err = tx.QueryRowContext(ctx, `
+		SELECT request_hash, state, resource_id, expires_at
+		FROM dbo.idempotency_record WITH (UPDLOCK, HOLDLOCK)
+		WHERE scope=@scope AND idem_key=@idem_key`,
+		sql.Named("scope", scope), sql.Named("idem_key", key)).Scan(&savedHash, &state, &resourceID, &savedExpires)
+	if err == nil {
+		if !savedExpires.After(time.Now().UTC()) {
+			if _, err := tx.ExecContext(ctx, `DELETE FROM dbo.idempotency_record WHERE scope=@scope AND idem_key=@idem_key`, sql.Named("scope", scope), sql.Named("idem_key", key)); err != nil {
+				return domain.Dispense{}, false, err
+			}
+		} else {
+			if savedHash != requestHash {
+				return domain.Dispense{}, false, port.ErrIdempotencyConflict
+			}
+			switch state {
+			case "PENDING":
+				return domain.Dispense{}, false, port.ErrIdempotencyInProgress
+			case "COMPLETED":
+				if !resourceID.Valid || resourceID.String == "" {
+					return domain.Dispense{}, false, port.ErrNotFound
+				}
+				existing, getErr := loadDispense(ctx, tx, resourceID.String, false)
+				if getErr != nil {
+					return domain.Dispense{}, false, getErr
+				}
+				if err := tx.Commit(); err != nil {
+					return domain.Dispense{}, false, err
+				}
+				return *existing, true, nil
+			default:
+				return domain.Dispense{}, false, port.ErrIdempotencyInProgress
+			}
+		}
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return domain.Dispense{}, false, err
+	}
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO dbo.idempotency_record(scope, idem_key, request_hash, state, resource_type, resource_id, created_at, expires_at)
+		VALUES(@scope, @idem_key, @request_hash, 'PENDING', 'Dispense', NULL, SYSUTCDATETIME(), @expires_at)`,
+		sql.Named("scope", scope), sql.Named("idem_key", key), sql.Named("request_hash", requestHash), sql.Named("expires_at", expiresAt.UTC())); err != nil {
+		return domain.Dispense{}, false, err
+	}
+	saved, err := s.commitReturnTx(ctx, tx, dispenseID, reason, operatorID, at, lines)
+	if err != nil {
+		return domain.Dispense{}, false, err
+	}
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE dbo.idempotency_record
+		SET state='COMPLETED', resource_type='Dispense', resource_id=@resource_id, completed_at=SYSUTCDATETIME()
+		WHERE scope=@scope AND idem_key=@idem_key`,
+		sql.Named("resource_id", saved.DispenseID), sql.Named("scope", scope), sql.Named("idem_key", key)); err != nil {
+		return domain.Dispense{}, false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return domain.Dispense{}, false, err
+	}
+	return *saved, false, nil
 }
 
 func (s *Store) GetDispense(ctx context.Context, dispenseID string) (*domain.Dispense, error) {

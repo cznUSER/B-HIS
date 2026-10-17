@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"sort"
 	"sync"
 	"time"
 
@@ -12,44 +13,66 @@ import (
 
 // Store is the zero-DB identity store for local demo and tests.
 type Store struct {
-	mu           sync.Mutex
-	byID         map[string]domain.User
-	byName       map[string]string
-	revoked      map[string]time.Time
-	audits       []domain.AuditEvent
-	patients     map[string]domain.Patient
-	departments  map[string]domain.Department
-	doctors      map[string]domain.Doctor
-	registers    map[string]domain.Register
-	catalog      map[string]domain.CatalogItem
-	orders       map[string]domain.Order
-	charges      map[string]domain.Charge
-	payments     map[string]domain.Payment
-	inventory    map[string]domain.InventoryItem
-	ledgers      []domain.InventoryLedger
-	dispenses    map[string]domain.Dispense
-	dispenseStub map[string]dispenseRec
-	dicts        map[string]domain.DictItem
+	mu               sync.Mutex
+	byID             map[string]domain.User
+	byName           map[string]string
+	revoked          map[string]time.Time
+	audits           []domain.AuditEvent
+	patients         map[string]domain.Patient
+	departments      map[string]domain.Department
+	doctors          map[string]domain.Doctor
+	registers        map[string]domain.Register
+	diagnoses        map[string]domain.Diagnose
+	catalog          map[string]domain.CatalogItem
+	orders           map[string]domain.Order
+	charges          map[string]domain.Charge
+	payments         map[string]domain.Payment
+	inventory        map[string]domain.InventoryItem
+	inventoryBatches map[string]domain.InventoryBatch
+	ledgers          []domain.InventoryLedger
+	dispenses        map[string]domain.Dispense
+	dispenseStub     map[string]dispenseRec
+	dicts            map[string]domain.DictItem
+	accessMu         sync.RWMutex
+	modules          map[string]domain.AccessModule
+	categories       map[string]domain.PermissionCategory
+	modes            map[string]domain.PermissionMode
+	permissions      map[string]domain.AccessPermission
+	accessRoles      map[string]domain.AccessRole
+	overrides        map[string][]domain.PermissionOverride
+	roleScopes       map[string][]domain.UserRoleScope
+	idempotency      map[string]idempotencyRecord
 }
 
 func New() *Store {
 	s := &Store{
-		byID:         make(map[string]domain.User),
-		byName:       make(map[string]string),
-		revoked:      make(map[string]time.Time),
-		patients:     make(map[string]domain.Patient),
-		departments:  make(map[string]domain.Department),
-		doctors:      make(map[string]domain.Doctor),
-		registers:    make(map[string]domain.Register),
-		catalog:      make(map[string]domain.CatalogItem),
-		orders:       make(map[string]domain.Order),
-		charges:      make(map[string]domain.Charge),
-		payments:     make(map[string]domain.Payment),
-		inventory:    make(map[string]domain.InventoryItem),
-		dispenses:    make(map[string]domain.Dispense),
-		dispenseStub: make(map[string]dispenseRec),
-		dicts:        make(map[string]domain.DictItem),
+		byID:             make(map[string]domain.User),
+		byName:           make(map[string]string),
+		revoked:          make(map[string]time.Time),
+		patients:         make(map[string]domain.Patient),
+		departments:      make(map[string]domain.Department),
+		doctors:          make(map[string]domain.Doctor),
+		registers:        make(map[string]domain.Register),
+		diagnoses:        make(map[string]domain.Diagnose),
+		catalog:          make(map[string]domain.CatalogItem),
+		orders:           make(map[string]domain.Order),
+		charges:          make(map[string]domain.Charge),
+		payments:         make(map[string]domain.Payment),
+		inventory:        make(map[string]domain.InventoryItem),
+		inventoryBatches: make(map[string]domain.InventoryBatch),
+		dispenses:        make(map[string]domain.Dispense),
+		dispenseStub:     make(map[string]dispenseRec),
+		dicts:            make(map[string]domain.DictItem),
+		modules:          make(map[string]domain.AccessModule),
+		categories:       make(map[string]domain.PermissionCategory),
+		modes:            make(map[string]domain.PermissionMode),
+		permissions:      make(map[string]domain.AccessPermission),
+		accessRoles:      make(map[string]domain.AccessRole),
+		overrides:        make(map[string][]domain.PermissionOverride),
+		roleScopes:       make(map[string][]domain.UserRoleScope),
+		idempotency:      newIdempotencyMap(),
 	}
+	seedAccessControl(s)
 	seedAt := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	demo := seed.DemoUser()
 	demo.CreatedAt = seedAt
@@ -171,8 +194,23 @@ func (s *Store) IsRevoked(_ context.Context, jti string) (bool, error) {
 func (s *Store) Append(_ context.Context, event domain.AuditEvent) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.audits = append(s.audits, event)
+	s.appendAuditLocked(event)
 	return nil
+}
+
+func (s *Store) appendAuditLocked(event domain.AuditEvent) {
+	if event.ModuleID == "" {
+		event.ModuleID = domain.AuditModuleID(event.Action)
+	}
+	if event.Description == "" {
+		event.Description = domain.AuditDescription(event.Action)
+	}
+	if event.ActorUsername == "" && event.ActorID != "" {
+		if user, ok := s.byID[event.ActorID]; ok {
+			event.ActorUsername = user.Username
+		}
+	}
+	s.audits = append(s.audits, event)
 }
 
 func (s *Store) Audits() []domain.AuditEvent {
@@ -183,11 +221,82 @@ func (s *Store) Audits() []domain.AuditEvent {
 	return out
 }
 
+func (s *Store) ListUserOperations(_ context.Context, q port.UserOperationQuery) ([]domain.UserOperationLog, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	rows := make([]domain.UserOperationLog, 0)
+	for _, event := range s.audits {
+		if q.ModuleID != "" && event.ModuleID != q.ModuleID {
+			continue
+		}
+		if q.UserID != "" && event.ActorID != q.UserID {
+			continue
+		}
+		if !q.Begin.IsZero() && event.OccurredAt.Before(q.Begin) {
+			continue
+		}
+		if !q.EndExclusive.IsZero() && !event.OccurredAt.Before(q.EndExclusive) {
+			continue
+		}
+		if !q.CursorOccurredAt.IsZero() && !(event.OccurredAt.Before(q.CursorOccurredAt) || (event.OccurredAt.Equal(q.CursorOccurredAt) && event.ID < q.CursorID)) {
+			continue
+		}
+		moduleName := map[string]string{"module-outpatient": "门诊业务", "module-master": "系统设置"}[event.ModuleID]
+		description := event.Description
+		if description == "" {
+			description = domain.AuditDescription(event.Action)
+		}
+		rows = append(rows, domain.UserOperationLog{
+			ID: event.ID, ModuleID: event.ModuleID, ModuleName: moduleName, LogType: event.Action,
+			OccurredAt: event.OccurredAt, ActorUserID: event.ActorID, ActorUsername: event.ActorUsername,
+			DepartmentID: event.DepartmentID, Description: description, ClientIP: event.ClientIP,
+			ClientMAC: event.ClientMAC, BuildVersion: event.BuildVersion, RequestID: event.RequestID,
+			Outcome: event.Outcome, ErrorCode: event.ErrorCode,
+		})
+	}
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].OccurredAt.Equal(rows[j].OccurredAt) {
+			return rows[i].ID > rows[j].ID
+		}
+		return rows[i].OccurredAt.After(rows[j].OccurredAt)
+	})
+	if q.Limit > 0 && len(rows) > q.Limit {
+		rows = rows[:q.Limit]
+	}
+	return rows, nil
+}
+
 func clone(u domain.User) domain.User {
 	if u.Roles != nil {
 		roles := make([]domain.Role, len(u.Roles))
 		copy(roles, u.Roles)
 		u.Roles = roles
+	}
+	if u.EffectivePermissions != nil {
+		permissions := make([]domain.PermissionGrant, len(u.EffectivePermissions))
+		copy(permissions, u.EffectivePermissions)
+		u.EffectivePermissions = permissions
+	}
+	if u.DeniedPermissions != nil {
+		denied := make([]domain.PermissionGrant, len(u.DeniedPermissions))
+		copy(denied, u.DeniedPermissions)
+		u.DeniedPermissions = denied
+	}
+	if u.ServiceStar != nil {
+		value := *u.ServiceStar
+		u.ServiceStar = &value
+	}
+	if u.ExpandInterface1 != nil {
+		value := *u.ExpandInterface1
+		u.ExpandInterface1 = &value
+	}
+	if u.ExpandInterface2 != nil {
+		value := *u.ExpandInterface2
+		u.ExpandInterface2 = &value
+	}
+	if u.InputCodeCompareMode != nil {
+		value := *u.InputCodeCompareMode
+		u.InputCodeCompareMode = &value
 	}
 	return u
 }

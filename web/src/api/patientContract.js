@@ -1,6 +1,5 @@
 // 2026-10-12 P1-H05-PATIENT-UI 建档请求与患者查询。
-// JSON 键对齐 OpenAPI 0.3.5：name、sex、birthday、idNumber、phone、address、fareIdentity、cardNo。
-// 业务必填：姓名、性别、生日、费别。地址选填，有内容才提交。
+// JSON keys align with OpenAPI patient archive fields. Optional values are omitted when blank.
 
 import { apiError } from './errors.js'
 
@@ -21,6 +20,40 @@ export const SEX_OPTIONS = [
 export const FARE_OPTIONS = [
   { value: 'SELF', label: '自费' },
   { value: 'OTHER', label: '其他（占位）' },
+]
+
+export const ID_TYPE_OPTIONS = [
+  { value: 'ID_CARD', label: '身份证' },
+  { value: 'HOUSEHOLD', label: '户口簿' },
+  { value: 'PASSPORT', label: '护照' },
+  { value: 'MILITARY', label: '军官证' },
+  { value: 'OTHER', label: '其他证件' },
+]
+
+const OPTIONAL_PATIENT_FIELDS = [
+  ['cardNo', 32],
+  ['memberCardNo', 32],
+  ['memberLevel', 32],
+  ['contractUnit', 128],
+  ['patientCertificateNo', 32],
+  ['birthPlace', 128],
+  ['ethnicity', 32],
+  ['nationality', 32],
+  ['maritalStatus', 32],
+  ['occupationCategory', 64],
+  ['occupation', 128],
+  ['education', 32],
+  ['workUnit', 128],
+  ['workUnitPhone', 32],
+  ['workUnitPostcode', 16],
+  ['householdAddress', 256],
+  ['householdPhone', 32],
+  ['householdPostcode', 16],
+  ['contactName', 64],
+  ['contactAddress', 256],
+  ['contactPhone', 32],
+  ['contactRelation', 32],
+  ['address', 256],
 ]
 
 export function todayInShanghai(now = new Date()) {
@@ -71,7 +104,8 @@ export function assertCreatePatientRequest(input) {
   if (!fareIdentity) throw apiError(400, 'VALIDATION_ERROR', '请选择费别')
 
   const idNumber = asText(src.idNumber).toUpperCase()
-  if (idNumber && !/^(\d{15}|\d{17}[\dX])$/.test(idNumber)) {
+  const idType = asText(src.idType) || 'ID_CARD'
+  if (idNumber && idType === 'ID_CARD' && !/^(\d{15}|\d{17}[\dX])$/.test(idNumber)) {
     throw apiError(400, 'VALIDATION_ERROR', '身份证号格式不正确')
   }
 
@@ -81,18 +115,19 @@ export function assertCreatePatientRequest(input) {
     throw apiError(400, 'VALIDATION_ERROR', '手机号格式不正确')
   }
 
-  const address = asText(src.address)
-  if ([...address].length > 256) throw apiError(400, 'VALIDATION_ERROR', '地址请少于 256 字')
-
   const body = { name, sex, birthday, fareIdentity }
   if (idNumber) {
-    body.idType = 'ID_CARD'
+    body.idType = idType
     body.idNumber = idNumber
   }
   if (phone) body.phone = phone
-  if (address) body.address = address
-  const cardNo = asText(src.cardNo)
-  if (cardNo) body.cardNo = cardNo
+  for (const [key, max] of OPTIONAL_PATIENT_FIELDS) {
+    const value = asText(src[key])
+    if ([...value].length > max) {
+      throw apiError(400, 'VALIDATION_ERROR', `${key}请少于 ${max} 字`)
+    }
+    if (value) body[key] = value
+  }
   return body
 }
 
@@ -101,16 +136,18 @@ export function assertPatientSearchQuery(input) {
   const name = asText(src.name)
   const idNumber = asText(src.idNumber).toUpperCase()
   const patientNo = asText(src.patientNo)
-  if (!name && !idNumber && !patientNo) {
-    throw apiError(400, 'VALIDATION_ERROR', '请填写姓名、身份证号或患者号')
+  const hospPkNo = asText(src.hospPkNo)
+  if (!name && !idNumber && !patientNo && !hospPkNo) {
+    throw apiError(400, 'VALIDATION_ERROR', '请填写姓名、身份证号、患者号或院内档案号')
   }
-  return { name, idNumber, patientNo }
+  return { name, idNumber, patientNo, hospPkNo }
 }
 
 export function patientMatchesQuery(patient, query) {
   if (query.name && !String(patient.name || '').toLowerCase().includes(query.name.toLowerCase())) return false
   if (query.idNumber && String(patient.idNumber || '') !== query.idNumber) return false
   if (query.patientNo && String(patient.patientNo || '') !== query.patientNo) return false
+  if (query.hospPkNo && String(patient.hospPkNo || '') !== query.hospPkNo) return false
   return true
 }
 
@@ -132,7 +169,12 @@ export function assertPatientDto(body) {
     throw apiError(502, 'HTTP_ERROR', '患者信息不符合契约')
   }
   const dto = { patientId, name }
-  for (const key of ['hospPkNo', 'patientNo', 'cardNo', 'sex', 'birthday', 'idNumber', 'phone', 'address', 'fareIdentity', 'createdAt']) {
+  for (const key of [
+    'hospPkNo', 'patientNo', 'cardNo', 'sex', 'birthday', 'idType', 'idNumber', 'phone', 'address', 'fareIdentity',
+    'memberCardNo', 'memberLevel', 'contractUnit', 'patientCertificateNo', 'birthPlace', 'ethnicity', 'nationality',
+    'maritalStatus', 'occupationCategory', 'occupation', 'education', 'workUnit', 'workUnitPhone', 'workUnitPostcode',
+    'householdAddress', 'householdPhone', 'householdPostcode', 'contactName', 'contactAddress', 'contactPhone', 'contactRelation', 'createdAt',
+  ]) {
     optionalString(body, key, dto)
   }
   if (body.cardStatus != null && body.cardStatus !== '') {

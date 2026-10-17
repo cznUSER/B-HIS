@@ -112,15 +112,13 @@ export function mockCreatePatient(accessToken, input, idempotencyKey) {
     patientId: crypto.randomUUID(),
     hospPkNo: `H${day}${serial}`,
     patientNo: `P${day}${serial}`,
+    ...request,
     cardNo: request.cardNo || '',
-    name: request.name,
-    sex: request.sex,
-    birthday: request.birthday,
+    idType: request.idType || '',
     idNumber: request.idNumber || '',
     phone: request.phone || '',
     address: request.address || '',
-    fareIdentity: request.fareIdentity,
-    cardStatus: 'NOT_SENT',
+    cardStatus: request.cardNo ? 'NORMAL' : 'NOT_SENT',
     status: 'ACTIVE',
     createdAt: new Date().toISOString(),
   })
@@ -149,4 +147,10 @@ export function mockGetPatient(accessToken, patientId) {
     })
   }
   return copyPatient(found)
+}
+
+// 2026-10-14 P1-H05-WEB-USABILITY: charge lookup consumes actual locally created patients.
+export function mockAllStoredPatients(accessToken) {
+  requireSession(accessToken)
+  return readState().patients.map(copyPatient)
 }

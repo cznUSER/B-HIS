@@ -2,6 +2,17 @@
 
 export function canMaintainMaster(user) {
   if (!user || typeof user !== 'object') return false
+  const hasPermissionData = user.accessControlLoaded === true
+    || Object.prototype.hasOwnProperty.call(user, 'permissions')
+    || Object.prototype.hasOwnProperty.call(user, 'scopes')
+    || Object.prototype.hasOwnProperty.call(user, 'deniedPermissions')
+  if (hasPermissionData) {
+    const permissions = Array.isArray(user.permissions) ? user.permissions : []
+    const denied = Array.isArray(user.deniedPermissions) ? user.deniedPermissions : []
+    const scopes = Array.isArray(user.scopes) ? user.scopes.filter((scope) => typeof scope === 'string') : []
+    const masterScoped = scopes.length === 0 || scopes.some((scope) => scope.split(':', 1)[0] === '' || scope.split(':', 1)[0] === 'master')
+    return masterScoped && !denied.includes('admin:*') && !denied.some((code) => code.startsWith('admin:')) && (permissions.includes('admin:*') || permissions.some((code) => code.startsWith('admin:')))
+  }
   const username = typeof user.username === 'string' ? user.username.trim().toLowerCase() : ''
   if (username === 'system') return true
   const roles = Array.isArray(user.roles) ? user.roles : []
