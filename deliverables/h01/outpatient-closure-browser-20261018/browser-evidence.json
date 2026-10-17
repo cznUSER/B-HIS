@@ -1,0 +1,171 @@
+{
+  "base": "http://127.0.0.1:16858",
+  "startedAt": "2026-10-17T22:55:00.777Z",
+  "routes": [
+    {
+      "name": "overview",
+      "path": "/app",
+      "heading": "工作台\n系统管理员，欢迎回来"
+    },
+    {
+      "name": "patient",
+      "path": "/app/outpatient/patient",
+      "heading": "患者建档"
+    },
+    {
+      "name": "register",
+      "path": "/app/outpatient/register",
+      "heading": "挂号"
+    },
+    {
+      "name": "diagnosis",
+      "path": "/app/outpatient/diagnosis",
+      "heading": "诊断"
+    },
+    {
+      "name": "order",
+      "path": "/app/outpatient/order",
+      "heading": "开单"
+    },
+    {
+      "name": "charge",
+      "path": "/app/outpatient/charge",
+      "heading": "收费"
+    },
+    {
+      "name": "dispense",
+      "path": "/app/outpatient/dispense",
+      "heading": "发药"
+    },
+    {
+      "name": "refund",
+      "path": "/app/outpatient/refund",
+      "heading": "退药/退费"
+    }
+  ],
+  "layouts": [
+    {
+      "name": "overview",
+      "viewport": 390,
+      "document": 390
+    },
+    {
+      "name": "overview",
+      "viewport": 768,
+      "document": 768
+    },
+    {
+      "name": "overview",
+      "viewport": 1440,
+      "document": 1440
+    },
+    {
+      "name": "patient",
+      "viewport": 390,
+      "document": 390
+    },
+    {
+      "name": "patient",
+      "viewport": 768,
+      "document": 768
+    },
+    {
+      "name": "patient",
+      "viewport": 1440,
+      "document": 1440
+    },
+    {
+      "name": "register",
+      "viewport": 390,
+      "document": 390
+    },
+    {
+      "name": "register",
+      "viewport": 768,
+      "document": 768
+    },
+    {
+      "name": "register",
+      "viewport": 1440,
+      "document": 1440
+    },
+    {
+      "name": "diagnosis",
+      "viewport": 390,
+      "document": 390
+    },
+    {
+      "name": "diagnosis",
+      "viewport": 768,
+      "document": 768
+    },
+    {
+      "name": "diagnosis",
+      "viewport": 1440,
+      "document": 1440
+    },
+    {
+      "name": "order",
+      "viewport": 390,
+      "document": 390
+    },
+    {
+      "name": "order",
+      "viewport": 768,
+      "document": 768
+    },
+    {
+      "name": "order",
+      "viewport": 1440,
+      "document": 1440
+    },
+    {
+      "name": "charge",
+      "viewport": 390,
+      "document": 390
+    },
+    {
+      "name": "charge",
+      "viewport": 768,
+      "document": 768
+    },
+    {
+      "name": "charge",
+      "viewport": 1440,
+      "document": 1440
+    },
+    {
+      "name": "dispense",
+      "viewport": 390,
+      "document": 390
+    },
+    {
+      "name": "dispense",
+      "viewport": 768,
+      "document": 768
+    },
+    {
+      "name": "dispense",
+      "viewport": 1440,
+      "document": 1440
+    },
+    {
+      "name": "refund",
+      "viewport": 390,
+      "document": 390
+    },
+    {
+      "name": "refund",
+      "viewport": 768,
+      "document": 768
+    },
+    {
+      "name": "refund",
+      "viewport": 1440,
+      "document": 1440
+    }
+  ],
+  "consoleErrors": [],
+  "requestFailures": [],
+  "finishedAt": "2026-10-17T22:55:08.546Z"
+}
