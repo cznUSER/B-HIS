@@ -1,6 +1,6 @@
 # P0 工作区基线分层与准出门禁
 
-日期：2026-10-17（Asia/Singapore）
+日期：2026-10-17（Asia/Shanghai）
 负责人：贾维斯（H01 收口）
 工作分支：`codex/website-usability-2026-10-14`
 GitLab 远端：`http://192.168.1.138:8929/root/b-his.git`（凭据隐藏）
@@ -31,7 +31,7 @@ GitLab 远端：`http://192.168.1.138:8929/root/b-his.git`（凭据隐藏）
 
 - `tmp/go-test-all-20261016.txt` 显示 `internal/app/TestChargePayAndRefundIdempotencySurvivesServiceRestart` 失败，重启后 pay replay 返回 `ILLEGAL_STATE_TRANSITION`。
 - 路线图及部分历史报告仍保留“全量测试通过”的旧记录；在失败证据消除并重新运行完整门禁前，不得报告全量绿色。
-- H04 已完成收费幂等回归修复，H06 已独立复核代码和内存层；SQL Server 进程重启、24 小时边界及隔离库证据仍待补，不得关闭该切片。
+- H04 已完成收费幂等回归修复，H06 已独立复核；代码、memory 与隔离库 MSSQL 集成通过（完整测试包 19 项），SQL Store 用例不覆盖真实 API 进程重启和 24 小时边界，后两项仍待补。
 
 ## 任务准出门禁
 
