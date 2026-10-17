@@ -1,0 +1,4 @@
+#!/bin/sh
+# Start the Code A listener and open the local test site after each commit.
+ROOT="$(git rev-parse --show-toplevel)"
+exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$ROOT/scripts/start-codea-test.ps1"

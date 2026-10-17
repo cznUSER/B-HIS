@@ -95,6 +95,18 @@ bin\b-his-host.exe logs
 
 启动时，Host 会检查 API 与页面端口。若端口由身份、健康状态和端口归属都确认的旧 B-HIS Host 占用，会先结束该 Host 并等待端口释放；独立 `cmd/api` 仅在单独占用 API 端口时可被接管。若由其他程序（例如 Vite）占用，Host 会拒绝结束该程序并报告错误。默认 API 端口为 `127.0.0.1:9999`，页面端口为 `127.0.0.1:8888`；分别可用 `BHIS_API_ADDR` / `Host.ApiAddr` 与 `BHIS_WEB_ADDR` / `Host.WebAddr` 配置。日志仍在工作目录的 `./logs`（双击时工作目录一般就是 exe 所在文件夹）。
 
+## Code A 实机测试
+
+项目已提供 `scripts\start-codea-test.ps1`：它从当前已提交版本构建 Host，上传到 Code A 的 `E:\B-HIS`，启动 Code A 的真实 SQL Server API/网站，再建立本机 SSH 隧道并打开 `http://127.0.0.1:8888/login`。本机访问的是 Code A 数据库对应的真实服务，不是前端 Mock。
+
+首次启用提交后的自动启动：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\enable-codea-test-hook.ps1
+```
+
+之后每次提交代码，Git `post-commit` 会自动执行 Code A 测试启动器；也可手动执行同一个 `start-codea-test.ps1`。脚本只同步已提交内容，拒绝带有未提交跟踪文件的状态，避免 Code A 测试版本与 GitLab 版本不一致。Code A 的 `config.local.yaml` 通过 SSH 单独传输，永不进入 Git。
+
 ## 内存演示账号
 
 用户名区分大小写。密码只以 bcrypt 保存。
