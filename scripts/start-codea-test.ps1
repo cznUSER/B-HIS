@@ -104,7 +104,6 @@ try {
 
     if (-not $NoSync) {
         Write-Host "Uploading revision and runtime package to Code A ..."
-        Invoke-Checked $scp @('-q', $archive, "${SshHost}:E:/B-HIS/bhis-source.tar")
         Invoke-Checked $scp @('-q', $hostExe, "${SshHost}:E:/B-HIS/b-his-host.exe")
         # config.local.yaml is gitignored and is sent only to the configured Code A host.
         Invoke-Checked $scp @('-q', $config, "${SshHost}:E:/B-HIS/config.local.yaml")
@@ -114,18 +113,16 @@ try {
 `$ErrorActionPreference = 'Stop'
 `$root = '$RemoteRoot'
 New-Item -ItemType Directory -Force -Path `$root | Out-Null
-if (Test-Path (Join-Path `$root 'bhis-source.tar')) {
-  tar -xf (Join-Path `$root 'bhis-source.tar') -C `$root
-  Remove-Item -Force (Join-Path `$root 'bhis-source.tar')
-}
 `$exe = Join-Path `$root 'b-his-host.exe'
-`$running = Get-Process -Name 'b-his-host' -ErrorAction SilentlyContinue | Where-Object { `$_.Path -eq `$exe }
+`$running = Get-Process -Name 'b-his-host' -ErrorAction SilentlyContinue
 if (`$running) { `$running | Stop-Process -Force; Start-Sleep -Milliseconds 500 }
 `$logDir = Join-Path `$root 'logs'
 New-Item -ItemType Directory -Force -Path `$logDir | Out-Null
 `$stdout = Join-Path `$logDir 'codea-test-host.stdout.log'
 `$stderr = Join-Path `$logDir 'codea-test-host.stderr.log'
-Start-Process -FilePath `$exe -WorkingDirectory `$root -ArgumentList '-no-browser' -WindowStyle Hidden -RedirectStandardOutput `$stdout -RedirectStandardError `$stderr | Out-Null
+`$cmd = Join-Path `$root 'start-codea-test.cmd'
+Set-Content -LiteralPath `$cmd -Encoding ASCII -Value '@echo off', ('cd /d "' + `$root + '"'), ('start "B-HIS Code A Test" /b "' + `$exe + '" -no-browser 1>>"' + `$stdout + '" 2>>"' + `$stderr + '"')
+Start-Process -FilePath 'cmd.exe' -ArgumentList '/c', `$cmd -WorkingDirectory `$root -WindowStyle Hidden | Out-Null
 for (`$i = 0; `$i -lt 40; `$i++) {
   try {
     `$health = Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:9999/health' -TimeoutSec 2
