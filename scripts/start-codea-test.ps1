@@ -107,33 +107,37 @@ try {
         Invoke-Checked $scp @('-q', $config, "${SshHost}:E:/B-HIS/config.local.yaml")
     }
 
-    $remoteScript = @"
-`$ErrorActionPreference = 'Stop'
-`$root = '$RemoteRoot'
-New-Item -ItemType Directory -Force -Path `$root | Out-Null
-`$exe = Join-Path `$root 'b-his-host.exe'
-`$running = Get-Process -Name 'b-his-host' -ErrorAction SilentlyContinue
-if (`$running) { `$running | Stop-Process -Force; Start-Sleep -Milliseconds 500 }
-`$logDir = Join-Path `$root 'logs'
-New-Item -ItemType Directory -Force -Path `$logDir | Out-Null
-`$stdout = Join-Path `$logDir 'codea-test-host.stdout.log'
-`$stderr = Join-Path `$logDir 'codea-test-host.stderr.log'
-`$cmd = Join-Path `$root 'start-codea-test.cmd'
-Set-Content -LiteralPath `$cmd -Encoding ASCII -Value '@echo off', ('cd /d "' + `$root + '"'), ('start "B-HIS Code A Test" /b "' + `$exe + '" -no-browser 1>>"' + `$stdout + '" 2>>"' + `$stderr + '"')
-Start-Process -FilePath 'cmd.exe' -ArgumentList '/c', `$cmd -WorkingDirectory `$root -WindowStyle Hidden | Out-Null
-for (`$i = 0; `$i -lt 40; `$i++) {
+    $remoteScript = @'
+$ErrorActionPreference = 'Stop'
+$root = '__REMOTE_ROOT__'
+New-Item -ItemType Directory -Force -Path $root | Out-Null
+$exe = Join-Path $root 'b-his-host.exe'
+$running = Get-Process -Name 'b-his-host' -ErrorAction SilentlyContinue
+if ($running) { $running | Stop-Process -Force; Start-Sleep -Milliseconds 500 }
+$logDir = Join-Path $root 'logs'
+New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+$stdout = Join-Path $logDir 'codea-test-host.stdout.log'
+$stderr = Join-Path $logDir 'codea-test-host.stderr.log'
+$pidFile = Join-Path $logDir 'codea-test-host.pid'
+Remove-Item -Force $stdout, $stderr -ErrorAction SilentlyContinue
+$process = Start-Process -FilePath $exe -WorkingDirectory $root -ArgumentList '-no-browser' -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+Set-Content -LiteralPath $pidFile -Value $process.Id -Encoding ASCII
+for ($i = 0; $i -lt 40; $i++) {
   try {
-    `$health = Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:9999/health' -TimeoutSec 2
-    if (`$health.StatusCode -eq 200) { Write-Output `$health.Content; exit 0 }
+    $health = Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:9999/health' -TimeoutSec 2
+    if ($health.StatusCode -eq 200) { Write-Output ('PID=' + $process.Id); Write-Output $health.Content; exit 0 }
   } catch { }
+  if ($process.HasExited) { break }
   Start-Sleep -Milliseconds 500
 }
-Get-Content `$stderr -Tail 40 -ErrorAction SilentlyContinue
+Get-Content $stderr -Tail 80 -ErrorAction SilentlyContinue
 throw 'Code A Host did not become healthy on 127.0.0.1:9999'
-"@
-    $remoteB64 = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($remoteScript))
-    $remoteCommand = "powershell -NoProfile -ExecutionPolicy Bypass -EncodedCommand $remoteB64"
-    $health = & $ssh -o BatchMode=yes -o ConnectTimeout=10 $SshHost $remoteCommand
+'@
+    $remoteScript = $remoteScript.Replace('__REMOTE_ROOT__', $RemoteRoot)
+    $remoteLauncher = Join-Path $stage 'start-codea-test-remote.ps1'
+    Set-Content -LiteralPath $remoteLauncher -Value $remoteScript -Encoding UTF8
+    Invoke-Checked $scp @('-q', $remoteLauncher, "${SshHost}:E:/B-HIS/start-codea-test-remote.ps1")
+    $health = & $ssh -o BatchMode=yes -o ConnectTimeout=10 $SshHost 'powershell -NoProfile -ExecutionPolicy Bypass -File E:\B-HIS\start-codea-test-remote.ps1'
     if ($LASTEXITCODE -ne 0) { throw 'Code A Host startup failed' }
     Write-Host "Code A health: $($health -join ' ')"
 
