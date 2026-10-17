@@ -11,6 +11,8 @@ variables:
   # and the first pipeline on a branch.
   GIT_DEPTH: "0"
   GOTOOLCHAIN: local
+  # Code A cannot reach proxy.golang.org; its Runner can reach this Go module mirror.
+  GOPROXY: "https://goproxy.cn"
 
 workflow:
   rules:
