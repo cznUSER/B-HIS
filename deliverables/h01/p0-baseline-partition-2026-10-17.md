@@ -57,7 +57,7 @@ GitLab 远端：`http://192.168.1.138:8929/root/b-his.git`（凭据隐藏）
 
 - H06 已完成本轮独立验收准备并提交 BLOCKED 报告：Code A SQL 目标可达且只读 `DB_NAME()` 守卫返回 `BHIS_PHASE2_TEST_20261015`；独立 API 端口 `18081/18082` 空闲；API 启动命令三次在进程创建前被执行环境策略拒绝。未取得 API PID、未发请求、未写数据库、未建立 fixture；没有业务数据需清理。
 - `expires_at` 恰等于应用主机 UTC 检查时刻的边界未运行实测。H06 仅从 `expiresAt.After(time.Now().UTC())` 判断推得等于时已过期；不得将其记录为实测。
-- GitLab push pipeline `#34` 对应提交 `eaa9c602ea9028427033bc5ed0cd282e0a271531`，状态 `pending`：`diff:check`、`go:test`、`go:vet` 为 `pending`，`web:quality` 为 `created`；当前没有 runner 接单，SQL 手动作业未出现在该 pipeline。只读 API 检查未触发、重试或改动 GitLab。
+- 本轮文档记录提交 `7550b41739d52aaedbc51789b5f4fb18d8b8a04c` 已推送至 GitLab `codex/website-usability-2026-10-14`，远端 SHA 与本地一致。该提交的 push pipeline `#35` 为 `pending`：`diff:check`、`go:test`、`go:vet` 为 `pending`，`web:quality` 为 `created`；当前没有 runner 接单，SQL 手动作业未出现在该 pipeline。H13 只读检查未触发、重试或改动 GitLab。
 - 当前 P1 仍进行中。下一步需要恢复获准启动独立 API 的执行条件，并为 GitLab 配置可接单的受控 runner；其间不进入 P2-5、不改业务源码、不触碰 `BHIS` 或 `HospDataV9`。
 
 ## 暂缓的用户决策项
