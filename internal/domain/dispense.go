@@ -49,6 +49,14 @@ type InventoryLedger struct {
 	CreatedBy     string
 }
 
+// InventoryLedgerEntry adds read-time fields without changing the ledger table.
+type InventoryLedgerEntry struct {
+	InventoryLedger
+	SkuCode       string
+	QtyAfterMilli int64
+	OperatorName  string
+}
+
 // DispenseItem is one line of a dispense slip. Qty*Milli is quantity × 1000.
 // LineStatus is a snapshot; readers recompute NONE|PARTIAL|FULL from net dispensed.
 type DispenseItem struct {
