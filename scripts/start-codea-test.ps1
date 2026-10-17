@@ -51,7 +51,6 @@ function Wait-LocalPort {
 $git = (Get-Command git -ErrorAction Stop).Source
 $ssh = (Get-Command ssh -ErrorAction Stop).Source
 $scp = (Get-Command scp -ErrorAction Stop).Source
-$tar = (Get-Command tar -ErrorAction Stop).Source
 
 $head = (& $git rev-parse HEAD).Trim()
 if ($LASTEXITCODE -ne 0 -or $head -notmatch '^[0-9a-f]{40}$') { throw 'cannot resolve the committed revision' }
@@ -64,16 +63,15 @@ if ($trackedChanges.Count -gt 0) {
 }
 
 $stage = Join-Path $env:TEMP "b-his-codea-$PID"
-$archive = Join-Path $stage 'b-his-source.tar'
+$archive = Join-Path $stage 'b-his-source.zip'
 $hostExe = Join-Path $stage 'b-his-host.exe'
 $config = Join-Path $Root 'config.local.yaml'
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 try {
     if (-not $NoBuild) {
         Write-Host "Building Host from $($head.Substring(0, 8)) ..."
-        Invoke-Checked $git @('archive', '--format=tar', "--output=$archive", 'HEAD')
-        & $tar -xf $archive -C $stage
-        if ($LASTEXITCODE -ne 0) { throw 'failed to extract the source archive' }
+        Invoke-Checked $git @('archive', '--format=zip', "--output=$archive", 'HEAD')
+        Expand-Archive -LiteralPath $archive -DestinationPath $stage -Force
 
         Push-Location (Join-Path $stage 'web')
         Invoke-Checked 'npm.cmd' @('ci', '--ignore-scripts')
