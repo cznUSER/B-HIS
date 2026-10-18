@@ -24,8 +24,8 @@ func TestPatientSearchUsesExactPatientNoSQLParameter(t *testing.T) {
 	if !strings.Contains(capture.query, "patient_no = @patient_no") {
 		t.Fatalf("patient search SQL has no exact patient_no predicate: %s", capture.query)
 	}
-	if !strings.Contains(capture.query, "OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY") {
-		t.Fatalf("patient search SQL has no offset pagination: %s", capture.query)
+	if !strings.Contains(capture.query, "ROW_NUMBER() OVER (ORDER BY created_at, patient_id)") || !strings.Contains(capture.query, "row_num > @offset") {
+		t.Fatalf("patient search SQL has no row-number pagination: %s", capture.query)
 	}
 	var sawOffset bool
 	for _, arg := range capture.args {

@@ -82,7 +82,8 @@ func (s *Store) Search(ctx context.Context, q port.PatientQuery) ([]domain.Patie
 	if limit <= 0 {
 		limit = 100
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT `+patientCols+`
+	rows, err := s.db.QueryContext(ctx, `WITH patient_page AS (
+		SELECT `+patientCols+`, ROW_NUMBER() OVER (ORDER BY created_at, patient_id) AS row_num
 		FROM dbo.patient
 		WHERE is_deleted = 0
 		  AND (@patient_no IS NULL OR patient_no = @patient_no)
@@ -91,8 +92,11 @@ func (s *Store) Search(ctx context.Context, q port.PatientQuery) ([]domain.Patie
 		  AND (@hosp_pk_no IS NULL OR hosp_pk_no = @hosp_pk_no)
 		  AND (@name IS NULL OR name LIKE @name ESCAPE '\')
 		  AND (@address IS NULL OR address LIKE @address ESCAPE '\')
-		ORDER BY created_at, patient_id
-		OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`,
+	)
+	SELECT `+patientCols+`
+	FROM patient_page
+	WHERE row_num > @offset AND row_num <= @offset + @limit
+	ORDER BY row_num`,
 		sql.Named("limit", limit),
 		sql.Named("offset", q.Offset),
 		sql.Named("patient_no", nullIfEmpty(q.PatientNo)),
