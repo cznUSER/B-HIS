@@ -103,7 +103,7 @@ try {
 
     if (-not $NoSync) {
         Write-Host "Uploading revision and runtime package to Code A ..."
-        Invoke-Checked $scp @('-q', $hostExe, "${SshHost}:E:/B-HIS/b-his-host.exe")
+        Invoke-Checked $scp @('-q', $hostExe, "${SshHost}:E:/B-HIS/b-his-host.next.exe")
         # config.local.yaml is gitignored and is sent only to the configured Code A host.
         Invoke-Checked $scp @('-q', $config, "${SshHost}:E:/B-HIS/config.local.yaml")
     }
@@ -115,6 +115,8 @@ New-Item -ItemType Directory -Force -Path $root | Out-Null
 $exe = Join-Path $root 'b-his-host.exe'
 $running = Get-Process -Name 'b-his-host' -ErrorAction SilentlyContinue
 if ($running) { $running | Stop-Process -Force; Start-Sleep -Milliseconds 500 }
+$stagedExe = Join-Path $root 'b-his-host.next.exe'
+if (Test-Path $stagedExe) { Move-Item -LiteralPath $stagedExe -Destination $exe -Force }
 $logDir = Join-Path $root 'logs'
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $stdout = Join-Path $logDir 'codea-test-host.stdout.log'
