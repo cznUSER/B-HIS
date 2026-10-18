@@ -464,7 +464,7 @@ func (s *Service) PayCharge(ctx context.Context, claims *auth.Claims, chargeID s
 		fields = addField(fields, "idempotencyKey")
 	}
 	cents, amountOK := priceCents(in.Amount)
-	if !amountOK {
+	if !amountOK || cents <= 0 {
 		return nil, invalidAmount()
 	}
 	if len(fields) > 0 {
