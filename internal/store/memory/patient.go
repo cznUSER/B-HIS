@@ -106,10 +106,18 @@ func (s *Store) Search(_ context.Context, q port.PatientQuery) ([]domain.Patient
 		}
 		return out[i].CreatedAt.Before(out[j].CreatedAt)
 	})
-	if len(out) > limit {
-		out = out[:limit]
+	start := q.Offset
+	if start < 0 {
+		start = 0
 	}
-	return out, nil
+	if start > len(out) {
+		start = len(out)
+	}
+	end := start + limit
+	if end > len(out) {
+		end = len(out)
+	}
+	return out[start:end], nil
 }
 
 func patientMatches(p domain.Patient, q port.PatientQuery) bool {

@@ -148,6 +148,7 @@ type PatientQuery struct {
 	HospPkNo  string
 	Address   string
 	Limit     int
+	Offset    int
 }
 
 // PatientStore is the MPI port. Persistent drivers implement it; memory is

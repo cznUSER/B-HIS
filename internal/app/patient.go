@@ -33,7 +33,7 @@ const (
 	msgIdempotencyInProgress = "幂等键对应的请求正在处理中，请稍后重试"
 
 	idemScopePatientCreate = "patient.create"
-	patientSearchLimit     = 100
+	patientSearchPageSize  = 100
 	patientIdempotencyTTL  = 24 * time.Hour
 )
 
@@ -119,7 +119,8 @@ type PatientDTO struct {
 
 // PatientListDTO is the GET /patients body.
 type PatientListDTO struct {
-	Items []PatientDTO `json:"items"`
+	Items      []PatientDTO `json:"items"`
+	NextOffset *int         `json:"nextOffset,omitempty"`
 }
 
 // PatientSearch filters are AND-ed. Name and address are substrings; the others are exact.
@@ -130,6 +131,7 @@ type PatientSearch struct {
 	Name      string
 	HospPkNo  string
 	Address   string
+	Offset    int
 }
 
 type patientCanon struct {
@@ -331,7 +333,7 @@ func (s *Service) CreatePatient(ctx context.Context, claims *auth.Claims, in Cre
 	return &dto, nil
 }
 
-// SearchPatients returns an AND of the given filters. With no filters the list is empty.
+// SearchPatients returns an AND of the given filters. With no filters it returns the patient archive list.
 // Name and address match by substring; cardNo, idNumber, and hospPkNo are exact.
 func (s *Service) SearchPatients(ctx context.Context, claims *auth.Claims, q PatientSearch) (*PatientListDTO, error) {
 	user, err := s.actor(ctx, claims)
@@ -347,25 +349,30 @@ func (s *Service) SearchPatients(ctx context.Context, claims *auth.Claims, q Pat
 	q.Name = strings.TrimSpace(q.Name)
 	q.HospPkNo = strings.TrimSpace(q.HospPkNo)
 	q.Address = strings.TrimSpace(q.Address)
-	empty := PatientListDTO{Items: []PatientDTO{}}
-	if q.PatientNo == "" && q.CardNo == "" && q.IDNumber == "" && q.Name == "" && q.HospPkNo == "" && q.Address == "" {
-		return &empty, nil
-	}
 	if s.Patients == nil {
 		return nil, errors.New("patient store is not configured")
 	}
+	if q.Offset < 0 {
+		return nil, Validation("offset")
+	}
 	rows, err := s.Patients.Search(ctx, port.PatientQuery{
 		PatientNo: q.PatientNo, CardNo: q.CardNo, IDNumber: q.IDNumber, Name: q.Name, HospPkNo: q.HospPkNo, Address: q.Address,
-		Limit: patientSearchLimit,
+		Limit: patientSearchPageSize + 1, Offset: q.Offset,
 	})
 	if err != nil {
 		return nil, err
+	}
+	var nextOffset *int
+	if len(rows) > patientSearchPageSize {
+		next := q.Offset + patientSearchPageSize
+		nextOffset = &next
+		rows = rows[:patientSearchPageSize]
 	}
 	items := make([]PatientDTO, 0, len(rows))
 	for _, p := range rows {
 		items = append(items, toPatientDTO(p))
 	}
-	return &PatientListDTO{Items: items}, nil
+	return &PatientListDTO{Items: items, NextOffset: nextOffset}, nil
 }
 
 // GetPatient returns one record or 404 NOT_FOUND.

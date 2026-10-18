@@ -17,22 +17,30 @@ func TestPatientSearchUsesExactPatientNoSQLParameter(t *testing.T) {
 	t.Cleanup(func() { _ = db.Close() })
 	store := New(db)
 
-	query := port.PatientQuery{PatientNo: "P-20261014-001"}
+	query := port.PatientQuery{PatientNo: "P-20261014-001", Offset: 23}
 	if _, err := store.Search(context.Background(), query); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(capture.query, "patient_no = @patient_no") {
 		t.Fatalf("patient search SQL has no exact patient_no predicate: %s", capture.query)
 	}
+	if !strings.Contains(capture.query, "OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY") {
+		t.Fatalf("patient search SQL has no offset pagination: %s", capture.query)
+	}
+	var sawOffset bool
 	for _, arg := range capture.args {
+		if arg.Name == "offset" && arg.Value == int64(23) {
+			sawOffset = true
+		}
 		if arg.Name == "patient_no" {
 			if arg.Value != "P-20261014-001" {
 				t.Fatalf("patient_no SQL argument = %#v", arg.Value)
 			}
-			return
 		}
 	}
-	t.Fatalf("patient_no SQL argument missing: %+v", capture.args)
+	if !sawOffset {
+		t.Fatalf("patient offset SQL argument missing: %+v", capture.args)
+	}
 }
 
 type patientSearchCapture struct {

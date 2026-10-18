@@ -19,11 +19,11 @@ func TestSearchPatientsSupportsExactPatientNo(t *testing.T) {
 	}
 
 	empty, err := svc.SearchPatients(ctx, systemClaims(), PatientSearch{PatientNo: " \t "})
-	if err != nil || len(empty.Items) != 0 {
+	if err != nil || len(empty.Items) != 1 || empty.Items[0].PatientID != created.PatientID {
 		t.Fatalf("blank patient number search = %+v, %v", empty, err)
 	}
-	if spy.calls != 0 {
-		t.Fatalf("blank search reached patient store %d times", spy.calls)
+	if spy.calls != 1 {
+		t.Fatalf("blank search reached patient store %d times, want 1", spy.calls)
 	}
 
 	query := PatientSearch{PatientNo: " " + created.PatientNo + " "}

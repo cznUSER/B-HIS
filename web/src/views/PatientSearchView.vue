@@ -14,7 +14,6 @@ import './clinical-design.css'
 const route = useRoute()
 const searchForm = reactive({ name: '', idNumber: '', patientNo: '', hospPkNo: '' })
 const results = ref([])
-const searched = ref(false)
 const querying = ref(false)
 const opening = ref(false)
 const searchError = ref('')
@@ -35,13 +34,18 @@ function readQuery(key) {
 async function onSearch() {
   if (querying.value) return
   querying.value = true
-  searched.value = true
+  results.value = []
   searchError.value = ''
   try {
-    const found = await searchPatients(session.accessToken, { ...searchForm })
-    results.value = found.items
+    let offset = 0
+    while (true) {
+      const found = await searchPatients(session.accessToken, { ...searchForm }, { offset })
+      results.value.push(...found.items)
+      if (found.nextOffset === null) break
+      if (found.nextOffset <= offset) throw new Error('患者列表分页位置未前进')
+      offset = found.nextOffset
+    }
   } catch (error) {
-    results.value = []
     searchError.value = error instanceof ApiError ? error.message : '查询失败，请稍后重试'
   } finally {
     querying.value = false
@@ -71,11 +75,8 @@ watch(() => route.fullPath, () => {
   for (const key of Object.keys(searchForm)) searchForm[key] = readQuery(key)
   searchError.value = ''
   const patientId = readQuery('patientId')
-  if (patientId) {
-    void openPatient(patientId)
-  } else if (Object.values(searchForm).some(Boolean)) {
-    void onSearch()
-  }
+  void onSearch()
+  if (patientId) void openPatient(patientId)
 }, { immediate: true })
 </script>
 
@@ -128,13 +129,13 @@ watch(() => route.fullPath, () => {
     <div class="patient-layout clinical-search-workbench">
       <section class="patient-panel clinical-results-panel" aria-labelledby="patient-results-title">
         <div class="panel-head">
-          <div><span class="clinical-kicker">检索结果</span><h2 id="patient-results-title">查询结果</h2></div>
-          <span class="clinical-result-count">{{ searched ? `${results.length} 条匹配` : '待查询' }}</span>
+          <div><span class="clinical-kicker">患者档案</span><h2 id="patient-results-title">全部患者档案</h2></div>
+          <span class="clinical-result-count" aria-live="polite">{{ querying ? '正在加载…' : `已显示 ${results.length} 条` }}</span>
         </div>
         <div class="result-wrap clinical-search-results">
           <p v-if="searchError" class="banner" role="alert">{{ searchError }}</p>
-          <BusinessEmptyState v-else-if="!searched" title="在这里找到已有患者" description="输入姓名、身份证号、患者号或院内档案号后查询。" icon="patient" eyebrow="PATIENT SEARCH" />
-          <BusinessEmptyState v-else-if="results.length === 0" title="没有匹配的患者。" description="请核对查询条件后重试。" icon="patient" />
+          <p v-else-if="querying" class="shell-status" role="status">正在加载患者档案…</p>
+          <BusinessEmptyState v-else-if="results.length === 0" title="暂无患者档案。" description="当前没有符合条件的患者记录。" icon="patient" />
           <div v-else class="table-scroll" tabindex="0" role="region" aria-label="患者查询结果，可左右滚动">
             <table class="patient-table">
               <caption class="sr-only">患者查询结果</caption>

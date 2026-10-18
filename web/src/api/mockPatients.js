@@ -128,12 +128,15 @@ export function mockCreatePatient(accessToken, input, idempotencyKey) {
   return copyPatient(patient)
 }
 
-export function mockSearchPatients(accessToken, input) {
+export function mockSearchPatients(accessToken, input, { offset = 0 } = {}) {
   requireSession(accessToken)
   const query = assertPatientSearchQuery(input)
   const state = readState()
-  const items = state.patients.filter((item) => patientMatchesQuery(item, query)).map((item) => copyPatient(item))
-  return { items }
+  const matching = state.patients.filter((item) => patientMatchesQuery(item, query))
+  const page = matching.slice(offset, offset + 100)
+  const items = page.map((item) => copyPatient(item))
+  const nextOffset = offset + page.length < matching.length ? offset + page.length : null
+  return { items, nextOffset }
 }
 
 export function mockGetPatient(accessToken, patientId) {

@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -255,7 +256,7 @@ func TestPatientSearchGetAndAuthz(t *testing.T) {
 	}
 
 	list, err := svc.SearchPatients(ctx, systemClaims(), PatientSearch{})
-	if err != nil || len(list.Items) != 0 {
+	if err != nil || len(list.Items) != 2 {
 		t.Fatalf("empty query %+v %v", list, err)
 	}
 	byName, err := svc.SearchPatients(ctx, systemClaims(), PatientSearch{Name: "张"})
@@ -304,6 +305,30 @@ func TestPatientSearchGetAndAuthz(t *testing.T) {
 	_, err = svc.GetPatient(ctx, dis, dto.PatientID)
 	if !errors.As(err, &ae) || ae.Code != CodeAccountDisabled {
 		t.Fatalf("disabled: %v", err)
+	}
+}
+
+func TestSearchPatientsPaginatesUnfilteredArchive(t *testing.T) {
+	svc, store := newPatientSvc(t)
+	ctx := context.Background()
+	for i := 0; i < patientSearchPageSize+1; i++ {
+		patientNo := fmt.Sprintf("P-%03d", i)
+		if err := store.Create(ctx, domain.Patient{
+			PatientID: fmt.Sprintf("patient-%03d", i), HospPkNo: fmt.Sprintf("H-%03d", i), PatientNo: patientNo,
+			Name: fmt.Sprintf("患者%03d", i), Sex: domain.SexUnknown, Status: domain.PatientStatusActive,
+			CreatedAt: patientClock.Add(time.Duration(i) * time.Second),
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	first, err := svc.SearchPatients(ctx, systemClaims(), PatientSearch{})
+	if err != nil || len(first.Items) != patientSearchPageSize || first.NextOffset == nil || *first.NextOffset != patientSearchPageSize {
+		t.Fatalf("first archive page = %+v, %v", first, err)
+	}
+	second, err := svc.SearchPatients(ctx, systemClaims(), PatientSearch{Offset: *first.NextOffset})
+	if err != nil || len(second.Items) != 1 || second.NextOffset != nil {
+		t.Fatalf("second archive page = %+v, %v", second, err)
 	}
 }
 

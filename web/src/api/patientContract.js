@@ -137,9 +137,6 @@ export function assertPatientSearchQuery(input) {
   const idNumber = asText(src.idNumber).toUpperCase()
   const patientNo = asText(src.patientNo)
   const hospPkNo = asText(src.hospPkNo)
-  if (!name && !idNumber && !patientNo && !hospPkNo) {
-    throw apiError(400, 'VALIDATION_ERROR', '请填写姓名、身份证号、患者号或院内档案号')
-  }
   return { name, idNumber, patientNo, hospPkNo }
 }
 
@@ -192,5 +189,9 @@ export function assertPatientList(body) {
   if (!body || typeof body !== 'object' || !Array.isArray(body.items)) {
     throw apiError(502, 'HTTP_ERROR', '患者查询响应不符合契约')
   }
-  return { items: body.items.map((item) => assertPatientDto(item)) }
+  const nextOffset = body.nextOffset == null ? null : Number(body.nextOffset)
+  if (nextOffset !== null && (!Number.isSafeInteger(nextOffset) || nextOffset < 0)) {
+    throw apiError(502, 'HTTP_ERROR', '患者查询响应不符合契约')
+  }
+  return { items: body.items.map((item) => assertPatientDto(item)), nextOffset }
 }

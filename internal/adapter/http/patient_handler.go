@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/cznUSER/B-HIS/internal/app"
@@ -34,6 +35,14 @@ func (h *Handler) searchPatients(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q := r.URL.Query()
+	offset := 0
+	if raw := q.Get("offset"); raw != "" {
+		offset, err = strconv.Atoi(raw)
+		if err != nil || offset < 0 {
+			writeAppError(w, r, app.Validation("offset"))
+			return
+		}
+	}
 	list, err := h.svc.SearchPatients(r.Context(), claims, app.PatientSearch{
 		PatientNo: q.Get("patientNo"),
 		CardNo:    q.Get("cardNo"),
@@ -41,6 +50,7 @@ func (h *Handler) searchPatients(w http.ResponseWriter, r *http.Request) {
 		Name:      q.Get("name"),
 		HospPkNo:  q.Get("hospPkNo"),
 		Address:   q.Get("address"),
+		Offset:    offset,
 	})
 	if err != nil {
 		writeAppError(w, r, err)

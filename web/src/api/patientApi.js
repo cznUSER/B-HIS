@@ -109,39 +109,37 @@ export async function createPatient(accessToken, input) {
   return patient
 }
 
-export async function searchPatients(accessToken, input) {
+export async function searchPatients(accessToken, input, { offset = 0 } = {}) {
   const query = assertPatientSearchQuery(input)
+  if (!Number.isSafeInteger(offset) || offset < 0) throw apiError(400, 'VALIDATION_ERROR', '患者列表位置无效')
   if (useMock()) {
     await delay(200)
-    const result = mockSearchPatients(accessToken, query)
+    const result = mockSearchPatients(accessToken, query, { offset })
     remember(result.items)
     return result
   }
 
   const params = searchParams(query)
-  let items
-  if ([...params.keys()].length === 0) {
-    items = [...seen.values()]
-  } else {
-    let response
-    try {
-      response = await fetch(`${apiUrl('/patients')}?${params.toString()}`, requestInit({
-        method: 'GET',
-        headers: {
-          Accept: JSON_ACCEPT,
-          ...bearer(accessToken),
-        },
-      }))
-    } catch {
-      throw apiError(0, 'HTTP_ERROR', '无法连接患者服务')
-    }
-    if (!response.ok) throw presentPatientError(await readErrorResponse(response, accessToken))
-    items = assertPatientList(await parseJson(response)).items
+  if (offset > 0) params.set('offset', String(offset))
+  let response
+  try {
+    const suffix = params.toString() ? `?${params.toString()}` : ''
+    response = await fetch(`${apiUrl('/patients')}${suffix}`, requestInit({
+      method: 'GET',
+      headers: {
+        Accept: JSON_ACCEPT,
+        ...bearer(accessToken),
+      },
+    }))
+  } catch {
+    throw apiError(0, 'HTTP_ERROR', '无法连接患者服务')
   }
-
+  if (!response.ok) throw presentPatientError(await readErrorResponse(response, accessToken))
+  const result = assertPatientList(await parseJson(response))
+  const items = result.items
   const filtered = items.filter((item) => patientMatchesQuery(item, query))
   remember(filtered)
-  return { items: filtered }
+  return { ...result, items: filtered }
 }
 
 export async function fetchPatient(accessToken, patientId) {

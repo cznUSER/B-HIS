@@ -152,7 +152,9 @@ assert(prefixNo.items.length === 0, 'patientNo is not a prefix search')
 assertPatientSearchQuery({ hospPkNo: ' H0001 ' })
 assert(patientMatchesQuery({ hospPkNo: 'H0001' }, { hospPkNo: 'H0001' }), 'hospPkNo exact match')
 assert(!patientMatchesQuery({ hospPkNo: 'H00010' }, { hospPkNo: 'H0001' }), 'hospPkNo is not a prefix search')
-await expectError(() => mockSearchPatients(token, {}), 'VALIDATION_ERROR', 400)
+const allMockPatients = mockSearchPatients(token, {})
+assert(allMockPatients.items.length >= 2, 'empty patient query returns all mock archives')
+assert(allMockPatients.nextOffset === null, 'mock archive list has no extra page')
 
 mockCreatePatient(token, sample({ idNumber: '', cardNo: 'C1', name: '有卡' }))
 const cardDup = await expectError(
@@ -189,7 +191,7 @@ assert(!simpleFields.includes('患者地址') && !simpleFields.includes('patient
 assert(view.includes('const detailMode = ref(false)'), 'simple mode is the default')
 assert(!template.includes('patient-search') && !template.includes('searchPatients'), '建档页不含患者查询')
 const searchView = readFileSync(new URL('../src/views/PatientSearchView.vue', import.meta.url), 'utf8')
-for (const text of ['患者查询', 'searchPatients', 'fetchPatient', '没有匹配的患者']) assert(searchView.includes(text), `search page ${text}`)
+for (const text of ['患者查询', '全部患者档案', 'searchPatients', 'fetchPatient', '暂无患者档案']) assert(searchView.includes(text), `search page ${text}`)
 const apiSrc = readFileSync(new URL('../src/api/patientApi.js', import.meta.url), 'utf8')
 assert(apiSrc.includes('该身份证号已存在，不能重复建档'), 'duplicate copy is fixed')
 assert(apiSrc.includes('DUPLICATE_ID_NUMBER'), 'real duplicate code')
@@ -259,7 +261,7 @@ const server = http.createServer(async (req, res) => {
     return
   }
   if (req.method === 'GET' && url.pathname === '/api/v1/patients') {
-    json(200, {
+    const payload = {
       items: [
         {
           patientId: 'created-1',
@@ -282,7 +284,9 @@ const server = http.createServer(async (req, res) => {
           fareIdentity: 'SELF',
         },
       ],
-    })
+    }
+    if (!url.searchParams.has('offset')) payload.nextOffset = 100
+    json(200, payload)
     return
   }
   if (req.method === 'GET' && url.pathname === '/api/v1/patients/created-1') {
@@ -335,6 +339,21 @@ try {
   assert(dup.message === '该身份证号已存在，不能重复建档', 'real duplicate copy')
   assert(Array.isArray(dup.details.fields) && dup.details.fields.includes('idNumber'), 'duplicate field')
   assert(dup.requestId === 'req-dup', 'request id kept')
+
+  resetPatientClientCache()
+  calls.length = 0
+  const allReal = await searchPatients('header.payload.sig', {})
+  assert(allReal.items.length === 2, 'empty patient query calls real API')
+  assert(allReal.nextOffset === 100, 'real patient list exposes the next page')
+  const allCall = calls.find((item) => item.method === 'GET' && item.path === '/api/v1/patients')
+  assert(allCall && allCall.search === '', 'empty patient query sends no filters')
+
+  resetPatientClientCache()
+  calls.length = 0
+  const nextReal = await searchPatients('header.payload.sig', {}, { offset: 100 })
+  assert(nextReal.items.length === 2, 'real patient list loads another page')
+  const nextCall = calls.find((item) => item.method === 'GET' && item.path === '/api/v1/patients')
+  assert(nextCall && new URLSearchParams(nextCall.search).get('offset') === '100', 'next offset is sent exactly')
 
   resetPatientClientCache()
   calls.length = 0
