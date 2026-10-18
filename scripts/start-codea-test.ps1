@@ -14,6 +14,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
 
@@ -119,19 +120,31 @@ New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $stdout = Join-Path $logDir 'codea-test-host.stdout.log'
 $stderr = Join-Path $logDir 'codea-test-host.stderr.log'
 $pidFile = Join-Path $logDir 'codea-test-host.pid'
+$runnerScript = Join-Path $root 'run-codea-test-host.ps1'
 Remove-Item -Force $stdout, $stderr -ErrorAction SilentlyContinue
-$process = Start-Process -FilePath $exe -WorkingDirectory $root -ArgumentList '-no-browser' -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
-Set-Content -LiteralPath $pidFile -Value $process.Id -Encoding ASCII
+$runnerContent = @(
+  '$root = ''' + $root + ''''
+  '$exe = Join-Path $root ''b-his-host.exe'''
+  '$stdout = Join-Path $root ''logs\codea-test-host.stdout.log'''
+  '$stderr = Join-Path $root ''logs\codea-test-host.stderr.log'''
+  'Set-Location $root'
+  '& $exe -no-browser 1>> $stdout 2>> $stderr'
+) -join [Environment]::NewLine
+Set-Content -LiteralPath $runnerScript -Value $runnerContent -Encoding UTF8
+$commandLine = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "' + $runnerScript + '"'
+$created = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = $commandLine; CurrentDirectory = $root }
+if ($created.ReturnValue -ne 0 -or $created.ProcessId -le 0) { throw "WMI could not start the Code A Host (return=$($created.ReturnValue))" }
+Set-Content -LiteralPath $pidFile -Value $created.ProcessId -Encoding ASCII
 for ($i = 0; $i -lt 40; $i++) {
   try {
     $health = Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:9999/health' -TimeoutSec 2
-    if ($health.StatusCode -eq 200) { Write-Output ('PID=' + $process.Id); Write-Output $health.Content; exit 0 }
+    if ($health.StatusCode -eq 200) { Write-Output ('RUNNER_PID=' + $created.ProcessId); Write-Output $health.Content; exit 0 }
   } catch { }
-  if ($process.HasExited) { break }
+  if (-not (Get-Process -Id $created.ProcessId -ErrorAction SilentlyContinue)) { break }
   Start-Sleep -Milliseconds 500
 }
 Get-Content $stderr -Tail 80 -ErrorAction SilentlyContinue
-throw 'Code A Host did not become healthy on 127.0.0.1:9999'
+throw 'Code A Host did not remain healthy on 127.0.0.1:9999'
 '@
     $remoteScript = $remoteScript.Replace('__REMOTE_ROOT__', $RemoteRoot)
     $remoteLauncher = Join-Path $stage 'start-codea-test-remote.ps1'
