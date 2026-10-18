@@ -157,13 +157,26 @@ throw 'Code A Host did not remain healthy on 127.0.0.1:9999'
     Write-Host "Code A health: $($health -join ' ')"
 
     if (-not $KeepExistingTunnel) {
-        if (Test-LocalPort $WebPort) { throw "local web port $WebPort is already occupied" }
-        if (Test-LocalPort $ApiPort) { throw "local API port $ApiPort is already occupied" }
-        $tunnelArgs = @('-o', 'BatchMode=yes', '-o', 'ExitOnForwardFailure=yes', '-o', 'ServerAliveInterval=30', '-o', 'ServerAliveCountMax=3', '-N', '-L', "${WebPort}:127.0.0.1:8888", '-L', "${ApiPort}:127.0.0.1:9999", $SshHost)
-        $tunnel = Start-Process -FilePath $ssh -ArgumentList $tunnelArgs -WindowStyle Hidden -PassThru
-        Wait-LocalPort $WebPort
-        Wait-LocalPort $ApiPort
-        Write-Host "SSH tunnel PID=$($tunnel.Id)"
+        $webOccupied = Test-LocalPort $WebPort
+        $apiOccupied = Test-LocalPort $ApiPort
+        if ($webOccupied -or $apiOccupied) {
+            try {
+                $existingHealth = Invoke-RestMethod -Uri "http://127.0.0.1:$ApiPort/health" -TimeoutSec 5
+                $existingPage = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$WebPort/login" -TimeoutSec 5
+                if ($existingHealth.status -ne 'ok' -or $existingHealth.driver -ne 'sqlserver' -or $existingPage.StatusCode -ne 200) {
+                    throw 'existing local endpoints do not identify a healthy B-HIS test site'
+                }
+                Write-Host "Reusing verified local Code A tunnel on $WebPort/$ApiPort ..."
+            } catch {
+                throw "local web/API ports $WebPort/$ApiPort are occupied by endpoints that failed B-HIS verification: $($_.Exception.Message)"
+            }
+        } else {
+            $tunnelArgs = @('-o', 'BatchMode=yes', '-o', 'ExitOnForwardFailure=yes', '-o', 'ServerAliveInterval=30', '-o', 'ServerAliveCountMax=3', '-N', '-L', "${WebPort}:127.0.0.1:8888", '-L', "${ApiPort}:127.0.0.1:9999", $SshHost)
+            $tunnel = Start-Process -FilePath $ssh -ArgumentList $tunnelArgs -WindowStyle Hidden -PassThru
+            Wait-LocalPort $WebPort
+            Wait-LocalPort $ApiPort
+            Write-Host "SSH tunnel PID=$($tunnel.Id)"
+        }
     }
 
     $localHealth = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$ApiPort/health" -TimeoutSec 5
