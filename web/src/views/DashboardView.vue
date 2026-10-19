@@ -178,35 +178,37 @@ onMounted(loadSummary)
         </div>
       </div>
 
-      <div class="metric-row">
-        <div class="metric-name">
-          <span class="metric-icon metric-icon-fee" aria-hidden="true">
-            <svg viewBox="0 0 24 24" focusable="false">
-              <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.7" />
-              <path d="M12 7.2v9.6M9.4 9.4c.6-1 1.6-1.4 2.6-1.4 1.6 0 2.6.8 2.6 2s-1 1.9-2.6 2.2-2.6.7-2.6 2.1 1.1 2.1 2.8 2.1c1 0 2-.4 2.6-1.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
-            </svg>
-          </span>
-          收费
+      <div class="ops-metrics">
+        <div class="metric-row">
+          <div class="metric-name">
+            <span class="metric-icon metric-icon-fee" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.7" />
+                <path d="M12 7.2v9.6M9.4 9.4c.6-1 1.6-1.4 2.6-1.4 1.6 0 2.6.8 2.6 2s-1 1.9-2.6 2.2-2.6.7-2.6 2.1 1.1 2.1 2.8 2.1c1 0 2-.4 2.6-1.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+              </svg>
+            </span>
+            收费
+          </div>
+          <div v-for="(metric, index) in CHARGE_METRICS" :key="`fee-${metric.key}`" class="metric" :class="{ 'metric-primary': index === 0 }">
+            <strong>{{ summary?.available.charges ? metricValue(metric) : '—' }}</strong>
+            <span>{{ metric.label }}</span>
+          </div>
         </div>
-        <div v-for="(metric, index) in CHARGE_METRICS" :key="`fee-${metric.key}`" class="metric" :class="{ 'metric-primary': index === 0 }">
-          <strong>{{ summary?.available.charges ? metricValue(metric) : '—' }}</strong>
-          <span>{{ metric.label }}</span>
-        </div>
-      </div>
 
-      <div class="metric-row">
-        <div class="metric-name">
-          <span class="metric-icon metric-icon-visit" aria-hidden="true">
-            <svg viewBox="0 0 24 24" focusable="false">
-              <path d="M4 16.5 9 11l3.2 3.2L20 7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-              <path d="M14.5 7H20v5.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-          </span>
-          客流
-        </div>
-        <div v-for="(metric, index) in VISIT_METRICS" :key="`visit-${metric.key}`" class="metric" :class="{ 'metric-primary': index === 0 }">
-          <strong>{{ summary?.available.encounters ? metricValue(metric) : '—' }}</strong>
-          <span>{{ metric.label }}</span>
+        <div class="metric-row">
+          <div class="metric-name">
+            <span class="metric-icon metric-icon-visit" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M4 16.5 9 11l3.2 3.2L20 7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                <path d="M14.5 7H20v5.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
+            客流
+          </div>
+          <div v-for="(metric, index) in VISIT_METRICS" :key="`visit-${metric.key}`" class="metric" :class="{ 'metric-primary': index === 0 }">
+            <strong>{{ summary?.available.encounters ? metricValue(metric) : '—' }}</strong>
+            <span>{{ metric.label }}</span>
+          </div>
         </div>
       </div>
     </section>
@@ -217,6 +219,9 @@ onMounted(loadSummary)
 <style scoped>
 .dashboard {
   gap: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
   max-width: 1540px;
   margin: 0 auto;
   color: var(--ink, #20394a);
@@ -253,7 +258,7 @@ onMounted(loadSummary)
 .hero-ring { stroke-dasharray: 460; animation: dash-orbit-in 1.5s ease both; }
 .hero-pulse { stroke-dasharray: 330; animation: dash-pulse-in 1.4s .15s ease both; }
 
-.quickflow { margin-top: 25px; animation: dash-arrive .6s .07s both; }
+.quickflow { margin-top: 20px; animation: dash-arrive .6s .07s both; }
 .dash-section-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; }
 .dash-section-head > div { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
 .dash-section-head h2, .ops-head h2 { color: var(--ink, #20394a); font-size: 17px; font-weight: 650; letter-spacing: -.3px; }
@@ -274,7 +279,7 @@ onMounted(loadSummary)
 .quickflow-link:hover .quickflow-arrow { transform: translate(2px, -2px); color: #2c796b; }
 .quickflow-empty { padding: 20px; border: 1px solid #dde6e5; border-radius: 14px; color: var(--muted); font-size: 12px; }
 
-.todo-head { margin-top: 26px; margin-bottom: 14px; animation: dash-arrive .6s .15s both; }
+.todo-head { margin-top: 20px; margin-bottom: 10px; animation: dash-arrive .6s .15s both; }
 .todo-row { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; animation: dash-arrive .6s .2s both; }
 .todo-card { position: relative; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; min-height: 101px; padding: 18px 20px; border: 1px solid #dde6e5; border-radius: 15px; background: #fff; color: var(--ink, #20394a); box-shadow: 0 3px 12px #1b394704; transition: transform .2s, box-shadow .2s, border-color .2s; }
 a.todo-card:hover { border-color: #99c6b9; transform: translateY(-3px); box-shadow: 0 9px 20px #244b4e0b; }
@@ -289,9 +294,10 @@ a.todo-card:hover { border-color: #99c6b9; transform: translateY(-3px); box-shad
 .todo-caption { grid-column: 1 / -1; color: #7b8e95; font-size: 10px; }
 .todo-card .phase-tag { padding: 2px 6px; border-radius: 5px; background: #edf2f1; color: #788b8f; font-size: 9px; font-weight: 400; }
 
-.ops { margin-top: 26px; padding: 23px 24px 6px; border: 1px solid #dde6e5; border-radius: 18px; background: #fff; box-shadow: 0 3px 12px #1b394704; animation: dash-arrive .6s .25s both; }
+.ops { display: grid; grid-template-rows: auto minmax(0, 1fr); flex: 1 1 auto; min-height: 0; margin-top: 12px; padding: 23px 24px 6px; border: 1px solid #dde6e5; border-radius: 18px; background: #fff; box-shadow: 0 3px 12px #1b394704; overflow: hidden; animation: dash-arrive .6s .25s both; }
 .ops-head { justify-content: space-between; gap: 16px; padding-bottom: 20px; }
 .ops-title { display: flex; flex-direction: column; gap: 6px; }
+.ops-metrics { min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; }
 .dash-flag { font-size: 10px; color: #849397; line-height: 1.6; }
 .dash-error { color: #9a453e; font-size: 11px; line-height: 1.5; }
 .period { flex-wrap: nowrap; gap: 3px; padding: 4px; border-radius: 10px; background: #f3f6f4; }
@@ -320,6 +326,23 @@ a.todo-card:hover { border-color: #99c6b9; transform: translateY(-3px); box-shad
 @keyframes dash-pulse-in { from { stroke-dashoffset: 330; opacity: 0; } to { stroke-dashoffset: 0; opacity: 1; } }
 @keyframes dash-refresh { to { transform: rotate(360deg); } }
 
+@media (max-height: 800px) and (min-width: 981px) {
+  .dash-hero { min-height: 154px; padding-block: 20px; }
+  .dash-head h1 { margin-top: 8px; }
+  .dash-hero-message { margin-top: 7px; }
+  .hero-pill { margin-top: 11px; }
+  .dash-hero-art { width: 330px; }
+  .quickflow { margin-top: 12px; }
+  .dash-section-head { margin-bottom: 8px; }
+  .quickflow-link { gap: 9px; padding: 9px 8px; }
+  .quickflow-glyph { width: 34px; height: 34px; }
+  .todo-head { margin-top: 12px; margin-bottom: 8px; }
+  .todo-card { min-height: 75px; padding-block: 10px; }
+  .ops { margin-top: 10px; padding: 14px 20px 5px; }
+  .ops-head { padding-bottom: 10px; }
+  .metric-row { padding-block: 12px; }
+}
+
 @media (max-width: 1280px) {
   .quickflow-track { flex-wrap: wrap; gap: 4px; }
   .quickflow-link { flex: 1 1 calc(50% - 4px); }
@@ -334,6 +357,16 @@ a.todo-card:hover { border-color: #99c6b9; transform: translateY(-3px); box-shad
   .metric { padding-left: 10px; }
   .metric-name { gap: 6px; }
 }
+
+@media (max-height: 800px) and (min-width: 981px) {
+  .quickflow-track { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0; }
+  .quickflow-link { gap: 5px; padding: 8px 5px; }
+  .quickflow-glyph { width: 30px; height: 30px; border-radius: 9px; }
+  .quickflow-glyph svg { width: 18px; height: 18px; }
+  .quickflow-copy strong { font-size: 10px; }
+  .quickflow-copy > span, .quickflow-arrow { display: none; }
+}
+
 @media (max-width: 1000px) {
   .todo-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .dash-hero { padding: 26px; }
