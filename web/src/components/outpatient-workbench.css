@@ -1,60 +1,40 @@
 .outpatient-frame { --out-blue:#0d6f83; --out-cyan:#1a9bab; --out-ink:#173747; --out-muted:#708995; --out-line:#d8e7ec; --out-surface:#eef5f7; display:flex; min-width:0; flex-direction:column; gap:12px; max-width:1480px; margin:0 auto; }
-.outpatient-frame-head { display:flex; align-items:flex-end; justify-content:space-between; gap:20px; padding:4px 2px 4px; }
-.outpatient-frame-kicker { display:flex; align-items:center; gap:8px; margin-bottom:9px; color:#75929c; font-size:10px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; }
-.outpatient-frame-index { display:grid; width:26px; height:22px; place-items:center; color:#fff; border-radius:5px; background:var(--out-blue); font-size:10px; letter-spacing:0; }
-.outpatient-frame-divider { color:#b5c9d0; }
-.outpatient-frame-title h1 { margin:0; color:var(--out-ink); font-size:clamp(22px,2.2vw,29px); font-weight:760; letter-spacing:.01em; }
-.outpatient-frame-title p { max-width:680px; margin:7px 0 0; color:var(--out-muted); font-size:12px; }
-.outpatient-frame-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-.outpatient-frame-link, .outpatient-frame-next { display:inline-flex; align-items:center; min-height:34px; padding:0 11px; border:1px solid var(--out-line); border-radius:7px; color:var(--out-blue); background:#fff; font-size:11px; font-weight:700; text-decoration:none; }
-.outpatient-frame-link:hover, .outpatient-frame-next:hover { border-color:#9bcbd4; background:#f2fbfc; }
-.outpatient-frame-next { gap:8px; color:#fff; border-color:var(--out-blue); background:var(--out-blue); }
-.outpatient-context { display:flex; align-items:center; gap:18px; min-height:66px; padding:10px 14px; border:1px solid var(--out-line); border-radius:8px; background:linear-gradient(90deg,#fff 0%,#f8fcfd 100%); box-shadow:0 5px 20px rgba(29,81,96,.045); }
-.outpatient-context-main { display:flex; align-items:center; gap:10px; min-width:190px; }
-.outpatient-context-avatar { display:grid; width:35px; height:35px; place-items:center; color:#fff; border-radius:8px; background:linear-gradient(145deg,var(--out-cyan),var(--out-blue)); font-size:14px; font-weight:800; }
-.outpatient-context-main > div { display:flex; min-width:0; flex-direction:column; gap:2px; }
-.outpatient-context-label { color:#8aa0a8; font-size:10px; }
-.outpatient-context-main strong { max-width:180px; overflow:hidden; color:var(--out-ink); font-size:14px; text-overflow:ellipsis; white-space:nowrap; }
-.outpatient-context-state { margin-left:auto; padding:4px 7px; border-radius:999px; color:#16845f; background:#e8f7ef; font-size:10px; font-weight:800; white-space:nowrap; }
-.outpatient-context-state.is-waiting { color:#a56c16; background:#fff3dd; }
-.outpatient-context-state.is-blocked { color:#a94f4f; background:#fff0ef; }
-.outpatient-context-values { display:flex; align-items:center; gap:18px; flex:1; min-width:0; }
-.outpatient-context-value { display:flex; min-width:0; flex-direction:column; gap:2px; }
-.outpatient-context-value small { color:#8aa0a8; font-size:10px; }
-.outpatient-context-value strong { max-width:150px; overflow:hidden; color:#365665; font-size:12px; font-variant-numeric:tabular-nums; text-overflow:ellipsis; white-space:nowrap; }
-.outpatient-context-empty { color:#8ea5ad; font-size:11px; }
-.outpatient-context-cta { display:inline-flex; align-items:center; gap:5px; flex:none; color:var(--out-blue); font-size:11px; font-weight:750; text-decoration:none; }
-.outpatient-context-cta:hover { color:var(--out-cyan); }
-.outpatient-status { display:flex; align-items:center; gap:7px; min-height:30px; padding:0 11px; border:1px solid #d8e9e2; border-radius:6px; color:#3b7e6a; background:#f1faf5; font-size:11px; }
-.outpatient-status strong { font-weight:750; }
-.outpatient-status > span:not(.outpatient-status-dot) { color:#7b9996; }
-.outpatient-status[data-tone='waiting'] { border-color:#f0dfbd; color:#98651a; background:#fffaf0; }
-.outpatient-status[data-tone='waiting'] > span:not(.outpatient-status-dot) { color:#ac956d; }
-.outpatient-status[data-tone='blocked'] { border-color:#efd4d3; color:#a64f4f; background:#fff6f5; }
-.outpatient-status[data-tone='blocked'] > span:not(.outpatient-status-dot) { color:#af8582; }
-.outpatient-status-dot { width:7px; height:7px; flex:none; border-radius:50%; background:#24a675; box-shadow:0 0 0 3px #d9f2e5; }
-.outpatient-status[data-tone='waiting'] .outpatient-status-dot { background:#d28b20; box-shadow:0 0 0 3px #fff0d2; }
-.outpatient-status[data-tone='blocked'] .outpatient-status-dot { background:#c66060; box-shadow:0 0 0 3px #fbe0de; }
+.outpatient-context-bar { display:flex; align-items:center; justify-content:space-between; gap:14px; min-width:0; padding:12px 14px; border:1px solid #cfe3e8; border-radius:8px; background:#fff; }
+.outpatient-context-identity, .outpatient-context-actions { display:flex; align-items:center; flex-wrap:wrap; gap:7px 10px; min-width:0; }
+.outpatient-context-identity { flex:1 1 auto; }
+.outpatient-context-kicker { flex-basis:100%; color:#528e9b; font-size:9px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
+.outpatient-context-identity strong { color:var(--out-ink); font-size:16px; font-weight:700; }
+.outpatient-context-id, .outpatient-context-meta, .outpatient-context-visit { color:#6f8791; font-size:11px; }
+.outpatient-context-id { padding:3px 7px; border-radius:4px; color:#4f7782; background:#eef7f8; font-variant-numeric:tabular-nums; }
+.outpatient-context-visit { padding-left:10px; border-left:1px solid #dcebee; }
+.outpatient-context-actions { flex:0 0 auto; justify-content:flex-end; }
+.outpatient-context-state { display:inline-flex; align-items:center; min-height:25px; padding:0 9px; border:1px solid #c8e4e9; border-radius:6px; color:#176f82; background:#eaf7f9; font-size:10px; font-weight:700; white-space:nowrap; }
+.outpatient-context-state[data-tone="warning"] { border-color:#ead9b2; color:#8a6a2c; background:#fff8e9; }
+.outpatient-context-state[data-tone="danger"] { border-color:#eed2d0; color:#a3534d; background:#fff4f3; }
+.outpatient-context-link { min-height:25px; padding:4px 8px; border:1px solid #d5e7eb; border-radius:5px; color:var(--out-blue); background:#fff; font-size:10px; text-decoration:none; white-space:nowrap; }
+.outpatient-context-link:hover { border-color:#8fc6d0; background:#f1fafb; }
+.outpatient-status-chain { display:flex; align-items:center; justify-content:space-between; gap:12px; min-width:0; padding:9px 12px; border:1px solid #d8e7ec; border-radius:7px; background:#f7fbfc; }
+.outpatient-status-steps { display:flex; align-items:center; flex-wrap:wrap; gap:5px 9px; min-width:0; margin:0; padding:0; list-style:none; }
+.outpatient-status-steps li { display:inline-flex; align-items:center; gap:4px; color:#8da1a8; font-size:10px; white-space:nowrap; }
+.outpatient-status-steps li.is-complete { color:#307d69; }
+.outpatient-status-steps li.is-current { color:var(--out-blue); font-weight:700; }
+.outpatient-status-dot { display:inline-grid; width:17px; height:17px; place-items:center; border:1px solid #d6e6e9; border-radius:50%; color:#9ab0b6; background:#fff; font-size:10px; line-height:1; }
+.outpatient-status-steps li.is-complete .outpatient-status-dot { border-color:#a9d6c3; color:#2e896f; background:#e9f7ef; }
+.outpatient-status-steps li.is-current .outpatient-status-dot { border-color:#94d0d8; color:var(--out-blue); background:#e8f7f9; }
+.outpatient-status-next { flex:0 0 auto; max-width:240px; overflow:hidden; color:#6f8791; font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
 .outpatient-frame-content { min-width:0; }
 .outpatient-frame-content > * { min-width:0; }
-.outpatient-main-grid { display:grid; grid-template-columns:220px minmax(0,1fr) 260px; align-items:start; gap:14px; min-width:0; }
-.outpatient-left-rail, .outpatient-right-rail { display:grid; gap:12px; min-width:0; }
+.outpatient-main-grid { display:grid; grid-template-columns:minmax(0,1fr) 260px; align-items:start; gap:14px; min-width:0; }
+.outpatient-right-rail { display:grid; gap:12px; min-width:0; }
+.outpatient-frame[data-module="register"] .outpatient-main-grid { grid-template-columns:minmax(0,1fr); }
+.outpatient-frame[data-module="register"] .outpatient-right-rail { display:none; }
 .outpatient-rail-block { min-width:0; padding:13px; border:1px solid var(--out-line); border-radius:8px; background:#fff; box-shadow:0 5px 18px rgba(29,81,96,.04); }
 .outpatient-rail-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:11px; color:#557582; font-size:11px; font-weight:800; }
 .outpatient-rail-count { color:#8aa0a8; font-size:10px; font-weight:700; font-variant-numeric:tabular-nums; }
-.outpatient-patient-name { display:block; overflow:hidden; color:var(--out-ink); font-size:18px; text-overflow:ellipsis; white-space:nowrap; }
 .outpatient-mini-dl { display:grid; gap:7px; margin:12px 0 0; }
 .outpatient-mini-dl > div { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .outpatient-mini-dl dt { color:#8aa0a8; font-size:10px; }
 .outpatient-mini-dl dd { margin:0; overflow:hidden; color:#365665; font-size:11px; font-variant-numeric:tabular-nums; text-align:right; text-overflow:ellipsis; white-space:nowrap; }
-.outpatient-status-chain ol { display:grid; gap:8px; margin:0; padding:0; list-style:none; }
-.outpatient-status-chain li { display:grid; grid-template-columns:17px minmax(0,1fr) auto; align-items:center; gap:6px; color:#8aa0a8; font-size:11px; }
-.outpatient-status-chain li.is-done { color:#257e67; }
-.outpatient-status-chain li.is-current { color:var(--out-blue); font-weight:800; }
-.outpatient-step-marker { display:grid; width:17px; height:17px; place-items:center; border:1px solid #d6e5e9; border-radius:50%; color:#9bb0b7; background:#f7fbfc; font-size:10px; }
-.outpatient-status-chain li.is-done .outpatient-step-marker { border-color:#b8e4d1; color:#16845f; background:#e8f7ef; }
-.outpatient-status-chain li.is-current .outpatient-step-marker { border-color:#a9d9e2; color:#fff; background:var(--out-cyan); }
-.outpatient-status-chain small { color:inherit; font-size:9px; white-space:nowrap; }
 .outpatient-history-list { display:grid; gap:10px; margin:0; padding:0; list-style:none; }
 .outpatient-history-list li { display:grid; gap:2px; min-width:0; }
 .outpatient-history-list strong { overflow:hidden; color:#365665; font-size:11px; text-overflow:ellipsis; white-space:nowrap; }
@@ -66,8 +46,6 @@
 .outpatient-rail-next strong { color:var(--out-blue); font-size:12px; line-height:1.4; }
 /* Align the existing workflow panels with the blue/white reference workspace. */
 .outpatient-frame-content .crumb { display:none !important; }
-.outpatient-frame-content .business-page-header { min-height:108px; border-color:#d8e8ee !important; border-radius:8px !important; background:linear-gradient(120deg,#fff 12%,#f2f9fb) !important; box-shadow:0 5px 18px rgba(27,92,111,.06) !important; }
-.outpatient-frame-content .business-page-header::after { border-color:#b9dce4 !important; }
 .outpatient-frame-content .business-heading-icon { border-color:#c3e1e8 !important; border-radius:10px !important; background:#eaf7f9 !important; color:var(--out-blue) !important; }
 .outpatient-frame-content .business-eyebrow { color:#528e9b !important; }
 .outpatient-frame-content .business-heading-copy h1 { color:var(--out-ink) !important; }
@@ -80,6 +58,39 @@
 .outpatient-frame-content .button.button-ghost { border-radius:7px; color:var(--out-blue); border-color:#c3dfe5; }
 .outpatient-frame-content .button.button-ghost:hover:enabled { color:var(--out-blue); border-color:#8fc6d0; background:#f1fafb; }
 .outpatient-frame-content .panel-head h2::before { background:var(--out-cyan) !important; }
-@media (max-width:1180px) { .outpatient-main-grid { grid-template-columns:185px minmax(0,1fr); } .outpatient-right-rail { grid-column:2; grid-template-columns:repeat(3,minmax(0,1fr)); } .outpatient-right-rail .outpatient-rail-next { align-content:center; } }
-@media (max-width:900px) { .outpatient-frame-head { align-items:flex-start; flex-direction:column; gap:12px; } .outpatient-context { align-items:flex-start; flex-wrap:wrap; } .outpatient-context-values { order:3; flex-basis:100%; padding-left:45px; } .outpatient-context-cta { margin-left:auto; } .outpatient-main-grid { grid-template-columns:1fr; } .outpatient-left-rail, .outpatient-right-rail { grid-column:auto; grid-template-columns:repeat(2,minmax(0,1fr)); } .outpatient-frame-content { grid-row:1; } }
-@media (max-width:600px) { .outpatient-frame { gap:10px; } .outpatient-frame-kicker { margin-bottom:7px; } .outpatient-frame-title h1 { font-size:22px; } .outpatient-frame-title p { font-size:11px; } .outpatient-frame-actions { width:100%; } .outpatient-frame-link, .outpatient-frame-next { flex:1; justify-content:center; } .outpatient-context { gap:11px; padding:10px; } .outpatient-context-main { min-width:0; flex:1; } .outpatient-context-state { margin-left:0; } .outpatient-context-values { gap:12px; padding-left:0; overflow:auto; } .outpatient-context-value strong { max-width:105px; } .outpatient-status { align-items:flex-start; flex-wrap:wrap; padding:7px 10px; line-height:1.5; } .outpatient-left-rail, .outpatient-right-rail { grid-template-columns:1fr; } .outpatient-rail-block { padding:11px; } }
+
+/* Revisit-style work surfaces: one accent, one density, and a clear list/detail rhythm. */
+.outpatient-frame-content :is(.register-page, .diagnosis-page, .order-page, .charge-page, .dispense-page, .refund-workspace) {
+  --module-accent: var(--out-cyan);
+  --module-deep: var(--out-blue);
+  --module-line: var(--out-line);
+  --module-soft: #f2fafb;
+  --module-ink: var(--out-ink);
+}
+.outpatient-frame-content :is(.register-page, .diagnosis-page, .order-page, .charge-page, .dispense-page, .refund-workspace) :is(.panel-head h2, .diagnosis-section-head h2, .charge-settle-head h2, .dispense-detail-head h3) { color:var(--module-ink); }
+.outpatient-frame-content :is(.register-page, .diagnosis-page, .order-page, .charge-page, .dispense-page, .refund-workspace) :is(.clinical-kicker, .diagnosis-kicker, .charge-section-kicker, .dispense-section-kicker) { color:#528e9b; }
+.outpatient-frame-content :is(.register-page, .diagnosis-page, .order-page, .charge-page, .dispense-page, .refund-workspace) :is(.patient-panel, .diagnosis-history, .diagnosis-editor, .refund-workspace > *) { border-color:var(--module-line); }
+.outpatient-frame-content :is(.charge-page, .dispense-page) :is(.charge-view-switch, .dispense-view-switch) { border-color:#cfe3e8; background:#eaf6f8; }
+.outpatient-frame-content :is(.charge-page, .dispense-page) :is(.charge-view-switch, .dispense-view-switch) button.is-active { border-color:#d2e8ec; color:var(--module-deep); box-shadow:0 2px 6px rgba(23,91,107,.10); }
+.outpatient-frame-content :is(.charge-page, .dispense-page) :is(.charge-view-switch, .dispense-view-switch) button:hover:not(.is-active) { color:var(--module-deep); background:#f4fbfc; }
+.outpatient-frame-content :is(.charge-page, .dispense-page) :is(.charge-view-switch, .dispense-view-switch) button > span { color:#5f8992; background:#dff1f4; }
+.outpatient-frame-content :is(.charge-page, .dispense-page) :is(.charge-candidate-zone, .dispense-search-panel, .issued-filters) { border-color:var(--module-line); background:linear-gradient(115deg,#fff,var(--module-soft)); }
+.outpatient-frame-content :is(.charge-page, .dispense-page) :is(.charge-counter, .dispense-counter) { border-color:#cfe3e8; color:#5d8993; background:#f7fcfd; }
+.outpatient-frame-content :is(.charge-page, .dispense-page) :is(.charge-meta, .summary-grid, .dispense-line-summary) { border-color:#d8e9ed; background:#f5fbfc; }
+.outpatient-frame-content :is(.charge-page, .dispense-page) :is(.charge-meta dd, .summary-grid dd) { color:#365f6b; }
+.outpatient-frame-content :is(.charge-page, .dispense-page) :is(.charge-item-name, .dispense-drug-name, .dispense-patient-name) { color:#24596a; }
+.outpatient-frame-content :is(.charge-page, .dispense-page) :is(.charge-amount-cell, .dispense-available-qty) { color:#0e7382; }
+.outpatient-frame-content :is(.charge-page, .dispense-page) :is(.charge-pay, .dispense-confirm-bar, .dispense-detail) { border-color:#cfe3e8; background:linear-gradient(160deg,#f4fbfc,#eef8fa); }
+.outpatient-frame-content :is(.charge-page, .dispense-page) :is(.charge-total strong, .dispense-line-summary strong) { color:var(--module-deep); }
+.outpatient-frame-content :is(.charge-page, .dispense-page) :is(.charge-stock-state, .dispense-stock-state) { color:#287f88; background:#e5f5f6; }
+.outpatient-frame-content :is(.charge-page, .dispense-page) :is(.charge-stock-state.is-short, .dispense-stock-state.stock-bad) { color:#a7695c; background:#fff0ed; }
+.outpatient-frame-content :is(.diagnosis-page, .register-page, .order-page) :is(.diagnosis-selector, .clinical-encounter-card, .clinical-section-heading, .clinical-order-actionbar, .clinical-ticket-panel) { border-color:#d5e8ed; background:#f7fcfd; }
+.outpatient-frame-content :is(.diagnosis-page, .register-page, .order-page) :is(.diagnosis-status, .clinical-badge, .charge-chip) { border-color:#c9e3e8; color:#177482 !important; background:#e7f5f7; }
+.outpatient-frame-content :is(.diagnosis-page, .register-page, .order-page) :is(.diagnosis-record:hover, .diagnosis-record.is-active, .order-list-item.is-active, .register-table tbody tr.is-active) { border-color:#9bd2db; background:#eef9fa; }
+.outpatient-frame-content :is(.diagnosis-page, .register-page, .order-page) :is(.diagnosis-content-field textarea, .diagnosis-register-field select) { border-color:#cfe3e8; }
+.outpatient-frame-content :is(.diagnosis-page, .register-page, .order-page) :is(.diagnosis-content-field textarea:focus, .diagnosis-register-field select:focus) { border-color:var(--module-accent); box-shadow:0 0 0 3px rgba(26,155,171,.12); }
+.outpatient-frame-content :is(.register-page, .order-page) :is(.clinical-order-actionbar, .clinical-ticket-panel .panel-actions) { box-shadow:0 -6px 18px rgba(27,90,104,.04); }
+@media (max-width:1180px) { .outpatient-main-grid { grid-template-columns:minmax(0,1fr); } .outpatient-right-rail { grid-column:1; grid-template-columns:repeat(3,minmax(0,1fr)); } .outpatient-right-rail .outpatient-rail-next { align-content:center; } }
+@media (max-width:900px) { .outpatient-main-grid { grid-template-columns:1fr; } .outpatient-right-rail { grid-column:auto; grid-template-columns:repeat(2,minmax(0,1fr)); } .outpatient-frame-content { grid-row:1; } }
+@media (max-width:760px) { .outpatient-context-bar, .outpatient-status-chain { align-items:flex-start; flex-direction:column; } .outpatient-context-actions { width:100%; justify-content:flex-start; } .outpatient-status-next { max-width:100%; white-space:normal; } }
+@media (max-width:600px) { .outpatient-frame { gap:10px; } .outpatient-right-rail { grid-template-columns:1fr; } .outpatient-rail-block { padding:11px; } .outpatient-context-identity strong { font-size:15px; } .outpatient-status-steps { gap:5px 7px; } }

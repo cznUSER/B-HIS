@@ -23,19 +23,22 @@ for (const file of required) {
 
 const frame = read('src/components/OutpatientWorkbenchFrame.vue')
 const moduleView = read('src/views/OutpatientModuleView.vue')
-const steps = read('src/components/WorkflowSteps.vue')
+const shell = read('src/components/AppShell.vue')
 const expectedKeys = ['patient', 'register', 'diagnosis', 'order', 'charge', 'dispense', 'refund']
 for (const key of expectedKeys) {
   if (!moduleView.includes(`show${key[0].toUpperCase()}${key.slice(1)}`)) throw new Error(`module route is not mounted: ${key}`)
 }
-for (const anchor of ['outpatient-context', 'outpatient-status']) {
-  if (!frame.includes(`data-testid="${anchor}"`)) throw new Error(`missing shared anchor: ${anchor}`)
-}
-for (const anchor of ['outpatient-three-column', 'outpatient-left-rail', 'outpatient-right-rail', 'outpatient-status-chain', 'outpatient-fee-summary', 'outpatient-inventory-summary']) {
+for (const anchor of ['outpatient-two-column', 'outpatient-right-rail', 'outpatient-fee-summary', 'outpatient-inventory-summary']) {
   if (!frame.includes(anchor)) throw new Error(`missing three-column anchor: ${anchor}`)
 }
+for (const removed of ['outpatient-left-rail', 'outpatient-frame-head', 'outpatient-frame-actions', 'outpatient-frame-link', 'outpatient-frame-next']) {
+  if (frame.includes(removed)) throw new Error(`removed outpatient rail still present: ${removed}`)
+}
+for (const anchor of ['data-testid="outpatient-context"', 'data-testid="outpatient-status"', 'data-testid="outpatient-status-chain"', 'WorkflowSteps']) {
+  if (!frame.includes(anchor)) throw new Error(`shared outpatient context is missing: ${anchor}`)
+}
 if (!fs.existsSync(path.join(root, 'src/workbench/outpatientContext.js'))) throw new Error('missing shared outpatient context')
-if (!steps.includes('data-testid="outpatient-step-nav"')) throw new Error('missing step navigation anchor')
+if (shell.includes("import WorkflowSteps") || shell.includes('<WorkflowSteps')) throw new Error('app shell still renders the removed workflow step navigation')
 
 const boardPath = path.resolve(root, '..', '.codex', '实时进度', '任务看板.json')
 const boardHtmlPath = path.resolve(root, '..', '.codex', '实时进度', '任务看板.html')
@@ -53,4 +56,4 @@ if (fs.existsSync(boardPath) && fs.existsSync(boardHtmlPath)) {
   boardTasks = board.tasks.length
 }
 
-console.log(`REDESIGN_CHECK_OK modules=${expectedKeys.length} board=${boardStatus} boardTasks=${boardTasks} sharedAnchors=9`)
+console.log(`REDESIGN_CHECK_OK modules=${expectedKeys.length} board=${boardStatus} boardTasks=${boardTasks} sharedAnchors=4`)

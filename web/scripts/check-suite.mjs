@@ -3,7 +3,7 @@
 process.env.BHIS_WEB_TEST_MODE = '1'
 process.env.VITE_USE_MOCK = 'true'
 const checks = [
-  './check-outpatient-redesign.mjs', './check-mock.mjs', './check-workbench.mjs',
+  './check-outpatient-redesign.mjs', './check-outpatient-context.mjs', './check-mock.mjs', './check-workbench.mjs',
   './check-refund-workspace.mjs', './check-access-control.mjs', './check-user-operations-log.mjs',
   './check-client-http.mjs', './check-patients.mjs', './check-register.mjs', './check-orders.mjs',
   './check-charges.mjs', './check-dispense.mjs', './check-master.mjs', './check-usability-auth.mjs',

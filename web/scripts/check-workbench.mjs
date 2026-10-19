@@ -1,5 +1,5 @@
 // 2026-10-12 P1-H05-HOME 工作台入口顺序与占位规则
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import {
   OUTPATIENT_MODULES,
   blockReason,
@@ -257,6 +257,11 @@ assert(readFileSync(new URL('../src/views/WorkbenchView.vue', import.meta.url), 
 const routerSrc = readFileSync(new URL('../src/router/index.js', import.meta.url), 'utf8')
 assert(/path:\s*''[\s\S]{0,180}name:\s*'home'/.test(routerSrc), 'default child is home')
 assert(/path:\s*'outpatient'[\s\S]{0,180}name:\s*'workbench'/.test(routerSrc), 'overview is /app/outpatient')
+assert(!routerSrc.includes("import ReceptionDeskView"), 'today reception view is no longer mounted')
+assert(!routerSrc.includes("name: 'reception'"), 'today reception route is removed')
+assert(/path:\s*'outpatient\/reception'[\s\S]{0,180}redirect:\s*\{\s*name:\s*'workbench'\s*\}/.test(routerSrc), 'legacy today reception URL redirects to overview')
+assert(!routerSrc.includes("import ReceptionSettingsPanel"), 'today reception settings panel is removed')
+assert(/path:\s*'reception'[\s\S]{0,140}redirect:\s*\{\s*name:\s*'master'\s*\}/.test(routerSrc), 'legacy reception settings URL redirects to master overview')
 assert(routerSrc.includes("name: 'patient-create'") && routerSrc.includes("name: 'patient-search'"), 'archive pages have independent routes')
 assert(routerSrc.includes("path: 'outpatient/patient'") && routerSrc.includes("name: 'patient-create'"), 'legacy outpatient create URL redirects to archive')
 assert(routerSrc.includes('patientAccess') && routerSrc.includes('canEnter(findModule(\'patient\')'), 'both archive routes preserve patient access guard')
@@ -269,14 +274,27 @@ assert(!workbenchView.split('<template>')[1].split('</template>')[0].includes('�
 const patientView = readFileSync(new URL('../src/views/PatientView.vue', import.meta.url), 'utf8')
 assert(!patientView.includes('data-testid="patient-search"') && !patientView.includes('searchPatients') && !patientView.includes('searchForm'), 'create page has no query panel or query state')
 assert(patientView.includes("name: 'patient-search'"), 'duplicate feedback links to independent search page')
+assert(!patientView.includes('patient-success-reception') && !patientView.includes("name: 'reception'"), 'patient success does not expose today reception')
 const patientSearchView = readFileSync(new URL('../src/views/PatientSearchView.vue', import.meta.url), 'utf8')
 for (const text of ['patient-search', 'searchPatients', 'fetchPatient', '去挂号']) {
   assert(patientSearchView.includes(text), `search page keeps ${text}`)
 }
 const frameView = readFileSync(new URL('../src/components/OutpatientWorkbenchFrame.vue', import.meta.url), 'utf8')
 assert(!frameView.includes("['patient', '建档']"), 'outpatient frame has no archive step')
-const workflowView = readFileSync(new URL('../src/components/WorkflowSteps.vue', import.meta.url), 'utf8')
-assert(workflowView.includes("item.key !== 'patient'"), 'workflow steps hide archive access module')
+assert(!frameView.includes('outpatient-left-rail'), 'outpatient frame removes the left rail')
+assert(frameView.includes('data-testid="outpatient-context"'), 'outpatient frame exposes patient context')
+assert(frameView.includes('data-testid="outpatient-status"'), 'outpatient frame exposes current workflow status')
+assert(frameView.includes('data-testid="outpatient-status-chain"'), 'outpatient frame exposes workflow status chain')
+assert(frameView.includes('WorkflowSteps'), 'outpatient frame renders shared workflow navigation')
+const shellView = readFileSync(new URL('../src/components/AppShell.vue', import.meta.url), 'utf8')
+assert(!shellView.includes("import WorkflowSteps"), 'app shell no longer imports outpatient workflow strip')
+assert(!shellView.includes('<WorkflowSteps'), 'app shell no longer renders outpatient workflow strip')
+const navSource = readFileSync(new URL('../src/workbench/nav.js', import.meta.url), 'utf8')
+assert(!navSource.includes('今日接待') && !navSource.includes('quick:'), 'sidebar removes today reception shortcut')
+const masterView = readFileSync(new URL('../src/views/MasterView.vue', import.meta.url), 'utf8')
+assert(!masterView.includes('master-reception') && !masterView.includes('门诊运营'), 'master tabs remove reception-only settings')
+assert(!existsSync(new URL('../src/views/ReceptionDeskView.vue', import.meta.url)), 'today reception page source is removed')
+assert(!existsSync(new URL('../src/views/master/ReceptionSettingsPanel.vue', import.meta.url)), 'today reception settings source is removed')
 
 const diagnosisApi = readFileSync(new URL('../src/api/diagnosisApi.js', import.meta.url), 'utf8')
 assert(diagnosisApi.includes("/diagnoses/${encodeURIComponent(diagnoseId)}/commit"), 'diagnosis commit route')
@@ -285,6 +303,9 @@ const diagnosisView = readFileSync(new URL('../src/views/DiagnosisView.vue', imp
 assert(diagnosisView.includes("canEnter(findModule('diagnosis'), session.user)"), 'diagnosis uses effective permission gate')
 for (const text of ['当前挂号', '保存诊断', '提交', '作废', '临床规则当前保持关闭']) {
   assert(diagnosisView.includes(text), `diagnosis copy: ${text}`)
+}
+for (const text of ['主诉', '现病史', '既往史 / 过敏史', '查体与检查', '初步诊断', '处置计划', '全科初诊', 'serializeStructured', 'templateCode', 'signedAt', 'diagnoseVersion']) {
+  assert(diagnosisView.includes(text), `structured diagnosis copy: ${text}`)
 }
 
 console.log('workbench checks passed')
