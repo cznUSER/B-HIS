@@ -341,7 +341,7 @@ assert(downServer.message === '挂号服务暂不可用', '5xx 沿用服务端�
 
 const view = readFileSync(new URL('../src/views/RegisterView.vue', import.meta.url), 'utf8')
 const template = view.split('<template>')[1]
-for (const text of ['请先选择患者', '请选择科室', '请选择医生', '普通号', '患者查询', '退号', '报到', '模拟报到冲突', '性别', '出生日期', '患者号', '身份证', '患者基本信息', '科室基本信息', '费用信息', '读取身份证', '读取医保卡', '今天还没有挂号操作记录']) {
+for (const text of ['选择患者', '请选择科室', '请选择医生', '普通号', '患者查询', '退号', '报到', '模拟报到冲突', '姓名', '年龄', '性别', '患者号', '身份证', '患者基本信息', '科室基本信息', '费用信息', '读取身份证', '读取医保卡', '今天还没有挂号操作记录']) {
   assert(template.includes(text), `missing copy: ${text}`)
 }
 assert(!template.includes('去建档') && !template.includes('回建档页'), 'registration has no archive creation links')
@@ -351,11 +351,14 @@ for (const hook of ['register-layout', 'register-patient-panel', 'register-form'
   assert(template.includes(`data-testid="${hook}"`), `registration layout keeps ${hook} hook`)
 }
 assert(template.includes('id="register-patient"') && template.includes('{{ patient.name }}'), 'selected patient name remains prominent')
-for (const hook of ['register-info-strip', 'register-department-list', 'register-today-panel', 'register-fee-panel']) {
+for (const hook of ['register-info-strip', 'register-patient-fields', 'register-department-selected', 'register-today-panel', 'register-fee-panel']) {
   assert(template.includes(`data-testid="${hook}"`), `empty registration layout keeps ${hook} hook`)
 }
 assert(template.includes('register-empty-grid') && template.includes('register-empty-history'), 'empty registration restores the reference card layout')
 assert(template.includes('读取身份证') && template.includes('读取医保卡'), 'empty registration keeps card-reader entry points')
+assert(template.indexOf('data-testid="register-choose-patient"') < template.indexOf('data-testid="read-id-card"'), 'patient selection precedes both card-reader controls in the same action strip')
+assert(template.includes('<span>姓名</span>') && template.includes('<span>年龄</span>') && template.includes('<span>性别</span>'), 'patient cards expose name, age, and sex fields')
+assert(template.includes('data-testid="pending-department-select"') && template.includes('data-testid="pending-doctor-select"'), 'department card renders the selected department state')
 assert(template.includes('今天还没有挂号操作记录。'), 'empty registration keeps today-work empty copy')
 assert(view.includes('max-height: 210px') && view.includes('overflow: auto'), 'registration history is contained in an internal scroll region')
 assert(template.includes('v-if="canCheckIn(row.status)"'), '仅可报到状态显示按钮')

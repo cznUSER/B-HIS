@@ -41,6 +41,7 @@ const patientRoute = { name: 'patient-search' }
 const patientPickerOpen = ref(false)
 const patientSwitching = ref(false)
 const pendingDepartmentId = ref('')
+const pendingDoctorId = ref('')
 
 const patient = ref(null)
 const tickets = ref([])
@@ -93,6 +94,12 @@ const doctors = computed(() => {
   if (!id) return []
   return liveDoctors.value.filter((item) => item.departmentId === id && item.status === 'ACTIVE')
 })
+const pendingDoctors = computed(() => {
+  if (!pendingDepartmentId.value) return []
+  if (mockMode) return doctorsForDept(pendingDepartmentId.value)
+  return liveDoctors.value.filter((item) => item.departmentId === pendingDepartmentId.value && item.status === 'ACTIVE')
+})
+const selectedPendingDepartment = computed(() => departments.value.find((item) => item.departmentId === pendingDepartmentId.value) || null)
 const canSave = computed(() => Boolean(patient.value) && masterReady.value && !masterLoading.value && ticketsReady.value && !ticketsLoading.value && !saving.value)
 const selectedDateTickets = computed(() => tickets.value.filter((item) => item.visitDate === visitDate.value))
 const registrationTickets = computed(() => selectedDateTickets.value.filter((item) => item.visitType !== 'APPOINTMENT'))
@@ -164,21 +171,26 @@ function dateAfterMonths(months) {
   return [next.getUTCFullYear(), String(next.getUTCMonth() + 1).padStart(2, '0'), String(next.getUTCDate()).padStart(2, '0')].join('-')
 }
 
-function setVisitDate(value) {
-  visitDate.value = value
+function patientAge(birthday) {
+  if (!birthday) return '—'
+  const birth = new Date(`${birthday}T00:00:00+08:00`)
+  const current = new Date(`${today}T00:00:00+08:00`)
+  if (Number.isNaN(birth.getTime()) || birth > current) return '—'
+  let age = current.getFullYear() - birth.getFullYear()
+  const beforeBirthday = current.getMonth() < birth.getMonth() || (current.getMonth() === birth.getMonth() && current.getDate() < birth.getDate())
+  if (beforeBirthday) age -= 1
+  return `${age} 岁`
 }
 
-function chooseDepartment(item) {
-  pendingDepartmentId.value = item?.departmentId || ''
-  patientPickerOpen.value = true
+function setVisitDate(value) {
+  visitDate.value = value
 }
 
 async function onSelectPatient(selected) {
   if (!selected || selected.status !== 'ACTIVE' || !selected.selectable) return
   patientSwitching.value = true
   departmentId.value = pendingDepartmentId.value || ''
-  pendingDepartmentId.value = ''
-  doctorId.value = ''
+  doctorId.value = pendingDoctorId.value || ''
   registerFee.value = 0
   appointmentMode.value = false
   appointmentStart.value = ''
@@ -202,6 +214,23 @@ function syncRegisterContext() {
 
 watch(departmentId, () => {
   if (!doctors.value.some((item) => item.doctorId === doctorId.value)) doctorId.value = ''
+})
+
+watch(departments, (items) => {
+  if (!items.length) {
+    pendingDepartmentId.value = ''
+    pendingDoctorId.value = ''
+    return
+  }
+  if (!items.some((item) => item.departmentId === pendingDepartmentId.value)) pendingDepartmentId.value = items[0].departmentId
+}, { immediate: true })
+
+watch(pendingDepartmentId, () => {
+  if (!pendingDoctors.value.some((item) => item.doctorId === pendingDoctorId.value)) pendingDoctorId.value = pendingDoctors.value[0]?.doctorId || ''
+})
+
+watch(pendingDoctors, (items) => {
+  if (!items.some((item) => item.doctorId === pendingDoctorId.value)) pendingDoctorId.value = items[0]?.doctorId || ''
 })
 
 function departmentLabel(id) {
@@ -274,6 +303,8 @@ async function load() {
     const found = await fetchPatient(session.accessToken, id)
     if (seq !== patientLoadSeq) return
     patient.value = found
+    departmentId.value = pendingDepartmentId.value || ''
+    doctorId.value = pendingDoctors.value.some((item) => item.doctorId === pendingDoctorId.value) ? pendingDoctorId.value : ''
     setPatient(found)
     await refreshTickets()
   } catch (error) {
@@ -528,6 +559,7 @@ async function onComplete(row) {
 
     <div v-if="!patientId" class="register-empty-workspace" data-testid="register-empty">
       <section class="register-info-strip" data-testid="register-info-strip" aria-label="读卡入口">
+        <button class="button button-compact" type="button" data-testid="register-choose-patient" @click="patientPickerOpen = true">选择患者</button>
         <button class="button button-ghost button-compact" type="button" data-testid="read-id-card" @click="patientPickerOpen = true">读取身份证</button>
         <button class="button button-ghost button-compact" type="button" data-testid="read-medical-card" @click="patientPickerOpen = true">读取医保卡</button>
       </section>
@@ -536,34 +568,36 @@ async function onComplete(row) {
         <section class="patient-panel register-empty-card register-empty-patient" data-testid="register-patient-panel" aria-labelledby="register-empty-patient-title">
           <div class="panel-head">
             <div><span class="clinical-kicker">患者档案</span><h2 id="register-empty-patient-title">患者基本信息</h2></div>
-            <button class="button button-ghost button-compact" type="button" data-testid="register-choose-patient" @click="patientPickerOpen = true">选择患者</button>
           </div>
-          <div class="register-empty-patient-state">
-            <div class="register-empty-visual" aria-hidden="true">
-              <span class="register-empty-orbit"></span><span class="register-empty-orbit register-empty-orbit-inner"></span>
-              <span class="register-empty-symbol"><span class="register-calendar-icon">▣</span></span>
-              <span class="register-empty-dot register-empty-dot-one"></span><span class="register-empty-dot register-empty-dot-two"></span>
-            </div>
-            <div class="register-empty-copy">
-              <span class="register-empty-eyebrow">下一步</span>
-              <h3>请先选择患者</h3>
-              <p>选择患者后，这里显示患者基本信息，并可在本页完成科室、医生和就诊日期安排。</p>
-            </div>
+          <div class="register-patient-fields" data-testid="register-patient-fields">
+            <label class="field"><span>姓名</span><input readonly placeholder="选择患者后显示" /></label>
+            <label class="field"><span>年龄</span><input readonly placeholder="选择患者后显示" /></label>
+            <label class="field"><span>性别</span><input readonly placeholder="选择患者后显示" /></label>
+            <p class="register-empty-note">可通过上方“选择患者”、身份证或医保卡读取患者档案。</p>
           </div>
         </section>
 
         <section class="patient-panel register-empty-card register-empty-department" data-testid="register-department-panel" aria-labelledby="register-empty-department-title">
           <div class="panel-head">
             <div><span class="clinical-kicker">门诊安排</span><h2 id="register-empty-department-title">科室基本信息</h2></div>
-            <span class="clinical-date-tag">待选择</span>
+            <span class="clinical-date-tag">{{ selectedPendingDepartment ? '已选择' : '待选择' }}</span>
           </div>
-          <div class="register-department-grid" data-testid="register-department-list">
+          <div class="register-department-selected" data-testid="register-department-selected">
             <p v-if="masterLoading" class="register-empty-note">正在读取科室…</p>
             <p v-else-if="masterError" class="register-empty-note" role="alert">{{ masterError }}</p>
             <p v-else-if="!departments.length" class="register-empty-note">暂无启用科室。</p>
-            <button v-for="item in departments" :key="item.departmentId" class="register-department-tile" type="button" @click="chooseDepartment(item)">
-              <strong>{{ item.name }}</strong><span>可挂号</span>
-            </button>
+            <template v-else>
+              <div class="register-department-summary">
+                <div><span>已选科室</span><strong>{{ selectedPendingDepartment?.name || '请选择科室' }}</strong></div>
+                <span class="register-available-tag">可挂号</span>
+              </div>
+              <div class="register-department-fields">
+                <label class="field"><span>科室</span><select v-model="pendingDepartmentId" data-testid="pending-department-select"><option v-for="item in departments" :key="item.departmentId" :value="item.departmentId">{{ item.name }}</option></select></label>
+                <label class="field"><span>医生</span><select v-model="pendingDoctorId" data-testid="pending-doctor-select"><option value="">暂不指定</option><option v-for="item in pendingDoctors" :key="item.doctorId" :value="item.doctorId">{{ item.name }}</option></select></label>
+                <label class="field"><span>就诊日期</span><input :value="today" readonly /></label>
+              </div>
+              <p class="register-empty-note">选择患者后，将按当前科室和医生进入挂号信息确认。</p>
+            </template>
           </div>
         </section>
 
@@ -604,13 +638,13 @@ async function onComplete(row) {
             <span class="clinical-kicker">就诊患者</span>
             <button class="button button-ghost button-compact" type="button" data-testid="register-change-patient" @click="patientPickerOpen = true">更换患者</button>
           </div>
-          <div class="clinical-profile-identity"><span class="clinical-profile-avatar" aria-hidden="true">{{ patient.name?.slice(0, 1) || '患' }}</span><div><h2 id="register-patient">{{ patient.name }}</h2><p>{{ patient.patientNo || '患者号未提供' }}</p></div><span class="clinical-badge">档案已载入</span></div>
-          <dl class="summary-grid register-patient-details">
-            <div><dt>性别</dt><dd>{{ sexLabel(patient.sex) }}</dd></div>
-            <div><dt>出生日期</dt><dd>{{ patient.birthday || '—' }}</dd></div>
-            <div><dt>患者号</dt><dd>{{ patient.patientNo || '—' }}</dd></div>
-            <div><dt>身份证</dt><dd>{{ maskIdNumber(patient.idNumber) }}</dd></div>
-          </dl>
+          <h2 id="register-patient" class="sr-only">{{ patient.name }}</h2>
+          <div class="register-selected-patient-fields" data-testid="register-selected-patient-fields">
+            <label class="field"><span>姓名</span><input :value="patient.name || '—'" readonly /></label>
+            <label class="field"><span>年龄</span><input :value="patientAge(patient.birthday)" readonly /></label>
+            <label class="field"><span>性别</span><input :value="sexLabel(patient.sex)" readonly /></label>
+          </div>
+          <p class="clinical-profile-note">患者号：{{ patient.patientNo || '—' }}　身份证：{{ maskIdNumber(patient.idNumber) }}</p>
           <p class="clinical-profile-note"><span aria-hidden="true">◇</span> 主索引不能在挂号页修改。</p>
         </section>
 
@@ -777,26 +811,20 @@ async function onComplete(row) {
 .register-empty-patient .panel-head, .register-empty-department .panel-head, .register-empty-today .panel-head, .register-empty-fee .panel-head, .register-empty-history .panel-head { align-items:flex-start; }
 .register-empty-patient .panel-head h2, .register-empty-department .panel-head h2, .register-empty-fee .panel-head h2 { color:#173747; font-size:15px; }
 .register-empty-patient .panel-head h2::before, .register-empty-department .panel-head h2::before, .register-empty-fee .panel-head h2::before { display:none; }
-.register-empty-patient-state { display:flex; align-items:center; justify-content:center; gap:28px; min-height:320px; margin-top:12px; padding:24px 20px; border-radius:14px; background:linear-gradient(135deg,#f9fcfd,#fff); }
-.register-empty-visual { position:relative; display:grid; flex:none; width:150px; height:150px; place-items:center; }
-.register-empty-orbit { position:absolute; inset:2px; border:1px dashed #c9ded1; border-radius:50%; }
-.register-empty-orbit-inner { inset:18px; border-style:solid; border-color:#e1ece4; }
-.register-empty-symbol { display:grid; width:74px; height:86px; place-items:center; border:1px solid #c6e2d1; border-radius:22px; background:linear-gradient(135deg,#e6f4eb,#f9fcfa); color:#4a9c82; box-shadow:0 12px 20px #24523a0a; transform:rotate(-7deg); }
-.register-calendar-icon { font-size:30px; line-height:1; }
-.register-empty-dot { position:absolute; width:8px; height:8px; border-radius:50%; background:#84bca0; box-shadow:0 0 0 5px #edf5ef; }
-.register-empty-dot-one { top:21px; left:28px; }.register-empty-dot-two { right:20px; bottom:19px; width:5px; height:5px; background:#adc9b7; }
-.register-empty-copy { max-width:150px; min-width:0; }
-.register-empty-eyebrow { display:block; margin-bottom:8px; color:#88a392; font-size:10px; }
-.register-empty-copy h3 { color:#38554a; font-size:20px; font-weight:650; line-height:1.45; }
-.register-empty-copy p { margin-top:10px; color:#7c9085; font-size:13px; line-height:1.8; }
-.register-empty-copy .button { margin-top:20px; }
-.register-department-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-content:start; gap:10px; min-height:0; height:335px; padding:18px 0 0; }
-.register-department-tile { display:flex; align-items:center; justify-content:space-between; gap:8px; min-width:0; min-height:48px; padding:0 12px; border:1px solid #d5e8ed; border-radius:6px; color:#165a6b; background:#f8fcfd; text-align:left; }
-.register-department-tile:hover { border-color:#8fc6d0; background:#f1fafb; }
-.register-department-tile strong { overflow:hidden; font-size:13px; text-overflow:ellipsis; white-space:nowrap; }
-.register-department-tile span { flex:none; padding:4px 7px; border-radius:4px; color:#247d70; background:#e7f5ee; font-size:10px; white-space:nowrap; }
+.register-patient-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); align-content:start; gap:16px; min-height:335px; margin-top:12px; padding:34px 22px; border-radius:14px; background:linear-gradient(135deg,#f9fcfd,#fff); }
+.register-patient-fields .register-empty-note { grid-column:1 / -1; margin-top:4px; }
+.register-patient-fields input, .register-selected-patient-fields input { height:40px; color:#365f6b; background:#f8fbfc; }
+.register-department-selected { display:grid; align-content:start; gap:18px; min-height:335px; padding:18px 0 0; }
+.register-department-summary { display:flex; align-items:center; justify-content:space-between; gap:14px; min-height:82px; padding:16px 18px; border:1px solid #b9dde3; border-radius:8px; background:linear-gradient(135deg,#eef9fa,#f9fcfd); }
+.register-department-summary > div { display:grid; gap:6px; min-width:0; }
+.register-department-summary span { color:#6f8c96; font-size:10px; }
+.register-department-summary strong { overflow:hidden; color:#145b6d; font-size:20px; text-overflow:ellipsis; white-space:nowrap; }
+.register-available-tag { flex:none; padding:5px 9px; border-radius:5px; color:#247d70 !important; background:#e3f4ec; font-size:10px !important; }
+.register-department-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+.register-department-fields .field:last-child { grid-column:1 / -1; }
+.register-department-fields :is(select,input) { height:40px; }
 .register-empty-note { margin:0; color:#7c929c; font-size:12px; line-height:1.8; }
-.register-department-grid .register-empty-note { grid-column:1 / -1; padding:18px 12px; }
+.register-department-selected > .register-empty-note:first-child { padding:18px 12px; }
 .register-empty-today { min-height:128px; }
 .register-today-list { display:grid; gap:8px; margin:16px 0 0; padding:0; list-style:none; }
 .register-today-list li { display:grid; gap:2px; min-width:0; }
@@ -816,6 +844,7 @@ async function onComplete(row) {
 .clinical-register-layout .clinical-profile-identity > div { min-width: 0; }
 .clinical-register-layout .clinical-profile-identity h2 { overflow: hidden; color: #173747; font-size: 16px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
 .clinical-register-layout .clinical-profile-identity p { overflow: hidden; color: #718995; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.register-selected-patient-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; padding:8px 0 4px; }
 .clinical-register-layout .register-patient-details { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; padding: 11px 12px; }
 .clinical-register-layout .register-patient-details > div { min-width: 0; }
 .clinical-register-layout .register-patient-details dd { overflow: hidden; color: #365f6b; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
@@ -842,14 +871,13 @@ async function onComplete(row) {
   .register-empty-grid { grid-template-columns:1fr; }
   .register-empty-patient, .register-empty-department { min-height:0; }
   .register-empty-today { min-height:0; }
-  .register-empty-patient-state { min-height:260px; }
+  .register-patient-fields { min-height:0; }
   .clinical-register-layout { grid-template-columns: 1fr; }
   .clinical-register-form .field-grid { grid-template-columns: 1fr; }
   .clinical-register-form .field-wide { grid-column: auto; }
 }
 @media (max-width: 560px) {
-  .register-empty-patient-state { align-items:flex-start; flex-direction:column; gap:16px; }
-  .register-empty-copy { max-width:none; }
-  .register-department-grid { grid-template-columns:1fr; }
+  .register-patient-fields, .register-selected-patient-fields, .register-department-fields { grid-template-columns:1fr; }
+  .register-department-fields .field:last-child { grid-column:auto; }
 }
 </style>
