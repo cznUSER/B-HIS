@@ -107,12 +107,31 @@ assert(!Object.prototype.hasOwnProperty.call(payload, 'deptCode'), 'payload 无 
 assert(payload.registerSort === 'sort-normal', '号别占位')
 assert(payload.registerFee === 0, '费用默认 0')
 
+const appointmentPayload = assertCreateRegisterRequest({
+  patientId: 'p',
+  departmentId: 'dept-1',
+  doctorId: 'doc-1',
+  visitDate: today,
+  visitType: 'APPOINTMENT',
+  appointmentStart: `${today}T09:00:00+08:00`,
+  appointmentEnd: `${today}T09:30:00+08:00`,
+  appointmentNote: '复诊',
+})
+assert(appointmentPayload.visitType === 'APPOINTMENT' && appointmentPayload.appointmentStart, '预约时间契约')
+await expectError(() => assertCreateRegisterRequest({
+  patientId: 'p', departmentId: 'dept-1', doctorId: 'doc-1', visitDate: today,
+  visitType: 'APPOINTMENT', appointmentStart: `${today}T09:00:00+08:00`,
+}), 'VALIDATION_ERROR', 400).then((error) => assert(error.message === '预约号需要填写开始和结束时间' || error.message === '预约时间无效' || error.message.includes('预约'), '预约缺失校验'))
+
 const patient = mockCreatePatient(token, {
   name: '王小明',
   sex: 'M',
   birthday: '1990-05-16',
+  idType: 'ID_CARD',
   fareIdentity: 'SELF',
   idNumber: '110101199005161234',
+  phone: '13800000000',
+  nationality: '中国',
 })
 
 const created = mockCreateRegister(token, {
@@ -126,6 +145,22 @@ assert(created.status === 'NORMAL', '保存后正常号')
 assert(created.registerFee === 0 && created.registerCharged === false, '费用隐藏默认')
 assert(created.departmentId === 'dept-2' && created.doctorId === 'doc-2', '科室医生写入')
 assert(created.patientId === patient.patientId && created.visitDate === today, '患者与就诊日')
+
+const appointment = mockCreateRegister(token, {
+  patientId: patient.patientId,
+  departmentId: 'dept-1',
+  doctorId: 'doc-1',
+  visitDate: today,
+  visitType: 'APPOINTMENT',
+  appointmentStart: `${today}T10:00:00+08:00`,
+  appointmentEnd: `${today}T10:30:00+08:00`,
+})
+assert(appointment.visitType === 'APPOINTMENT', '预约挂号保存')
+const appointmentConflict = await expectError(() => mockCreateRegister(token, {
+  patientId: patient.patientId, departmentId: 'dept-1', doctorId: 'doc-1', visitDate: today,
+  visitType: 'APPOINTMENT', appointmentStart: `${today}T10:15:00+08:00`, appointmentEnd: `${today}T10:45:00+08:00`,
+}), 'APPOINTMENT_CONFLICT', 409)
+assert(appointmentConflict.message === '该医生在预约时段已有安排', '预约冲突')
 
 const listed = mockListRegisters(token, { patientId: patient.patientId, visitDate: today })
 assert(listed.items.some((item) => item.registerId === created.registerId && statusLabel(item.status) === '正常号'), '列表可见正常号')
@@ -306,14 +341,37 @@ assert(downServer.message === '挂号服务暂不可用', '5xx 沿用服务端�
 
 const view = readFileSync(new URL('../src/views/RegisterView.vue', import.meta.url), 'utf8')
 const template = view.split('<template>')[1]
-for (const text of ['请先选择患者', '请选择科室', '请选择医生', '普通号', '患者查询', '退号', '报到', '模拟报到冲突', '姓名', '性别', '出生日期', '患者号', '身份证']) {
+for (const text of ['请先选择患者', '请选择科室', '请选择医生', '普通号', '患者查询', '退号', '报到', '模拟报到冲突', '性别', '出生日期', '患者号', '身份证', '患者基本信息', '科室基本信息', '费用信息', '读取身份证', '读取医保卡', '今天还没有挂号操作记录']) {
   assert(template.includes(text), `missing copy: ${text}`)
 }
 assert(!template.includes('去建档') && !template.includes('回建档页'), 'registration has no archive creation links')
 assert(view.includes("name: 'patient-search'"), 'empty and missing patient states route to independent search')
+assert(template.includes('data-testid="register-empty"'), 'empty workspace keeps its automation hook')
+for (const hook of ['register-layout', 'register-patient-panel', 'register-form', 'register-history-panel']) {
+  assert(template.includes(`data-testid="${hook}"`), `registration layout keeps ${hook} hook`)
+}
+assert(template.includes('id="register-patient"') && template.includes('{{ patient.name }}'), 'selected patient name remains prominent')
+for (const hook of ['register-info-strip', 'register-department-list', 'register-today-panel', 'register-fee-panel']) {
+  assert(template.includes(`data-testid="${hook}"`), `empty registration layout keeps ${hook} hook`)
+}
+assert(template.includes('register-empty-grid') && template.includes('register-empty-history'), 'empty registration restores the reference card layout')
+assert(template.includes('读取身份证') && template.includes('读取医保卡'), 'empty registration keeps card-reader entry points')
+assert(template.includes('今天还没有挂号操作记录。'), 'empty registration keeps today-work empty copy')
+assert(view.includes('max-height: 210px') && view.includes('overflow: auto'), 'registration history is contained in an internal scroll region')
 assert(template.includes('v-if="canCheckIn(row.status)"'), '仅可报到状态显示按钮')
-assert(!template.includes('type="date"'), '无日期控件')
-assert(!template.includes('排班'), '无排班文案')
+assert(template.includes('type="date"'), '预约日期控件')
+assert(template.includes('预约号') && template.includes('datetime-local'), '预约时间控件')
+assert(view.includes('if (patient.value && !patientSwitching.value) refreshTickets()'), '就诊日期变化后刷新当前患者的挂号列表，切换患者期间抑制旧患者查询')
+assert(view.includes("tickets.value.filter((item) => item.visitDate === visitDate.value)"), '切换日期时旧日期记录不继续显示')
+assert(view.includes("item.visitType === 'APPOINTMENT'"), '预约记录与现场挂号分组展示')
+assert(view.includes("title: '预约记录'") && view.includes("testId: 'register-list'") && view.includes("testId: 'appointment-list'"), '预约不混入所选日期现场挂号列表')
+const dateAfterMonthsBody = view.match(/function dateAfterMonths\(months\) \{([\s\S]*?)\n\}/)?.[1]
+assert(dateAfterMonthsBody, 'dateAfterMonths helper exists')
+const dateAfterMonthsFor = new Function('today', 'months', dateAfterMonthsBody)
+assert(dateAfterMonthsFor('2026-01-31', 1) === '2026-02-28', 'month preset clamps to target month end')
+assert(dateAfterMonthsFor('2024-01-31', 1) === '2024-02-29', 'month preset clamps to leap day')
+const clinicalCss = readFileSync(new URL('../src/views/clinical-design.css', import.meta.url), 'utf8')
+assert(!clinicalCss.includes('.outpatient-rail-next { display: none; }'), 'register styles do not hide shared next-step panel')
 assert(template.includes('挂号费（元）'), '真实模式展示挂号费输入')
 assert(!view.includes('deptCode'), '页面不用 deptCode')
 assert(view.includes('departmentId:'), '提交 departmentId')

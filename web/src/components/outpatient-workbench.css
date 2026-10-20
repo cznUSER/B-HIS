@@ -1,4 +1,4 @@
-.outpatient-frame { --out-blue:#0d6f83; --out-cyan:#1a9bab; --out-ink:#173747; --out-muted:#708995; --out-line:#d8e7ec; --out-surface:#eef5f7; display:flex; min-width:0; flex-direction:column; gap:12px; max-width:1480px; margin:0 auto; }
+.outpatient-frame { --out-blue:#0d6f83; --out-cyan:#1a9bab; --out-ink:#173747; --out-muted:#708995; --out-line:#d8e7ec; --out-surface:#eef5f7; display:flex; width:100%; min-width:0; flex-direction:column; gap:12px; max-width:1480px; margin:0 auto; }
 .outpatient-context-bar { display:flex; align-items:center; justify-content:space-between; gap:14px; min-width:0; padding:12px 14px; border:1px solid #cfe3e8; border-radius:8px; background:#fff; }
 .outpatient-context-identity, .outpatient-context-actions { display:flex; align-items:center; flex-wrap:wrap; gap:7px 10px; min-width:0; }
 .outpatient-context-identity { flex:1 1 auto; }
@@ -28,6 +28,16 @@
 .outpatient-right-rail { display:grid; gap:12px; min-width:0; }
 .outpatient-frame[data-module="register"] .outpatient-main-grid { grid-template-columns:minmax(0,1fr); }
 .outpatient-frame[data-module="register"] .outpatient-right-rail { display:none; }
+.outpatient-frame[data-module="register"] { gap:12px; }
+.outpatient-frame[data-module="register"] .outpatient-context-bar,
+.outpatient-frame[data-module="register"] .outpatient-status-chain,
+.outpatient-frame[data-module="register"] .workflow-steps { display:none; }
+.shell:has(.outpatient-frame[data-module="register"]) { overflow:hidden; }
+html:has(.outpatient-frame[data-module="register"]), body:has(.outpatient-frame[data-module="register"]) { overflow:hidden; }
+@media (min-width:761px) { .shell:has(.outpatient-frame[data-module="register"]) .shell-main { padding-top:18px; } }
+@media (min-width:761px) { .shell:has(.outpatient-frame[data-module="register"]) .shell-main { padding-bottom:0; } }
+@media (min-width:761px) { .shell:has(.outpatient-frame[data-module="register"]) .shell-main { overflow:hidden; padding-bottom:0 !important; } }
+@media (min-width:761px) { .shell:has(.outpatient-frame[data-module="register"]) .outpatient-frame-content { max-height:calc(100vh - 90px); overflow-y:auto; overflow-x:hidden; padding-right:4px; overscroll-behavior:contain; } }
 .outpatient-rail-block { min-width:0; padding:13px; border:1px solid var(--out-line); border-radius:8px; background:#fff; box-shadow:0 5px 18px rgba(29,81,96,.04); }
 .outpatient-rail-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:11px; color:#557582; font-size:11px; font-weight:800; }
 .outpatient-rail-count { color:#8aa0a8; font-size:10px; font-weight:700; font-variant-numeric:tabular-nums; }
