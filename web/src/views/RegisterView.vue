@@ -36,7 +36,6 @@ const route = useRoute()
 const router = useRouter()
 const today = todayInShanghai()
 const visitDate = ref(todayInShanghai())
-const patientRoute = { name: 'patient-search' }
 const patientPickerOpen = ref(false)
 const patientSwitching = ref(false)
 const pendingDepartmentId = ref('')
@@ -48,8 +47,8 @@ const loading = ref(false)
 const notFound = ref(false)
 const loadError = ref('')
 const listNote = ref('')
-const departmentId = ref('')
-const doctorId = ref('')
+const departmentId = pendingDepartmentId
+const doctorId = pendingDoctorId
 const saving = ref(false)
 const cancellingId = ref('')
 const checkingInId = ref('')
@@ -166,8 +165,6 @@ function setVisitDate(value) {
 async function onSelectPatient(selected) {
   if (!selected || selected.status !== 'ACTIVE' || !selected.selectable) return
   patientSwitching.value = true
-  departmentId.value = pendingDepartmentId.value || ''
-  doctorId.value = pendingDoctorId.value || ''
   patientPickerOpen.value = false
   showNotice('', false)
   try {
@@ -266,16 +263,12 @@ async function load() {
   loadError.value = ''
   listNote.value = ''
   notice.value = ''
-  departmentId.value = ''
-  doctorId.value = ''
   if (!id) { loading.value = false; return }
   loading.value = true
   try {
     const found = await fetchPatient(session.accessToken, id)
     if (seq !== patientLoadSeq) return
     patient.value = found
-    departmentId.value = pendingDepartmentId.value || ''
-    doctorId.value = pendingDoctors.value.some((item) => item.doctorId === pendingDoctorId.value) ? pendingDoctorId.value : ''
     setPatient(found)
     await refreshTickets()
   } catch (error) {
@@ -528,37 +521,39 @@ async function onComplete(row) {
       <span>挂号</span>
     </p>
 
-    <div v-if="!patientId" class="register-empty-workspace" data-testid="register-empty">
+    <form class="register-empty-workspace" data-testid="register-form" novalidate @submit.prevent="onSave">
       <section class="register-info-strip" data-testid="register-info-strip" aria-label="读卡入口">
         <button class="button button-compact" type="button" data-testid="register-choose-patient" @click="patientPickerOpen = true">选择患者</button>
         <button class="button button-ghost button-compact" type="button" data-testid="read-id-card" @click="patientPickerOpen = true">读取身份证</button>
         <button class="button button-ghost button-compact" type="button" data-testid="read-medical-card" @click="patientPickerOpen = true">读取医保卡</button>
       </section>
 
-      <div class="register-empty-grid">
+      <div class="register-empty-grid" data-testid="register-layout">
         <section class="patient-panel register-empty-card register-empty-patient" data-testid="register-patient-panel" aria-labelledby="register-empty-patient-title">
           <div class="panel-head">
             <div><span class="clinical-kicker">患者档案</span><h2 id="register-empty-patient-title">档案详情</h2></div>
-            <span class="clinical-badge">待读取</span>
+            <span class="clinical-badge">{{ patient ? '已读取' : loading ? '读取中' : '待读取' }}</span>
           </div>
           <div class="register-patient-fields" data-testid="register-patient-fields">
             <div class="register-archive-identity" data-testid="register-patient-identity">
-              <span class="register-archive-avatar" aria-hidden="true">患</span>
-              <div><strong>请选择患者</strong><span>选择后显示患者号</span></div>
-              <span class="register-archive-state">待读取</span>
+              <span class="register-archive-avatar" aria-hidden="true">{{ patient?.name?.slice(0, 1) || '患' }}</span>
+              <div><strong>{{ patient?.name || (loading ? '正在读取患者' : '请选择患者') }}</strong><span>{{ patient?.patientNo || '选择后显示患者号' }}</span></div>
+              <span class="register-archive-state">{{ patient ? '已读取' : loading ? '读取中' : '待读取' }}</span>
             </div>
             <table class="register-patient-detail-table" data-testid="register-patient-detail-table">
               <tbody>
-                <tr><th>姓名</th><td>—</td></tr>
-                <tr><th>性别</th><td>—</td></tr>
-                <tr><th>出生日期</th><td>—</td></tr>
-                <tr><th>身份证号</th><td>—</td></tr>
-                <tr><th>费别</th><td>—</td></tr>
-                <tr><th>手机号</th><td>—</td></tr>
-                <tr><th>院内档案号</th><td>—</td></tr>
-                <tr><th>联系地址</th><td>—</td></tr>
+                <tr><th>姓名</th><td>{{ patient?.name || '—' }}</td></tr>
+                <tr><th>性别</th><td>{{ patient ? sexLabel(patient.sex) : '—' }}</td></tr>
+                <tr><th>出生日期</th><td>{{ patient?.birthday || '—' }}</td></tr>
+                <tr><th>身份证号</th><td>{{ patient?.idNumber || '—' }}</td></tr>
+                <tr><th>费别</th><td>{{ patient ? fareLabel(patient.fareIdentity) : '—' }}</td></tr>
+                <tr><th>手机号</th><td>{{ patient?.phone || '—' }}</td></tr>
+                <tr><th>院内档案号</th><td>{{ patient?.hospPkNo || '—' }}</td></tr>
+                <tr><th>联系地址</th><td>{{ patient?.address || '—' }}</td></tr>
               </tbody>
             </table>
+            <p v-if="notFound" class="register-inline-error" role="alert">未找到患者，请重新选择。</p>
+            <div v-else-if="loadError" class="register-inline-error" role="alert"><span>{{ loadError }}</span><button class="button button-ghost button-compact" type="button" @click="load">重试</button></div>
           </div>
         </section>
 
@@ -568,18 +563,26 @@ async function onComplete(row) {
           </div>
           <div class="register-department-selected" data-testid="register-department-selected">
             <p v-if="masterLoading" class="register-empty-note">正在读取科室…</p>
-            <p v-else-if="masterError" class="register-empty-note" role="alert">{{ masterError }}</p>
+            <div v-else-if="masterError" class="banner clinical-read-error" role="alert" data-testid="register-master-error">
+              <p>{{ masterError }}。读取成功后才能保存挂号。</p>
+              <button class="button button-ghost button-compact" type="button" @click="loadMaster">重新读取科室和医生</button>
+            </div>
             <p v-else-if="!departments.length" class="register-empty-note">暂无启用科室。</p>
             <template v-else>
               <div class="register-department-fields">
-                <label class="field"><span>科室 <abbr class="req" title="必填">*</abbr></span><select v-model="pendingDepartmentId" data-testid="pending-department-select"><option value="">请选择科室</option><option v-for="item in departments" :key="item.departmentId" :value="item.departmentId">{{ item.name }}</option></select></label>
-                <label class="field"><span>医生 <abbr class="req" title="必填">*</abbr></span><select v-model="pendingDoctorId" data-testid="pending-doctor-select"><option value="">请选择医生</option><option v-for="item in pendingDoctors" :key="item.doctorId" :value="item.doctorId">{{ item.name }}</option></select></label>
+                <label class="field"><span>科室 <abbr class="req" title="必填">*</abbr></span><select v-model="departmentId" data-testid="dept-select" :disabled="!masterReady || masterLoading || saving"><option value="">请选择科室</option><option v-for="item in departments" :key="item.departmentId" :value="item.departmentId">{{ item.name }}</option></select></label>
+                <label class="field"><span>医生 <abbr class="req" title="必填">*</abbr></span><select v-model="doctorId" data-testid="doctor-select" :disabled="!departmentId || !masterReady || masterLoading || saving"><option value="">请选择医生</option><option v-for="item in doctors" :key="item.doctorId" :value="item.doctorId">{{ item.name }}</option></select></label>
                 <label class="field"><span>号别</span><input value="普通号" data-testid="pending-register-sort" disabled /></label>
-                <label class="field"><span>就诊日期</span><input v-model="visitDate" type="date" data-testid="pending-visit-date" /></label>
-                <label class="field"><span>接待方式</span><select v-model="appointmentMode" data-testid="pending-appointment-mode"><option :value="false">现场号</option><option :value="true">预约号</option></select></label>
-                <label class="field"><span>挂号费（元）</span><input v-model.number="registerFee" type="number" min="0" max="9999999999999999.99" step="0.01" inputmode="decimal" data-testid="pending-register-fee" :disabled="mockMode" /></label>
+                <label class="field"><span>就诊日期</span><input v-model="visitDate" type="date" data-testid="pending-visit-date" :disabled="saving" /></label>
+                <label class="field"><span>接待方式</span><select v-model="appointmentMode" data-testid="pending-appointment-mode" :disabled="saving"><option :value="false">现场号</option><option :value="true">预约号</option></select></label>
+                <label class="field"><span>挂号费（元）</span><input v-model.number="registerFee" type="number" min="0" max="9999999999999999.99" step="0.01" inputmode="decimal" data-testid="pending-register-fee" :disabled="mockMode || saving" /></label>
+                <template v-if="patient && appointmentMode">
+                  <label class="field"><span>预约开始</span><input v-model="appointmentStart" type="datetime-local" :disabled="saving" /></label>
+                  <label class="field"><span>预约结束</span><input v-model="appointmentEnd" type="datetime-local" :disabled="saving" /></label>
+                  <label class="field field-wide"><span>预约备注</span><input v-model="appointmentNote" maxlength="256" placeholder="可填写患者到访说明或特殊安排" :disabled="saving" /></label>
+                </template>
               </div>
-              <p class="register-empty-note">选择患者后，当前挂号信息会自动带入确认区。</p>
+              <p class="register-empty-note">{{ patient ? visitDateContext.label : '选择患者后，当前挂号信息保持在本页。' }}</p>
             </template>
           </div>
         </section>
@@ -598,193 +601,62 @@ async function onComplete(row) {
 
       <section class="patient-panel register-empty-fee" data-testid="register-fee-panel" aria-labelledby="register-empty-fee-title">
         <div class="panel-head"><div><span class="clinical-kicker">本次费用</span><h2 id="register-empty-fee-title">费用信息</h2></div></div>
-        <p class="register-empty-note">选择患者并填写挂号信息后显示费用。</p>
-        <div class="panel-actions"><button class="button button-compact" type="button" data-testid="register-empty-submit" @click="patientPickerOpen = true">确认挂号</button></div>
+        <p class="register-empty-note">{{ patient ? `本次挂号费：￥${Number(registerFee || 0).toFixed(2)}` : '选择患者并填写挂号信息后显示费用。' }}</p>
+        <p v-if="mockMode && patient" class="field-hint">演示模式不收取挂号费。</p>
+        <p v-if="notice" class="banner" :class="{ 'banner-ok': !noticeError }" :role="noticeError ? 'alert' : 'status'" data-testid="register-notice">{{ notice }}</p>
+        <div class="panel-actions"><button class="button button-compact" :type="patient ? 'submit' : 'button'" data-testid="save-register" :disabled="Boolean(patient) && !canSave" @click="!patient && (patientPickerOpen = true)">{{ saving ? '正在保存…' : '确认挂号' }}</button></div>
       </section>
 
-      <section class="patient-panel register-empty-history" data-testid="register-history-panel" aria-labelledby="register-empty-history-title">
-        <div class="panel-head"><div><span class="clinical-kicker">历史信息</span><h2 id="register-empty-history-title" class="sr-only">历史信息</h2></div></div>
-        <p class="register-empty-note">选择患者后读取历史挂号记录；诊断信息在诊断环节维护。</p>
-      </section>
-    </div>
-
-    <p v-else-if="loading" class="shell-status">正在读取患者…</p>
-
-    <BusinessEmptyState v-else-if="notFound" data-testid="register-missing" title="未找到患者" description="这个患者标识没有对应档案，请在患者查询中重新选择。" icon="patient"><RouterLink class="button button-ghost button-compact" :to="patientRoute">患者查询</RouterLink></BusinessEmptyState>
-
-    <div v-else-if="loadError" class="banner clinical-read-error" role="alert"><p>{{ loadError }}</p><button class="button button-ghost button-compact" type="button" @click="load">重试患者资料</button></div>
-
-    <div v-else-if="patient" class="clinical-register-workspace" data-testid="register-layout">
-      <div class="clinical-register-layout">
-        <section class="patient-panel clinical-patient-profile" data-testid="register-patient-panel" aria-labelledby="register-patient">
-          <div class="panel-head">
-            <div><span class="clinical-kicker">患者档案</span><h2 id="register-patient">档案详情</h2></div>
-            <div class="register-archive-actions"><span class="clinical-badge">已读取</span><button class="button button-ghost button-compact" type="button" data-testid="register-change-patient" @click="patientPickerOpen = true">更换患者</button></div>
-          </div>
-          <div class="register-selected-patient-fields" data-testid="register-selected-patient-fields">
-            <div class="register-archive-identity" data-testid="register-patient-identity">
-              <span class="register-archive-avatar" aria-hidden="true">{{ patient.name?.slice(0, 1) || '患' }}</span>
-              <div><strong>{{ patient.name }}</strong><span>{{ patient.patientNo || '患者号未提供' }}</span></div>
-              <span class="register-archive-state">已读取</span>
-            </div>
-            <table class="register-patient-detail-table" data-testid="register-patient-detail-table">
-              <tbody>
-                <tr><th>姓名</th><td>{{ patient.name || '—' }}</td></tr>
-                <tr><th>性别</th><td>{{ sexLabel(patient.sex) }}</td></tr>
-                <tr><th>出生日期</th><td>{{ patient.birthday || '—' }}</td></tr>
-                <tr><th>身份证号</th><td>{{ patient.idNumber || '—' }}</td></tr>
-                <tr><th>费别</th><td>{{ fareLabel(patient.fareIdentity) }}</td></tr>
-                <tr><th>手机号</th><td>{{ patient.phone || '—' }}</td></tr>
-                <tr><th>院内档案号</th><td>{{ patient.hospPkNo || '—' }}</td></tr>
-                <tr><th>联系地址</th><td>{{ patient.address || '—' }}</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <form class="patient-panel clinical-register-form" data-testid="register-form" novalidate @submit.prevent="onSave">
-          <div class="panel-head">
-            <div><span class="clinical-kicker">门诊安排</span><h2>科室信息</h2></div>
-          </div>
-          <p v-if="masterLoading" class="shell-status" role="status">正在读取科室和医生…</p>
-          <div v-else-if="masterError" class="banner clinical-read-error" role="alert" data-testid="register-master-error"><p>{{ masterError }}。读取成功后才能保存挂号。</p><button class="button button-ghost button-compact" type="button" @click="loadMaster">重新读取科室和医生</button></div>
-          <p v-else-if="!departments.length" class="field-hint" role="status">暂无启用科室，请先维护基础数据。</p>
-          <div class="field-grid">
-            <label class="field">
-              <span>科室 <abbr class="req" title="必填">*</abbr></span>
-              <select v-model="departmentId" data-testid="dept-select" :disabled="!masterReady || masterLoading || saving">
-                <option value="">请选择科室</option>
-                <option v-for="item in departments" :key="item.departmentId" :value="item.departmentId">{{ item.name }}</option>
-              </select>
-            </label>
-            <label class="field">
-              <span>医生 <abbr class="req" title="必填">*</abbr></span>
-              <select v-model="doctorId" data-testid="doctor-select" :disabled="!departmentId || !masterReady || masterLoading || saving">
-                <option value="">请选择医生</option>
-                <option v-for="item in doctors" :key="item.doctorId" :value="item.doctorId">{{ item.name }}</option>
-              </select>
-            </label>
-            <label class="field"><span>号别</span><input value="普通号" disabled /></label>
-            <label class="field">
-              <span>就诊日期</span>
-              <input v-model="visitDate" type="date" :disabled="saving" />
-              <small class="clinical-date-hint" :data-tone="visitDateContext.tone">{{ visitDateContext.label }}</small>
-            </label>
-            <label class="field">
-              <span>接待方式</span>
-              <select v-model="appointmentMode" :disabled="saving">
-                <option :value="false">现场号</option>
-                <option :value="true">预约号</option>
-              </select>
-            </label>
-            <label class="field">
-              <span>挂号费（元）</span>
-              <input v-model.number="registerFee" type="number" min="0" max="9999999999999999.99" step="0.01" inputmode="decimal" :disabled="mockMode" />
-            </label>
-            <template v-if="appointmentMode">
-              <label class="field"><span>预约开始</span><input v-model="appointmentStart" type="datetime-local" :disabled="saving" /></label>
-              <label class="field"><span>预约结束</span><input v-model="appointmentEnd" type="datetime-local" :disabled="saving" /></label>
-              <label class="field field-wide"><span>预约备注</span><input v-model="appointmentNote" maxlength="256" placeholder="可填写患者到访说明或特殊安排" :disabled="saving" /></label>
-            </template>
-          </div>
-          <p v-if="mockMode" class="field-hint">演示模式不收取挂号费。</p>
-          <p v-if="notice" class="banner" :class="{ 'banner-ok': !noticeError }" :role="noticeError ? 'alert' : 'status'" data-testid="register-notice">{{ notice }}</p>
-          <div class="clinical-form-footer">
-            <p>保存后为正常号，可在下方报到</p>
-            <div class="panel-actions"><button class="button button-compact" type="submit" data-testid="save-register" :disabled="!canSave">{{ saving ? '正在保存…' : '确认挂号' }}</button></div>
-          </div>
-        </form>
-      </div>
-
-      <section class="patient-panel clinical-ticket-panel" data-testid="register-history-panel" aria-label="所选日期挂号记录">
+      <section class="patient-panel register-empty-history" :class="{ 'clinical-ticket-panel': patient, 'has-records': patient }" data-testid="register-history-panel" aria-labelledby="register-empty-history-title">
         <div class="panel-head">
-          <div><span class="clinical-kicker">历史信息</span><h2>挂号记录</h2></div>
-          <span class="clinical-count">{{ selectedDateTickets.length }} 条</span>
+          <div><span class="clinical-kicker">历史信息</span><h2 id="register-empty-history-title" :class="{ 'sr-only': !patient }">{{ patient ? '挂号记录' : '历史信息' }}</h2></div>
+          <span v-if="patient" class="clinical-count">{{ selectedDateTickets.length }} 条</span>
         </div>
-        <div class="clinical-ticket-content">
-        <label v-if="mockMode" class="checkin-demo">
-          <input v-model="simulateCheckInConflict" type="checkbox" data-testid="mock-checkin-conflict" />
-          <span>模拟报到冲突（下次报到返回 409，号状态不变）</span>
-        </label>
-        <p v-if="ticketsLoading" class="shell-status" role="status">正在读取 {{ visitDate }} 挂号记录…</p>
-        <div v-else-if="listNote" class="banner clinical-read-error" role="alert"><p>{{ listNote }}。请先重试以核对所选日期记录。</p><button class="button button-ghost button-compact" type="button" @click="refreshTickets">重试挂号列表</button></div>
-        <BusinessEmptyState v-else-if="ticketsReady && selectedDateTickets.length === 0" :title="visitDate === today ? '当日暂无挂号。' : '所选日期暂无记录。'" description="为该患者保存挂号或预约后，记录与可用操作会显示在这里。" icon="register" />
-        <section v-for="group in ticketGroups" :key="group.key" class="clinical-ticket-group" :aria-label="group.title">
-          <h3>{{ group.title }} <span class="clinical-count">{{ group.items.length }}</span></h3>
-          <div class="result-wrap clinical-table-scroll" tabindex="0" role="region" :aria-label="`${group.title}列表，可左右滚动`">
-          <table class="register-table" :data-testid="group.testId">
-            <caption class="sr-only">{{ group.title }}</caption>
-            <thead>
-              <tr>
-                <th>单号</th>
-                <th>科室</th>
-                <th>医生</th>
-                <th>号别</th>
-                <th>挂号费</th>
-                <th>状态</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in group.items" :key="row.registerId">
-                <td class="mono">{{ row.registerNo || row.registerId }}</td>
-                <td>{{ row.departmentName || departmentLabel(row.departmentId) }}</td>
-                <td>{{ row.doctorName || doctorLabel(row.doctorId) }}</td>
-                <td>{{ registerSortName(row.registerSort) }}</td>
-                <td class="ticket-fee">
-                  <span v-if="Number(row.registerFee) > 0">￥{{ Number(row.registerFee).toFixed(2) }}</span>
-                  <span v-else>—</span>
-                  <small v-if="row.registerCharged" class="ticket-fee-status">已收费</small>
-                  <small v-else-if="feeChargeFor(row)?.paid" class="ticket-fee-status">已收费</small>
-                  <small v-else-if="feeChargeFor(row)" class="ticket-fee-status">待收费</small>
-                </td>
-                <td>
-                  <span class="ticket-status" :data-status="row.status">{{ statusLabel(row.status) }}</span>
-                </td>
-                <td class="ticket-actions">
-                  <button v-if="!mockMode && Number(row.registerFee) > 0 && !row.registerCharged && !feeChargeFor(row)" class="button button-compact" type="button" :disabled="Boolean(feeWorkingId)" @click="onCreateFee(row)">生成收费单</button>
-                  <button v-if="!mockMode && Number(row.registerFee) > 0 && !row.registerCharged && feeChargeFor(row)" class="button button-compact" type="button" :disabled="Boolean(feeWorkingId)" @click="onPayFee(row)">{{ feeWorkingId === row.registerId ? '收费中…' : '现金收费' }}</button>
-                  <button v-if="!mockMode && Number(row.registerFee) > 0 && row.registerCharged" class="button button-ghost button-compact" type="button" :disabled="Boolean(feeWorkingId)" @click="onRefundFee(row)">{{ feeWorkingId === row.registerId ? '退费中…' : '挂号费退费' }}</button>
-                  <button
-                    v-if="canCheckIn(row.status)"
-                    class="button button-compact"
-                    type="button"
-                    :data-testid="`checkin-${row.status}`"
-                    :disabled="Boolean(checkingInId) || Boolean(cancellingId)"
-                    @click="onCheckIn(row)"
-                  >
-                    {{ checkingInId === row.registerId ? '报到中…' : row.visitType === 'APPOINTMENT' ? '预约报到' : '报到' }}
-                  </button>
-                  <button
-                    v-if="canComplete(row.status)"
-                    class="button button-compact"
-                    type="button"
-                    :data-testid="`complete-${row.status}`"
-                    :disabled="Boolean(completingId) || Boolean(cancellingId) || Boolean(checkingInId)"
-                    @click="onComplete(row)"
-                  >
-                    {{ completingId === row.registerId ? '完成中…' : '完成就诊' }}
-                  </button>
-                  <button
-                    class="button button-ghost button-compact"
-                    type="button"
-                    :data-testid="`cancel-${row.status}`"
-                    :disabled="!canCancel(row.status) || Boolean(cancellingId) || Boolean(checkingInId) || Boolean(completingId)"
-                    :title="canCancel(row.status) ? '退号' : cancelRejectMessage(row.status)"
-                    @click="onCancel(row)"
-                  >
-                    {{ cancellingId === row.registerId ? '退号中…' : '退号' }}
-                  </button>
-                  <p v-if="!canCancel(row.status)" class="ticket-reject">{{ cancelRejectMessage(row.status) }}</p>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          </div>
-        </section>
+        <div v-if="patient" class="clinical-ticket-content">
+          <label v-if="mockMode" class="checkin-demo">
+            <input v-model="simulateCheckInConflict" type="checkbox" data-testid="mock-checkin-conflict" />
+            <span>模拟报到冲突（下次报到返回 409，号状态不变）</span>
+          </label>
+          <p v-if="ticketsLoading" class="shell-status" role="status">正在读取 {{ visitDate }} 挂号记录…</p>
+          <div v-else-if="listNote" class="banner clinical-read-error" role="alert"><p>{{ listNote }}。请先重试以核对所选日期记录。</p><button class="button button-ghost button-compact" type="button" @click="refreshTickets">重试挂号列表</button></div>
+          <BusinessEmptyState v-else-if="ticketsReady && selectedDateTickets.length === 0" :title="visitDate === today ? '当日暂无挂号。' : '所选日期暂无记录。'" description="为该患者保存挂号或预约后，记录与可用操作会显示在这里。" icon="register" />
+          <section v-for="group in ticketGroups" :key="group.key" class="clinical-ticket-group" :aria-label="group.title">
+            <h3>{{ group.title }} <span class="clinical-count">{{ group.items.length }}</span></h3>
+            <div class="result-wrap clinical-table-scroll" tabindex="0" role="region" :aria-label="`${group.title}列表，可左右滚动`">
+              <table class="register-table" :data-testid="group.testId">
+                <caption class="sr-only">{{ group.title }}</caption>
+                <thead><tr><th>单号</th><th>科室</th><th>医生</th><th>号别</th><th>挂号费</th><th>状态</th><th>操作</th></tr></thead>
+                <tbody>
+                  <tr v-for="row in group.items" :key="row.registerId">
+                    <td class="mono">{{ row.registerNo || row.registerId }}</td>
+                    <td>{{ row.departmentName || departmentLabel(row.departmentId) }}</td>
+                    <td>{{ row.doctorName || doctorLabel(row.doctorId) }}</td>
+                    <td>{{ registerSortName(row.registerSort) }}</td>
+                    <td class="ticket-fee">
+                      <span v-if="Number(row.registerFee) > 0">￥{{ Number(row.registerFee).toFixed(2) }}</span><span v-else>—</span>
+                      <small v-if="row.registerCharged" class="ticket-fee-status">已收费</small>
+                      <small v-else-if="feeChargeFor(row)?.paid" class="ticket-fee-status">已收费</small>
+                      <small v-else-if="feeChargeFor(row)" class="ticket-fee-status">待收费</small>
+                    </td>
+                    <td><span class="ticket-status" :data-status="row.status">{{ statusLabel(row.status) }}</span></td>
+                    <td class="ticket-actions">
+                      <button v-if="!mockMode && Number(row.registerFee) > 0 && !row.registerCharged && !feeChargeFor(row)" class="button button-compact" type="button" :disabled="Boolean(feeWorkingId)" @click="onCreateFee(row)">生成收费单</button>
+                      <button v-if="!mockMode && Number(row.registerFee) > 0 && !row.registerCharged && feeChargeFor(row)" class="button button-compact" type="button" :disabled="Boolean(feeWorkingId)" @click="onPayFee(row)">{{ feeWorkingId === row.registerId ? '收费中…' : '现金收费' }}</button>
+                      <button v-if="!mockMode && Number(row.registerFee) > 0 && row.registerCharged" class="button button-ghost button-compact" type="button" :disabled="Boolean(feeWorkingId)" @click="onRefundFee(row)">{{ feeWorkingId === row.registerId ? '退费中…' : '挂号费退费' }}</button>
+                      <button v-if="canCheckIn(row.status)" class="button button-compact" type="button" :data-testid="`checkin-${row.status}`" :disabled="Boolean(checkingInId) || Boolean(cancellingId)" @click="onCheckIn(row)">{{ checkingInId === row.registerId ? '报到中…' : row.visitType === 'APPOINTMENT' ? '预约报到' : '报到' }}</button>
+                      <button v-if="canComplete(row.status)" class="button button-compact" type="button" :data-testid="`complete-${row.status}`" :disabled="Boolean(completingId) || Boolean(cancellingId) || Boolean(checkingInId)" @click="onComplete(row)">{{ completingId === row.registerId ? '完成中…' : '完成就诊' }}</button>
+                      <button class="button button-ghost button-compact" type="button" :data-testid="`cancel-${row.status}`" :disabled="!canCancel(row.status) || Boolean(cancellingId) || Boolean(checkingInId) || Boolean(completingId)" :title="canCancel(row.status) ? '退号' : cancelRejectMessage(row.status)" @click="onCancel(row)">{{ cancellingId === row.registerId ? '退号中…' : '退号' }}</button>
+                      <p v-if="!canCancel(row.status)" class="ticket-reject">{{ cancelRejectMessage(row.status) }}</p>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
+        <p v-else class="register-empty-note">选择患者后读取历史挂号记录；诊断信息在诊断环节维护。</p>
       </section>
-      </div>
+    </form>
     <RegisterPatientPicker :open="patientPickerOpen" :access-token="session.accessToken" @close="patientPickerOpen = false" @select="onSelectPatient" />
   </section>
 </template>
@@ -815,8 +687,10 @@ async function onComplete(row) {
 .register-department-selected { display:grid; align-content:start; gap:14px; min-height:335px; padding:18px 0 0; }
 .register-department-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px 12px; }
 .register-department-fields .field { min-width:0; gap:6px; }
+.register-department-fields .field-wide { grid-column:1 / -1; }
 .register-department-fields :is(select,input) { width:100%; height:40px; min-width:0; }
 .register-empty-note { margin:0; color:#7c929c; font-size:12px; line-height:1.8; }
+.register-inline-error { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0; color:#9a463d; font-size:11px; }
 .register-department-selected > .register-empty-note:first-child { padding:18px 12px; }
 .register-empty-today { min-height:128px; }
 .register-today-list { display:grid; gap:8px; margin:16px 0 0; padding:0; list-style:none; }
@@ -826,6 +700,7 @@ async function onComplete(row) {
 .register-empty-fee { min-height:190px; padding-bottom:20px !important; }
 .register-empty-fee .panel-actions { justify-content:flex-end; margin-top:26px; }
 .register-empty-history { min-height:126px; height:126px; }
+.register-empty-history.has-records { height:210px; max-height:210px; }
 .register-empty-history .register-empty-note { margin-top:12px; }
 .clinical-register-layout { display: grid; grid-template-columns: minmax(330px, .9fr) minmax(0, 1.45fr); align-items: start; gap: 14px; min-width: 0; }
 .clinical-register-layout > *, .clinical-register-form { min-width: 0; }

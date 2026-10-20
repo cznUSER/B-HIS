@@ -74,12 +74,25 @@ try {
     return route.fulfill({ status: route.request().method() === 'POST' ? 201 : 200, contentType: 'application/json', body: JSON.stringify(route.request().method() === 'POST' ? {} : { items: [] }) })
   })
 
+  await page.goto(`http://127.0.0.1:${port}/app/outpatient/register`)
+  await page.getByTestId('register-form').waitFor()
+  const layoutRects = async () => page.evaluate(() => Object.fromEntries(['register-patient-panel', 'register-department-panel', 'register-today-panel', 'register-fee-panel', 'register-history-panel'].map((testId) => {
+    const rect = document.querySelector(`[data-testid="${testId}"]`).getBoundingClientRect()
+    return [testId, { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width) }]
+  })))
+  const beforeSelection = await layoutRects()
+  await page.screenshot({ path: fileURLToPath(new URL('../dist/register-persistent-before-1440.png', import.meta.url)) })
+  await page.getByTestId('register-choose-patient').click()
+  await page.getByTestId('register-patient-row-patient-beta').waitFor()
+  await page.getByTestId('register-patient-row-patient-beta').getByRole('button', { name: '选择' }).click()
+  await page.getByTestId('register-patient-identity').getByText('患者patient-beta').waitFor()
+  assert.deepEqual(await layoutRects(), beforeSelection, 'selecting a patient fills data without changing the preparation layout')
+  await page.screenshot({ path: fileURLToPath(new URL('../dist/register-persistent-after-1440.png', import.meta.url)) })
+
   await page.goto(`http://127.0.0.1:${port}/app/outpatient/register?patientId=patient-alpha`)
   await page.getByTestId('register-form').waitFor()
-  const registerLayout = page.locator('.clinical-register-layout')
-  assert.equal(await registerLayout.count(), 1, 'selected patient uses the previous profile-and-form layout')
-  assert.equal(await registerLayout.locator(':scope > [data-testid="register-patient-panel"]').count(), 1, 'patient profile is a direct panel beside the form')
-  assert.equal(await page.locator('.register-patient-switch-row').count(), 0, 'patient switching stays in the patient panel header')
+  assert.equal(await page.locator('.register-empty-workspace').count(), 1, 'selected patient keeps the preparation workspace')
+  assert.equal(await page.locator('.clinical-register-workspace').count(), 0, 'selected patient does not mount a second layout')
   assert.match(await page.getByTestId('register-patient-identity').innerText(), /患者patient-alpha[\s\S]*P-patient-alpha[\s\S]*已读取/, 'selected patient shows the archive identity summary')
   const archiveText = await page.getByTestId('register-patient-detail-table').innerText()
   for (const text of ['姓名', '性别', '出生日期', '身份证号', '费别', '手机号', '院内档案号', '联系地址', '自费', '山西省太原市小店区测试路99号']) {
@@ -107,7 +120,7 @@ try {
   console.log(`register viewport ${JSON.stringify(viewportMetrics)}`)
   assert.ok(viewportMetrics.shellContentHeight <= viewportMetrics.shellViewportHeight, `register content must fit the viewport: ${JSON.stringify(viewportMetrics)}`)
   assert.ok(Math.abs(viewportMetrics.frameWidth - Math.min(viewportMetrics.shellAvailableWidth, 1480)) <= 2, `desktop workbench must use the available width: ${JSON.stringify(viewportMetrics)}`)
-  await page.getByTestId('register-change-patient').click()
+  await page.getByTestId('register-choose-patient').click()
   await page.getByTestId('register-patient-picker').waitFor()
   await page.getByTestId('register-patient-row-patient-beta').waitFor()
   assert.deepEqual(pickerCalls[0], { keyword: '', offset: 0, limit: 50 }, 'initial request loads the first 50 with no keyword')
@@ -128,12 +141,12 @@ try {
   await page.getByTestId('register-form').getByLabel('预约备注').fill('原有暂填')
   await page.getByTestId('register-form').locator('input[type="date"]').fill('2026-11-20')
   const beforeCancel = await page.getByTestId('register-form').locator('input').evaluateAll((inputs) => inputs.map((input) => input.value))
-  await page.getByTestId('register-change-patient').click()
+  await page.getByTestId('register-choose-patient').click()
   await page.getByRole('button', { name: '取消', exact: true }).click()
   assert.equal(new URL(page.url()).searchParams.get('patientId'), 'patient-alpha')
   assert.deepEqual(await page.getByTestId('register-form').locator('input').evaluateAll((inputs) => inputs.map((input) => input.value)), beforeCancel, 'cancel preserves existing draft')
 
-  await page.getByTestId('register-change-patient').click()
+  await page.getByTestId('register-choose-patient').click()
   await page.getByTestId('register-patient-keyword').fill('beta')
   await page.getByRole('button', { name: '查询', exact: true }).click()
   await page.getByTestId('register-patient-row-patient-beta').waitFor()
@@ -145,7 +158,7 @@ try {
   assert.equal(await page.getByTestId('register-form').locator('input[type="date"]').inputValue(), '2026-11-20', 'selection preserves visit date')
   assert.equal(registerPosts.length, 0, 'selecting a patient never posts a register')
 
-  await page.getByTestId('register-change-patient').click()
+  await page.getByTestId('register-choose-patient').click()
   failPickerOnce = true
   await page.getByTestId('register-patient-keyword').fill('fail')
   await page.getByRole('button', { name: '查询', exact: true }).click()
