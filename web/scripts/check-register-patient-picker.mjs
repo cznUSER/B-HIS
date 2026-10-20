@@ -99,6 +99,31 @@ try {
   for (const text of ['性别', '出生日期', '身份证号', '费别', '手机号', '院内档案号', '联系地址', '自费', '山西省太原市小店区测试路99号']) {
     assert.ok(archiveText.includes(text), `patient archive misses ${text}`)
   }
+  const archiveLayout = await page.evaluate(() => {
+    const card = document.querySelector('[data-testid="register-patient-panel"]')
+    const table = document.querySelector('[data-testid="register-patient-detail-table"]')
+    const name = document.querySelector('[data-testid="register-patient-identity"] strong')
+    const patientNo = document.querySelector('[data-testid="register-patient-identity"] div span')
+    const state = document.querySelector('[data-testid="register-patient-identity"] .register-archive-state')
+    const label = table?.querySelector('th')
+    const value = table?.querySelector('td')
+    const cardRect = card?.getBoundingClientRect()
+    const tableRect = table?.getBoundingClientRect()
+    return {
+      bottomGap: cardRect && tableRect ? Math.round(cardRect.bottom - tableRect.bottom) : null,
+      nameFont: name ? Number.parseFloat(getComputedStyle(name).fontSize) : null,
+      patientNoFont: patientNo ? Number.parseFloat(getComputedStyle(patientNo).fontSize) : null,
+      stateFont: state ? Number.parseFloat(getComputedStyle(state).fontSize) : null,
+      labelFont: label ? Number.parseFloat(getComputedStyle(label).fontSize) : null,
+      valueFont: value ? Number.parseFloat(getComputedStyle(value).fontSize) : null,
+    }
+  })
+  assert.ok(archiveLayout.bottomGap <= 26, `patient archive should fill the card to its standard inner padding: ${JSON.stringify(archiveLayout)}`)
+  assert.deepEqual(
+    { nameFont: archiveLayout.nameFont, patientNoFont: archiveLayout.patientNoFont, stateFont: archiveLayout.stateFont, labelFont: archiveLayout.labelFont, valueFont: archiveLayout.valueFont },
+    { nameFont: 18, patientNoFont: 12, stateFont: 11, labelFont: 11, valueFont: 12 },
+    `patient archive typography should be easier to scan: ${JSON.stringify(archiveLayout)}`,
+  )
   const viewportMetrics = await page.evaluate(() => ({
     viewportHeight: document.documentElement.clientHeight,
     pageHeight: document.documentElement.scrollHeight,

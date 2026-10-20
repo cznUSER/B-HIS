@@ -662,6 +662,7 @@ async function onComplete(row) {
 .register-empty-grid { display:grid; grid-template-columns:minmax(300px,.9fr) minmax(450px,1.35fr) minmax(170px,.55fr); align-items:start; gap:14px; min-width:0; }
 .register-empty-card { min-width:0; }
 .register-empty-patient, .register-empty-department { min-height:438px; }
+.register-empty-patient .register-patient-fields { flex:1; grid-template-rows:auto minmax(0,1fr); margin-top:0; }
 .register-empty-patient .panel-head, .register-empty-department .panel-head, .register-empty-today .panel-head, .register-empty-fee .panel-head, .register-empty-history .panel-head { align-items:flex-start; }
 .register-empty-patient .panel-head h2, .register-empty-department .panel-head h2, .register-empty-fee .panel-head h2 { color:#173747; font-size:15px; }
 .register-empty-patient .panel-head h2::before, .register-empty-department .panel-head h2::before, .register-empty-fee .panel-head h2::before { display:none; }
@@ -669,16 +670,16 @@ async function onComplete(row) {
 .register-archive-identity { display:flex; align-items:center; gap:11px; min-width:0; padding:4px 0 14px; border-bottom:1px solid #d9e8e1; }
 .register-archive-identity > div { display:grid; min-width:0; gap:3px; }
 .register-archive-identity strong, .register-archive-identity > div span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.register-archive-identity strong { color:#294e3e; font-size:16px; font-weight:650; }
-.register-archive-identity > div span { color:#8fa497; font-size:11px; }
+.register-archive-identity strong { color:#294e3e; font-size:18px; font-weight:650; }
+.register-archive-identity > div span { color:#8fa497; font-size:12px; }
 .register-archive-avatar { display:grid; place-items:center; width:45px; height:45px; flex:none; border:1px solid #d2e6d9; border-radius:8px; color:#4c947a; background:#e5f2e9; font-size:20px; font-weight:650; }
-.register-archive-state { margin-left:auto; padding:5px 9px; border-radius:5px; color:#168b80; background:#e6f4ee; font-size:10px; font-weight:700; white-space:nowrap; }
+.register-archive-state { margin-left:auto; padding:5px 9px; border-radius:5px; color:#168b80; background:#e6f4ee; font-size:11px; font-weight:700; white-space:nowrap; }
 .register-archive-actions { display:flex; align-items:center; gap:8px; }
-.register-patient-detail-table { width:100%; border:1px solid #d9e8e1; border-radius:8px; border-collapse:separate; border-spacing:0; overflow:hidden; table-layout:fixed; }
+.register-patient-detail-table { width:100%; height:100%; border:1px solid #d9e8e1; border-radius:8px; border-collapse:separate; border-spacing:0; overflow:hidden; table-layout:fixed; }
 .register-patient-detail-table th, .register-patient-detail-table td { padding:8px 10px; border-bottom:1px solid #e8f0ec; text-align:left; vertical-align:middle; }
 .register-patient-detail-table tr:last-child th, .register-patient-detail-table tr:last-child td { border-bottom:0; }
-.register-patient-detail-table th { width:34%; color:#78948a; background:#f7fbf9; font-size:10px; font-weight:600; }
-.register-patient-detail-table td { overflow-wrap:anywhere; color:#31554c; font-size:11px; font-weight:600; }
+.register-patient-detail-table th { width:34%; color:#78948a; background:#f7fbf9; font-size:11px; font-weight:600; }
+.register-patient-detail-table td { overflow-wrap:anywhere; color:#31554c; font-size:12px; font-weight:600; }
 .register-department-selected { display:grid; align-content:start; gap:14px; min-height:335px; padding:18px 0 0; }
 .register-department-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px 12px; }
 .register-department-fields .field { min-width:0; gap:6px; }
