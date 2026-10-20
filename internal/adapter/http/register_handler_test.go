@@ -255,6 +255,11 @@ func TestRegisterHTTP(t *testing.T) {
 			if !registerListHas(list, created.RegisterID) {
 				t.Fatalf("query %s -> %+v", q.Encode(), list)
 			}
+			for _, item := range list {
+				if item.RegisterID == created.RegisterID && item.PatientName != "挂号患者" {
+					t.Fatalf("query %s patientName = %q, want 挂号患者", q.Encode(), item.PatientName)
+				}
+			}
 		}
 	})
 
@@ -542,8 +547,9 @@ func TestRegisterHTTP(t *testing.T) {
 
 func mustCreatePatient(t *testing.T, origin, tok string) string {
 	t.Helper()
+	idNumber := fmt.Sprintf("11010119900115%04d", patientTestSequence.Add(1))
 	code, body, _ := postJSON(t, origin+"/api/v1/patients",
-		`{"name":"挂号患者","sex":"M","birthday":"1990-01-15","fareIdentity":"SELF"}`, authHdr(tok))
+		`{"name":"挂号患者","sex":"M","birthday":"1990-01-15","idType":"ID_CARD","idNumber":"`+idNumber+`","phone":"13800000000","nationality":"中国","fareIdentity":"SELF"}`, authHdr(tok))
 	if code != 201 {
 		t.Fatalf("patient %d %s", code, body)
 	}
@@ -564,6 +570,7 @@ type registerJSON struct {
 	RegisterID      string  `json:"registerId"`
 	RegisterNo      string  `json:"registerNo"`
 	PatientID       string  `json:"patientId"`
+	PatientName     string  `json:"patientName"`
 	DepartmentID    string  `json:"departmentId"`
 	DoctorID        string  `json:"doctorId"`
 	RegisterSort    *string `json:"registerSort"`

@@ -69,13 +69,20 @@ try {
     const id = new URL(route.request().url()).pathname.split('/').at(-1)
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(patient(id)) })
   })
-  await page.route('**/api/v1/registers', async (route) => {
+  await page.route(/\/api\/v1\/registers(?:\?.*)?$/, async (route) => {
     if (route.request().method() === 'POST') registerPosts.push(route.request().postDataJSON())
-    return route.fulfill({ status: route.request().method() === 'POST' ? 201 : 200, contentType: 'application/json', body: JSON.stringify(route.request().method() === 'POST' ? {} : { items: [] }) })
+    const url = new URL(route.request().url())
+    const selectedPatientId = url.searchParams.get('patientId')
+    const selectedVisitDate = url.searchParams.get('visitDate')
+    const items = !selectedPatientId || selectedPatientId === 'patient-beta'
+      ? [{ registerId: 'register-today-1', registerNo: 'R-TODAY-1', patientId: 'patient-beta', patientName: '患者patient-beta', status: 'NORMAL', visitDate: selectedVisitDate, registerFee: 18.5, registeredAt: `${selectedVisitDate}T06:15:00Z` }]
+      : []
+    return route.fulfill({ status: route.request().method() === 'POST' ? 201 : 200, contentType: 'application/json', body: JSON.stringify(route.request().method() === 'POST' ? {} : { items }) })
   })
 
   await page.goto(`http://127.0.0.1:${port}/app/outpatient/register`)
   await page.getByTestId('register-form').waitFor()
+  await page.getByTestId('register-today-table').getByText('患者patient-beta', { exact: true }).waitFor()
   const layoutRects = async () => page.evaluate(() => Object.fromEntries(['register-patient-panel', 'register-department-panel', 'register-today-panel', 'register-fee-panel', 'register-history-panel'].map((testId) => {
     const rect = document.querySelector(`[data-testid="${testId}"]`).getBoundingClientRect()
     return [testId, { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width) }]
@@ -90,9 +97,17 @@ try {
   const pairedCardHeights = await page.evaluate(() => ({
     patient: Math.round(document.querySelector('[data-testid="register-patient-panel"]').getBoundingClientRect().height),
     department: Math.round(document.querySelector('[data-testid="register-department-panel"]').getBoundingClientRect().height),
+    today: Math.round(document.querySelector('[data-testid="register-today-panel"]').getBoundingClientRect().height),
   }))
   assert.equal(pairedCardHeights.patient, pairedCardHeights.department, `patient and department cards have equal height: ${JSON.stringify(pairedCardHeights)}`)
+  assert.equal(pairedCardHeights.patient, pairedCardHeights.today, `patient and today-work cards have equal height: ${JSON.stringify(pairedCardHeights)}`)
   assert.doesNotMatch(await page.getByTestId('register-department-panel').innerText(), /今天.*现场接待|未来.*预约挂号/, 'department card omits the date and reception hint')
+  const todayTable = page.getByTestId('register-today-table')
+  await todayTable.getByText('患者patient-beta', { exact: true }).waitFor()
+  assert.deepEqual(await todayTable.locator('thead th').allTextContents(), ['患者姓名', '挂号费用', '挂号时间'])
+  const todayHeadingsFit = await todayTable.locator('thead th').evaluateAll((headings) => headings.map((heading) => heading.scrollWidth <= heading.clientWidth))
+  assert.deepEqual(todayHeadingsFit, [true, true, true], `today-work headings must remain fully visible: ${JSON.stringify(todayHeadingsFit)}`)
+  assert.deepEqual(await todayTable.locator('tbody tr').first().locator('td').allTextContents(), ['患者patient-beta', '￥18.50', '14:15'])
   await page.screenshot({ path: fileURLToPath(new URL('../dist/register-persistent-after-1440.png', import.meta.url)) })
 
   await page.goto(`http://127.0.0.1:${port}/app/outpatient/register?patientId=patient-alpha`)

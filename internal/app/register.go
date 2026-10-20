@@ -44,30 +44,39 @@ const (
 // CreateRegisterInput is OpenAPI CreateRegisterRequest.
 // RegisterFee nil means 0. IdempotencyKey comes from the header, not the body.
 type CreateRegisterInput struct {
-	PatientID      string   `json:"patientId"`
-	DepartmentID   string   `json:"departmentId"`
-	DoctorID       string   `json:"doctorId"`
-	VisitDate      string   `json:"visitDate"`
-	RegisterSort   *string  `json:"registerSort"`
-	RegisterFee    *float64 `json:"registerFee"`
-	IdempotencyKey string   `json:"-"`
+	PatientID        string   `json:"patientId"`
+	DepartmentID     string   `json:"departmentId"`
+	DoctorID         string   `json:"doctorId"`
+	VisitDate        string   `json:"visitDate"`
+	VisitType        string   `json:"visitType"`
+	AppointmentStart string   `json:"appointmentStart"`
+	AppointmentEnd   string   `json:"appointmentEnd"`
+	AppointmentNote  string   `json:"appointmentNote"`
+	RegisterSort     *string  `json:"registerSort"`
+	RegisterFee      *float64 `json:"registerFee"`
+	IdempotencyKey   string   `json:"-"`
 }
 
 // RegisterDTO is OpenAPI RegisterDto. Nullable fields are JSON null when empty.
 type RegisterDTO struct {
-	RegisterID      string  `json:"registerId"`
-	RegisterNo      string  `json:"registerNo"`
-	PatientID       string  `json:"patientId"`
-	DepartmentID    string  `json:"departmentId"`
-	DoctorID        string  `json:"doctorId"`
-	RegisterSort    *string `json:"registerSort"`
-	VisitDate       string  `json:"visitDate"`
-	Status          string  `json:"status"`
-	RegisterFee     float64 `json:"registerFee"`
-	RegisterCharged bool    `json:"registerCharged"`
-	RegisteredAt    string  `json:"registeredAt"`
-	BackOperatorID  *string `json:"backOperatorId"`
-	BackOperatedAt  *string `json:"backOperatedAt"`
+	RegisterID       string  `json:"registerId"`
+	RegisterNo       string  `json:"registerNo"`
+	PatientID        string  `json:"patientId"`
+	PatientName      string  `json:"patientName,omitempty"`
+	DepartmentID     string  `json:"departmentId"`
+	DoctorID         string  `json:"doctorId"`
+	RegisterSort     *string `json:"registerSort"`
+	VisitDate        string  `json:"visitDate"`
+	VisitType        string  `json:"visitType"`
+	AppointmentStart *string `json:"appointmentStart"`
+	AppointmentEnd   *string `json:"appointmentEnd"`
+	AppointmentNote  *string `json:"appointmentNote"`
+	Status           string  `json:"status"`
+	RegisterFee      float64 `json:"registerFee"`
+	RegisterCharged  bool    `json:"registerCharged"`
+	RegisteredAt     string  `json:"registeredAt"`
+	BackOperatorID   *string `json:"backOperatorId"`
+	BackOperatedAt   *string `json:"backOperatedAt"`
 }
 
 // RegisterListDTO is the GET /registers body.
@@ -245,11 +254,25 @@ func (s *Service) SearchRegisters(ctx context.Context, claims *auth.Claims, q Re
 		return nil, err
 	}
 	items := make([]RegisterDTO, 0, len(rows))
+	patientNames := make(map[string]string)
 	for _, r := range rows {
 		if !hasAnyPermScope(user, "outpatient", r.DepartmentID, domain.PermEncounterCreate, domain.PermEncounterCheckIn, domain.PermEncounterCancel) {
 			continue
 		}
-		items = append(items, toRegisterDTO(r))
+		dto := toRegisterDTO(r)
+		if name, ok := patientNames[r.PatientID]; ok {
+			dto.PatientName = name
+		} else if s.Patients != nil {
+			patient, patientErr := s.Patients.Get(ctx, r.PatientID)
+			if patientErr != nil && !errors.Is(patientErr, port.ErrNotFound) {
+				return nil, patientErr
+			}
+			if patient != nil {
+				dto.PatientName = patient.Name
+			}
+			patientNames[r.PatientID] = dto.PatientName
+		}
+		items = append(items, dto)
 	}
 	return &RegisterListDTO{Items: items}, nil
 }

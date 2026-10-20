@@ -43,6 +43,7 @@ const pendingDoctorId = ref('')
 
 const patient = ref(null)
 const tickets = ref([])
+const todayTickets = ref([])
 const loading = ref(false)
 const notFound = ref(false)
 const loadError = ref('')
@@ -72,8 +73,13 @@ const masterReady = ref(mockMode)
 const masterError = ref('')
 const ticketsLoading = ref(false)
 const ticketsReady = ref(false)
+const todayLoading = ref(false)
+const todayReady = ref(false)
+const todayError = ref('')
 let patientLoadSeq = 0
 let ticketsLoadSeq = 0
+let todayLoadSeq = 0
+let todayLoadPromise = null
 
 const patientId = computed(() => readQuery(route.query.patientId) || String(outpatientContext.patient?.patientId || outpatientContext.patient?.patientNo || '').trim())
 const departments = computed(() => {
@@ -95,7 +101,14 @@ const canSave = computed(() => Boolean(patient.value) && masterReady.value && !m
 const selectedDateTickets = computed(() => tickets.value.filter((item) => item.visitDate === visitDate.value))
 const registrationTickets = computed(() => selectedDateTickets.value.filter((item) => item.visitType !== 'APPOINTMENT'))
 const appointmentTickets = computed(() => selectedDateTickets.value.filter((item) => item.visitType === 'APPOINTMENT'))
-const todayActions = computed(() => (Array.isArray(outpatientContext.history) ? outpatientContext.history : []).slice(-5).reverse())
+const todayWorkRows = computed(() => [...todayTickets.value]
+  .sort((left, right) => String(right.registeredAt || '').localeCompare(String(left.registeredAt || '')))
+  .map((item) => ({
+    id: item.registerId,
+    patientName: item.patientName || '—',
+    registerFee: `￥${Number(item.registerFee || 0).toFixed(2)}`,
+    registeredTime: formatRegisteredTime(item.registeredAt),
+  })))
 const ticketGroups = computed(() => {
   const groups = []
   if (registrationTickets.value.length) {
@@ -120,6 +133,17 @@ function appointmentDateTime(value) {
   const raw = typeof value === 'string' ? value.trim() : ''
   if (!raw) return ''
   return raw.length === 16 ? `${raw}:00+08:00` : `${raw}+08:00`
+}
+
+function formatRegisteredTime(value) {
+  const date = new Date(typeof value === 'string' ? value : '')
+  if (!Number.isFinite(date.getTime())) return '—'
+  return new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date)
 }
 
 function preserveAppointmentDate(nextDate) {
@@ -243,6 +267,38 @@ async function loadMaster() {
 }
 
 onMounted(loadMaster)
+onMounted(loadTodayTickets)
+
+async function loadTodayTickets(force = false) {
+  if (todayReady.value && !force) return true
+  if (todayLoadPromise && !force) return todayLoadPromise
+  const seq = ++todayLoadSeq
+  todayLoading.value = true
+  todayError.value = ''
+  const pending = (async () => {
+    try {
+      const listed = await listRegisters(session.accessToken, { visitDate: today })
+      if (seq !== todayLoadSeq) return false
+      todayTickets.value = listed.items.filter((item) => item.visitDate === today)
+      todayReady.value = true
+      return true
+    } catch (error) {
+      if (seq !== todayLoadSeq) return false
+      todayTickets.value = []
+      todayReady.value = false
+      todayError.value = error instanceof ApiError ? error.message : '暂时无法读取今日挂号'
+      return false
+    } finally {
+      if (seq === todayLoadSeq) todayLoading.value = false
+    }
+  })()
+  todayLoadPromise = pending
+  try {
+    return await pending
+  } finally {
+    if (todayLoadPromise === pending) todayLoadPromise = null
+  }
+}
 
 async function load() {
   const seq = ++patientLoadSeq
@@ -285,12 +341,26 @@ async function refreshTickets() {
   ticketsLoading.value = true
   listNote.value = ''
   try {
-    const listed = await listRegisters(session.accessToken, {
-      patientId: id,
-      visitDate: requestedDate,
-    })
+    let nextTickets
+    if (requestedDate === today) {
+      const ready = await loadTodayTickets()
+      if (!ready) {
+        if (seq === ticketsLoadSeq && id === patientId.value) {
+          ticketsReady.value = false
+          listNote.value = todayError.value || '暂时无法读取挂号列表'
+        }
+        return
+      }
+      nextTickets = todayTickets.value.filter((item) => item.patientId === id)
+    } else {
+      const listed = await listRegisters(session.accessToken, {
+        patientId: id,
+        visitDate: requestedDate,
+      })
+      nextTickets = listed.items.filter((item) => item.visitDate === requestedDate)
+    }
     if (seq !== ticketsLoadSeq || id !== patientId.value) return
-    tickets.value = listed.items.filter((item) => item.visitDate === requestedDate)
+    tickets.value = nextTickets
     syncRegisterContext()
     ticketsReady.value = true
     listNote.value = ''
@@ -418,6 +488,11 @@ async function onSave() {
     if (currentSeq !== patientLoadSeq || patient.value?.patientId !== currentPatientId) return
     if (created.visitDate === visitDate.value) {
       tickets.value = [created, ...tickets.value.filter((item) => item.registerId !== created.registerId)]
+    }
+    if (created.visitDate === today) {
+      const todayRecord = { ...created, patientName: patient.value?.name || created.patientName || '' }
+      todayTickets.value = [todayRecord, ...todayTickets.value.filter((item) => item.registerId !== created.registerId)]
+      todayReady.value = true
     }
     setRegister(created)
     recordAction(appointmentMode.value ? '预约已创建' : '挂号已创建', created.registerNo || created.registerId || '')
@@ -578,12 +653,19 @@ async function onComplete(row) {
         <section class="patient-panel register-empty-card register-empty-today" data-testid="register-today-panel" aria-labelledby="register-empty-today-title">
           <div class="panel-head">
             <div><span class="clinical-kicker">今日工作</span><h2 id="register-empty-today-title" class="sr-only">今日工作</h2></div>
-            <span class="clinical-count">{{ todayActions.length }}</span>
+            <span class="clinical-count">{{ todayWorkRows.length }}</span>
           </div>
-          <ul v-if="todayActions.length" class="register-today-list">
-            <li v-for="item in todayActions" :key="`${item.at}-${item.label}`"><strong>{{ item.label }}</strong><span>{{ item.detail || '已更新' }}</span></li>
-          </ul>
-          <p v-else class="register-empty-note">今天还没有挂号操作记录。</p>
+          <div class="register-today-table-wrap" tabindex="0" role="region" aria-label="今日挂号记录，可上下滚动">
+            <table class="register-today-table" data-testid="register-today-table">
+              <thead><tr><th>患者姓名</th><th>挂号费用</th><th>挂号时间</th></tr></thead>
+              <tbody>
+                <tr v-for="item in todayWorkRows" :key="item.id"><td>{{ item.patientName }}</td><td>{{ item.registerFee }}</td><td>{{ item.registeredTime }}</td></tr>
+                <tr v-if="todayLoading"><td class="register-today-empty" colspan="3">正在读取今日挂号…</td></tr>
+                <tr v-else-if="todayError"><td class="register-today-empty" colspan="3"><span>{{ todayError }}</span><button class="text-btn" type="button" @click="loadTodayTickets(true)">重试</button></td></tr>
+                <tr v-else-if="!todayWorkRows.length"><td class="register-today-empty" colspan="3">今天还没有挂号操作记录。</td></tr>
+              </tbody>
+            </table>
+          </div>
         </section>
       </div>
 
@@ -654,7 +736,7 @@ async function onComplete(row) {
 .register-info-strip { display:flex; align-items:center; gap:8px; min-height:52px; padding:10px 14px; border:1px solid #cfe3e8; border-radius:8px; background:#fff; }
 .register-empty-grid { display:grid; grid-template-columns:minmax(300px,.9fr) minmax(450px,1.35fr) minmax(170px,.55fr); align-items:start; gap:14px; min-width:0; }
 .register-empty-card { min-width:0; }
-.register-empty-patient, .register-empty-department { height:438px; min-height:438px; }
+.register-empty-patient, .register-empty-department, .register-empty-today { height:438px; min-height:438px; }
 .register-empty-patient .register-patient-fields { flex:1; grid-template-rows:auto minmax(0,1fr); margin-top:0; }
 .register-empty-patient .panel-head, .register-empty-department .panel-head, .register-empty-today .panel-head, .register-empty-fee .panel-head, .register-empty-history .panel-head { align-items:flex-start; }
 .register-empty-patient .panel-head h2, .register-empty-department .panel-head h2, .register-empty-fee .panel-head h2 { color:#173747; font-size:15px; }
@@ -681,11 +763,15 @@ async function onComplete(row) {
 .register-empty-note { margin:0; color:#7c929c; font-size:12px; line-height:1.8; }
 .register-inline-error { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0; color:#9a463d; font-size:11px; }
 .register-department-selected > .register-empty-note:first-child { padding:18px 12px; }
-.register-empty-today { min-height:128px; }
-.register-today-list { display:grid; gap:8px; margin:16px 0 0; padding:0; list-style:none; }
-.register-today-list li { display:grid; gap:2px; min-width:0; }
-.register-today-list strong, .register-today-list span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.register-today-list strong { color:#365665; font-size:11px; }.register-today-list span { color:#8aa0a8; font-size:10px; }
+.register-empty-today { display:flex; flex-direction:column; }
+.register-today-table-wrap { flex:1; min-height:0; margin-top:12px; overflow:auto; border:1px solid #dbe7e3; border-radius:6px; }
+.register-today-table { width:100%; border-collapse:collapse; table-layout:fixed; font-size:10px; }
+.register-today-table th, .register-today-table td { padding:8px 5px; overflow:hidden; text-align:left; text-overflow:ellipsis; white-space:nowrap; border-bottom:1px solid #e5ece9; }
+.register-today-table th { position:sticky; top:0; z-index:1; color:#64808a; background:#f5f9f7; font-weight:600; }
+.register-today-table th:nth-child(1) { width:34%; }.register-today-table th:nth-child(2), .register-today-table th:nth-child(3) { width:33%; }
+.register-today-table tbody tr:last-child td { border-bottom:0; }
+.register-today-table td { color:#274c59; }
+.register-today-empty { padding:18px 6px !important; color:#8aa0a8 !important; text-align:center !important; white-space:normal !important; }
 .register-empty-fee { min-height:190px; padding-bottom:20px !important; }
 .register-empty-fee .panel-actions { justify-content:flex-end; margin-top:26px; }
 .register-empty-history { min-height:126px; height:126px; }

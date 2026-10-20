@@ -70,9 +70,10 @@ export function assertRegisterDto(body) {
     registerFee: typeof body.registerFee === 'number' && Number.isFinite(body.registerFee) ? body.registerFee : 0,
     registerCharged: body.registerCharged === true,
   }
-  for (const key of ['registerNo', 'departmentId', 'doctorId', 'registerSort', 'visitDate', 'registeredAt', 'backOperatorId', 'backOperatedAt']) {
+  for (const key of ['registerNo', 'patientName', 'departmentId', 'doctorId', 'registerSort', 'visitDate', 'visitType', 'appointmentStart', 'appointmentEnd', 'appointmentNote', 'registeredAt', 'backOperatorId', 'backOperatedAt']) {
     optionalText(body, key, dto)
   }
+  if (!dto.visitType) dto.visitType = dto.appointmentStart || dto.appointmentEnd ? 'APPOINTMENT' : 'WALK_IN'
   return dto
 }
 

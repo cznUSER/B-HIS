@@ -7,7 +7,7 @@ import { mockLogin, resetMockAuth } from '../src/api/mockAuth.js'
 import { mockCreatePatient, resetMockPatients } from '../src/api/mockPatients.js'
 import { resetPatientClientCache } from '../src/api/patientApi.js'
 import { todayInShanghai } from '../src/api/patientContract.js'
-import { assertCreateRegisterRequest } from '../src/api/registerContract.js'
+import { assertCreateRegisterRequest, assertRegisterDto } from '../src/api/registerContract.js'
 import { cancelRegister, checkInRegister, completeRegister, createRegister, listRegisters, presentCheckInError, presentCompleteError, presentRegisterError } from '../src/api/registerApi.js'
 import {
   mockCancelRegister,
@@ -29,6 +29,8 @@ import {
 function assert(condition, message) {
   if (!condition) throw new Error(message)
 }
+
+assert(assertRegisterDto({ registerId: 'register-name', patientId: 'patient-name', patientName: '张三', status: 'NORMAL' }).patientName === '张三', 'register DTO keeps patientName for today work')
 
 const registerViewForLayout = readFileSync(new URL('../src/views/RegisterView.vue', import.meta.url), 'utf8')
 const registerTemplateForLayout = registerViewForLayout.split('<template>')[1]
@@ -377,8 +379,10 @@ assert(!template.includes('<tr><th>姓名</th>') && template.includes('<th>性�
 assert(!template.includes('visitDateContext.label'), 'department card omits the date and reception hint')
 assert(template.includes('data-testid="dept-select"') && template.includes('data-testid="doctor-select"'), 'department card keeps one set of controls before and after patient selection')
 assert(template.includes('今天还没有挂号操作记录。'), 'empty registration keeps today-work empty copy')
+assert(template.includes('data-testid="register-today-table"'), 'today work uses a registration table')
+for (const heading of ['患者姓名', '挂号费用', '挂号时间']) assert(template.includes(`<th>${heading}</th>`), `today work keeps the ${heading} column`)
 assert(view.includes('max-height: 210px') && view.includes('overflow: auto'), 'registration history is contained in an internal scroll region')
-assert(view.includes('.register-empty-patient, .register-empty-department { height:438px; min-height:438px; }'), 'patient and department cards keep the same fixed height')
+assert(view.includes('.register-empty-patient, .register-empty-department, .register-empty-today { height:438px; min-height:438px; }'), 'patient, department, and today-work cards keep the same fixed height')
 assert(template.includes('v-if="canCheckIn(row.status)"'), '仅可报到状态显示按钮')
 assert(template.includes('type="date"'), '预约日期控件')
 assert(template.includes('预约号') && template.includes('datetime-local'), '预约时间控件')

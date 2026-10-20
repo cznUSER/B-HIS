@@ -230,13 +230,14 @@ await check('register date change reloads only for a selected patient and does n
   } finally { v.close() }
 })
 
-await check('register date change without patient does not query the list', async () => {
-  let calls = 0
-  const v = await view('RegisterView', { listRegisters: async () => { calls++; return { items: [] } } })
+await check('register date change without patient keeps the single today-work query', async () => {
+	const calls = []
+	const v = await view('RegisterView', { listRegisters: async (_, query) => { calls.push(query.visitDate); return { items: [] } } })
   try {
+		assert.deepEqual(calls, [todayInShanghai()])
     v.state.setVisitDate(visitDateAfter(1))
     await new Promise((resolve) => setImmediate(resolve))
-    assert.equal(calls, 0)
+		assert.deepEqual(calls, [todayInShanghai()])
   } finally { v.close() }
 })
 

@@ -2501,10 +2501,15 @@ components:
         registerId: { type: string, format: uuid, description: '≡ encounterId；实现库存 varchar(64)' }
         registerNo: { type: string, description: '挂号单号 UK' }
         patientId: { type: string, format: uuid }
+        patientName: { type: string, description: '患者姓名；挂号列表返回，用于当日工作清单' }
         departmentId: { type: string }
         doctorId: { type: string }
         registerSort: { type: string, nullable: true }
         visitDate: { type: string, format: date }
+        visitType: { type: string, enum: [WALK_IN, APPOINTMENT] }
+        appointmentStart: { type: string, format: date-time, nullable: true }
+        appointmentEnd: { type: string, format: date-time, nullable: true }
+        appointmentNote: { type: string, nullable: true }
         status:
           type: string
           enum: [NORMAL, USED, BACK, DIAGNOSING, DIAGNOSED, PAUSED]
