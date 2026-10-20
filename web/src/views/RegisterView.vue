@@ -536,6 +536,7 @@ async function onComplete(row) {
         <section class="patient-panel register-empty-card register-empty-patient" data-testid="register-patient-panel" aria-labelledby="register-empty-patient-title">
           <div class="panel-head">
             <div><span class="clinical-kicker">患者档案</span><h2 id="register-empty-patient-title">患者基本信息</h2></div>
+            <button class="button button-ghost button-compact" type="button" data-testid="register-choose-patient" @click="patientPickerOpen = true">选择患者</button>
           </div>
           <div class="register-empty-patient-state">
             <div class="register-empty-visual" aria-hidden="true">
@@ -546,8 +547,7 @@ async function onComplete(row) {
             <div class="register-empty-copy">
               <span class="register-empty-eyebrow">下一步</span>
               <h3>请先选择患者</h3>
-              <p>选择患者后，可在本页完成科室、医生和就诊日期安排。</p>
-              <button class="button button-compact" type="button" data-testid="register-choose-patient" @click="patientPickerOpen = true">选择患者</button>
+              <p>选择患者后，这里显示患者基本信息，并可在本页完成科室、医生和就诊日期安排。</p>
             </div>
           </div>
         </section>
