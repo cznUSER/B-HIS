@@ -75,12 +75,6 @@ const ticketsReady = ref(false)
 let patientLoadSeq = 0
 let ticketsLoadSeq = 0
 
-const visitDateContext = computed(() => {
-  if (visitDate.value > today) return { label: '未来日期 · 预约接待', tone: 'appointment' }
-  if (visitDate.value < today) return { label: '历史日期 · 补录接待', tone: 'history' }
-  return { label: '今天 · 现场接待', tone: 'today' }
-})
-
 const patientId = computed(() => readQuery(route.query.patientId) || String(outpatientContext.patient?.patientId || outpatientContext.patient?.patientNo || '').trim())
 const departments = computed(() => {
   if (mockMode) return selectableDepartments()
@@ -577,7 +571,6 @@ async function onComplete(row) {
                   <label class="field field-wide"><span>预约备注</span><input v-model="appointmentNote" maxlength="256" placeholder="可填写患者到访说明或特殊安排" :disabled="saving" /></label>
                 </template>
               </div>
-              <p class="register-empty-note">{{ patient ? visitDateContext.label : '选择患者后，当前挂号信息保持在本页。' }}</p>
             </template>
           </div>
         </section>
@@ -661,7 +654,7 @@ async function onComplete(row) {
 .register-info-strip { display:flex; align-items:center; gap:8px; min-height:52px; padding:10px 14px; border:1px solid #cfe3e8; border-radius:8px; background:#fff; }
 .register-empty-grid { display:grid; grid-template-columns:minmax(300px,.9fr) minmax(450px,1.35fr) minmax(170px,.55fr); align-items:start; gap:14px; min-width:0; }
 .register-empty-card { min-width:0; }
-.register-empty-patient, .register-empty-department { min-height:438px; }
+.register-empty-patient, .register-empty-department { height:438px; min-height:438px; }
 .register-empty-patient .register-patient-fields { flex:1; grid-template-rows:auto minmax(0,1fr); margin-top:0; }
 .register-empty-patient .panel-head, .register-empty-department .panel-head, .register-empty-today .panel-head, .register-empty-fee .panel-head, .register-empty-history .panel-head { align-items:flex-start; }
 .register-empty-patient .panel-head h2, .register-empty-department .panel-head h2, .register-empty-fee .panel-head h2 { color:#173747; font-size:15px; }

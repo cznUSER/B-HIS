@@ -87,6 +87,12 @@ try {
   await page.getByTestId('register-patient-row-patient-beta').getByRole('button', { name: '选择' }).click()
   await page.getByTestId('register-patient-identity').getByText('患者patient-beta').waitFor()
   assert.deepEqual(await layoutRects(), beforeSelection, 'selecting a patient fills data without changing the preparation layout')
+  const pairedCardHeights = await page.evaluate(() => ({
+    patient: Math.round(document.querySelector('[data-testid="register-patient-panel"]').getBoundingClientRect().height),
+    department: Math.round(document.querySelector('[data-testid="register-department-panel"]').getBoundingClientRect().height),
+  }))
+  assert.equal(pairedCardHeights.patient, pairedCardHeights.department, `patient and department cards have equal height: ${JSON.stringify(pairedCardHeights)}`)
+  assert.doesNotMatch(await page.getByTestId('register-department-panel').innerText(), /今天.*现场接待|未来.*预约挂号/, 'department card omits the date and reception hint')
   await page.screenshot({ path: fileURLToPath(new URL('../dist/register-persistent-after-1440.png', import.meta.url)) })
 
   await page.goto(`http://127.0.0.1:${port}/app/outpatient/register?patientId=patient-alpha`)
