@@ -40,6 +40,9 @@ for (const hook of ['register-patient-identity', 'register-patient-detail-table'
 for (const label of ['出生日期', '身份证号', '费别', '手机号', '院内档案号', '联系地址']) {
   assert(registerTemplateForLayout.includes(`<th>${label}</th>`), `patient archive includes ${label}`)
 }
+assert(!registerTemplateForLayout.includes('<span class="clinical-kicker">患者档案</span>'), 'patient card removes the duplicate archive heading')
+assert(!registerTemplateForLayout.includes('<h2 id="register-empty-patient-title">档案详情</h2>'), 'patient card removes the duplicate detail title')
+assert(!registerTemplateForLayout.includes('<tr><th>姓名</th>'), 'patient detail table removes the duplicate name row')
 for (const hook of ['pending-register-sort', 'pending-visit-date', 'pending-appointment-mode', 'pending-register-fee']) {
   assert(registerTemplateForLayout.includes(`data-testid="${hook}"`), `department card keeps ${hook} hook`)
 }
@@ -356,7 +359,7 @@ assert(downServer.message === '挂号服务暂不可用', '5xx 沿用服务端�
 
 const view = readFileSync(new URL('../src/views/RegisterView.vue', import.meta.url), 'utf8')
 const template = view.split('<template>')[1]
-for (const text of ['选择患者', '请选择科室', '请选择医生', '普通号', '退号', '报到', '模拟报到冲突', '姓名', '性别', '患者号', '身份证', '档案详情', '科室信息', '费用信息', '读取身份证', '读取医保卡', '今天还没有挂号操作记录']) {
+for (const text of ['选择患者', '请选择科室', '请选择医生', '普通号', '退号', '报到', '模拟报到冲突', '性别', '患者号', '身份证', '科室信息', '费用信息', '读取身份证', '读取医保卡', '今天还没有挂号操作记录']) {
   assert(template.includes(text), `missing copy: ${text}`)
 }
 assert(!template.includes('去建档') && !template.includes('回建档页'), 'registration has no archive creation links')
@@ -370,7 +373,7 @@ for (const hook of ['register-info-strip', 'register-patient-fields', 'register-
 assert(template.includes('register-empty-grid') && template.includes('register-empty-history'), 'empty registration restores the reference card layout')
 assert(template.includes('读取身份证') && template.includes('读取医保卡'), 'empty registration keeps card-reader entry points')
 assert(template.indexOf('data-testid="register-choose-patient"') < template.indexOf('data-testid="read-id-card"'), 'patient selection precedes both card-reader controls in the same action strip')
-assert(template.includes('<th>姓名</th>') && template.includes('<th>性别</th>') && template.includes('<th>出生日期</th>'), 'patient archive exposes identity rows')
+assert(!template.includes('<tr><th>姓名</th>') && template.includes('<th>性别</th>') && template.includes('<th>出生日期</th>'), 'patient archive keeps the identity summary and omits its duplicate name row')
 assert(template.includes('data-testid="dept-select"') && template.includes('data-testid="doctor-select"'), 'department card keeps one set of controls before and after patient selection')
 assert(template.includes('今天还没有挂号操作记录。'), 'empty registration keeps today-work empty copy')
 assert(view.includes('max-height: 210px') && view.includes('overflow: auto'), 'registration history is contained in an internal scroll region')

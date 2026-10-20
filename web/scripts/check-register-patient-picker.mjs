@@ -95,7 +95,8 @@ try {
   assert.equal(await page.locator('.clinical-register-workspace').count(), 0, 'selected patient does not mount a second layout')
   assert.match(await page.getByTestId('register-patient-identity').innerText(), /患者patient-alpha[\s\S]*P-patient-alpha[\s\S]*已读取/, 'selected patient shows the archive identity summary')
   const archiveText = await page.getByTestId('register-patient-detail-table').innerText()
-  for (const text of ['姓名', '性别', '出生日期', '身份证号', '费别', '手机号', '院内档案号', '联系地址', '自费', '山西省太原市小店区测试路99号']) {
+  assert.ok(!archiveText.includes('姓名'), 'patient detail table omits the name already shown in the identity summary')
+  for (const text of ['性别', '出生日期', '身份证号', '费别', '手机号', '院内档案号', '联系地址', '自费', '山西省太原市小店区测试路99号']) {
     assert.ok(archiveText.includes(text), `patient archive misses ${text}`)
   }
   const viewportMetrics = await page.evaluate(() => ({

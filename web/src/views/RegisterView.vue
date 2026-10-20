@@ -529,11 +529,7 @@ async function onComplete(row) {
       </section>
 
       <div class="register-empty-grid" data-testid="register-layout">
-        <section class="patient-panel register-empty-card register-empty-patient" data-testid="register-patient-panel" aria-labelledby="register-empty-patient-title">
-          <div class="panel-head">
-            <div><span class="clinical-kicker">患者档案</span><h2 id="register-empty-patient-title">档案详情</h2></div>
-            <span class="clinical-badge">{{ patient ? '已读取' : loading ? '读取中' : '待读取' }}</span>
-          </div>
+        <section class="patient-panel register-empty-card register-empty-patient" data-testid="register-patient-panel" aria-label="患者档案">
           <div class="register-patient-fields" data-testid="register-patient-fields">
             <div class="register-archive-identity" data-testid="register-patient-identity">
               <span class="register-archive-avatar" aria-hidden="true">{{ patient?.name?.slice(0, 1) || '患' }}</span>
@@ -542,7 +538,6 @@ async function onComplete(row) {
             </div>
             <table class="register-patient-detail-table" data-testid="register-patient-detail-table">
               <tbody>
-                <tr><th>姓名</th><td>{{ patient?.name || '—' }}</td></tr>
                 <tr><th>性别</th><td>{{ patient ? sexLabel(patient.sex) : '—' }}</td></tr>
                 <tr><th>出生日期</th><td>{{ patient?.birthday || '—' }}</td></tr>
                 <tr><th>身份证号</th><td>{{ patient?.idNumber || '—' }}</td></tr>
