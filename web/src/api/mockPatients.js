@@ -128,15 +128,47 @@ export function mockCreatePatient(accessToken, input, idempotencyKey) {
   return copyPatient(patient)
 }
 
-export function mockSearchPatients(accessToken, input, { offset = 0 } = {}) {
+export function mockSearchPatients(accessToken, input, { offset = 0, limit = 0 } = {}) {
   requireSession(accessToken)
   const query = assertPatientSearchQuery(input)
   const state = readState()
   const matching = state.patients.filter((item) => patientMatchesQuery(item, query))
-  const page = matching.slice(offset, offset + 100)
+  const pageSize = limit > 0 ? limit : 100
+  const page = matching.slice(offset, offset + pageSize)
   const items = page.map((item) => copyPatient(item))
   const nextOffset = offset + page.length < matching.length ? offset + page.length : null
-  return { items, nextOffset }
+  return { items, total: matching.length, nextOffset }
+}
+
+export async function mockSearchRegistrationPatients(accessToken, keyword = '', { offset = 0, limit = 50 } = {}) {
+  requireSession(accessToken)
+  const normalized = typeof keyword === 'string' ? keyword.trim() : ''
+  const needsInitials = /^[a-z]+$/i.test(normalized)
+  const pinyin = needsInitials ? (await import('pinyin-pro')).pinyin : null
+  const initialsByName = new Map()
+  const state = readState()
+  const needle = normalized.toLowerCase()
+  const matching = state.patients.filter((patient) => {
+    if (!needle) return true
+    const values = [patient.name, patient.phone, patient.idNumber]
+    if (values.some((value) => String(value || '').toLowerCase().includes(needle))) return true
+    if (!pinyin) return false
+
+    let initials = initialsByName.get(patient.name)
+    if (initials == null) {
+      initials = Array.from(patient.name)
+        .filter((character) => /\p{Script=Han}/u.test(character))
+        .map((character) => pinyin(character, { pattern: 'first', toneType: 'none' }))
+        .join('')
+        .toLowerCase()
+      initialsByName.set(patient.name, initials)
+    }
+    return initials.includes(needle)
+  })
+  const page = matching.slice(offset, offset + limit)
+  const items = page.map((item) => copyPatient(item))
+  const nextOffset = offset + page.length < matching.length ? offset + page.length : null
+  return { items, total: matching.length, nextOffset }
 }
 
 export function mockGetPatient(accessToken, patientId) {

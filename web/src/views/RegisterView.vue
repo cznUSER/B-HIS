@@ -10,7 +10,7 @@ import { useMock } from '../api/config.js'
 import { cancelRegister, checkInRegister, completeRegister, createRegister, listRegisters } from '../api/registerApi.js'
 import { createRegisterFeeCharge, listCharges, payExistingCharge, refundCharge } from '../api/chargeApi.js'
 import { fetchPatient } from '../api/patientApi.js'
-import { sexLabel, todayInShanghai } from '../api/patientContract.js'
+import { fareLabel, sexLabel, todayInShanghai } from '../api/patientContract.js'
 import { session } from '../auth/session.js'
 import { fetchDepartments, fetchDoctors } from '../master/api.js'
 import BusinessEmptyState from '../components/BusinessEmptyState.vue'
@@ -29,7 +29,6 @@ import {
   doctorName,
   doctorsForDept,
   selectableDepartments,
-  maskIdNumber,
   statusLabel,
 } from '../register/master.js'
 
@@ -99,7 +98,6 @@ const pendingDoctors = computed(() => {
   if (mockMode) return doctorsForDept(pendingDepartmentId.value)
   return liveDoctors.value.filter((item) => item.departmentId === pendingDepartmentId.value && item.status === 'ACTIVE')
 })
-const selectedPendingDepartment = computed(() => departments.value.find((item) => item.departmentId === pendingDepartmentId.value) || null)
 const canSave = computed(() => Boolean(patient.value) && masterReady.value && !masterLoading.value && ticketsReady.value && !ticketsLoading.value && !saving.value)
 const selectedDateTickets = computed(() => tickets.value.filter((item) => item.visitDate === visitDate.value))
 const registrationTickets = computed(() => selectedDateTickets.value.filter((item) => item.visitType !== 'APPOINTMENT'))
@@ -161,27 +159,6 @@ watch(appointmentMode, (enabled) => {
   if (!appointmentEnd.value) appointmentEnd.value = `${visitDate.value}T09:30`
 })
 
-function dateAfterMonths(months) {
-  const [year, month, day] = today.split('-').map(Number)
-  const targetMonth = new Date(Date.UTC(year, month - 1 + months, 1))
-  const targetYear = targetMonth.getUTCFullYear()
-  const targetMonthIndex = targetMonth.getUTCMonth()
-  const lastDay = new Date(Date.UTC(targetYear, targetMonthIndex + 1, 0)).getUTCDate()
-  const next = new Date(Date.UTC(targetYear, targetMonthIndex, Math.min(day, lastDay)))
-  return [next.getUTCFullYear(), String(next.getUTCMonth() + 1).padStart(2, '0'), String(next.getUTCDate()).padStart(2, '0')].join('-')
-}
-
-function patientAge(birthday) {
-  if (!birthday) return '—'
-  const birth = new Date(`${birthday}T00:00:00+08:00`)
-  const current = new Date(`${today}T00:00:00+08:00`)
-  if (Number.isNaN(birth.getTime()) || birth > current) return '—'
-  let age = current.getFullYear() - birth.getFullYear()
-  const beforeBirthday = current.getMonth() < birth.getMonth() || (current.getMonth() === birth.getMonth() && current.getDate() < birth.getDate())
-  if (beforeBirthday) age -= 1
-  return `${age} 岁`
-}
-
 function setVisitDate(value) {
   visitDate.value = value
 }
@@ -191,12 +168,6 @@ async function onSelectPatient(selected) {
   patientSwitching.value = true
   departmentId.value = pendingDepartmentId.value || ''
   doctorId.value = pendingDoctorId.value || ''
-  registerFee.value = 0
-  appointmentMode.value = false
-  appointmentStart.value = ''
-  appointmentEnd.value = ''
-  appointmentNote.value = ''
-  visitDate.value = today
   patientPickerOpen.value = false
   showNotice('', false)
   try {
@@ -567,36 +538,48 @@ async function onComplete(row) {
       <div class="register-empty-grid">
         <section class="patient-panel register-empty-card register-empty-patient" data-testid="register-patient-panel" aria-labelledby="register-empty-patient-title">
           <div class="panel-head">
-            <div><span class="clinical-kicker">患者档案</span><h2 id="register-empty-patient-title">患者基本信息</h2></div>
+            <div><span class="clinical-kicker">患者档案</span><h2 id="register-empty-patient-title">档案详情</h2></div>
+            <span class="clinical-badge">待读取</span>
           </div>
           <div class="register-patient-fields" data-testid="register-patient-fields">
-            <label class="field"><span>姓名</span><input readonly placeholder="选择患者后显示" /></label>
-            <label class="field"><span>年龄</span><input readonly placeholder="选择患者后显示" /></label>
-            <label class="field"><span>性别</span><input readonly placeholder="选择患者后显示" /></label>
-            <p class="register-empty-note">可通过上方“选择患者”、身份证或医保卡读取患者档案。</p>
+            <div class="register-archive-identity" data-testid="register-patient-identity">
+              <span class="register-archive-avatar" aria-hidden="true">患</span>
+              <div><strong>请选择患者</strong><span>选择后显示患者号</span></div>
+              <span class="register-archive-state">待读取</span>
+            </div>
+            <table class="register-patient-detail-table" data-testid="register-patient-detail-table">
+              <tbody>
+                <tr><th>姓名</th><td>—</td></tr>
+                <tr><th>性别</th><td>—</td></tr>
+                <tr><th>出生日期</th><td>—</td></tr>
+                <tr><th>身份证号</th><td>—</td></tr>
+                <tr><th>费别</th><td>—</td></tr>
+                <tr><th>手机号</th><td>—</td></tr>
+                <tr><th>院内档案号</th><td>—</td></tr>
+                <tr><th>联系地址</th><td>—</td></tr>
+              </tbody>
+            </table>
           </div>
         </section>
 
         <section class="patient-panel register-empty-card register-empty-department" data-testid="register-department-panel" aria-labelledby="register-empty-department-title">
           <div class="panel-head">
-            <div><span class="clinical-kicker">门诊安排</span><h2 id="register-empty-department-title">科室基本信息</h2></div>
-            <span class="clinical-date-tag">{{ selectedPendingDepartment ? '已选择' : '待选择' }}</span>
+            <div><span class="clinical-kicker">门诊安排</span><h2 id="register-empty-department-title">科室信息</h2></div>
           </div>
           <div class="register-department-selected" data-testid="register-department-selected">
             <p v-if="masterLoading" class="register-empty-note">正在读取科室…</p>
             <p v-else-if="masterError" class="register-empty-note" role="alert">{{ masterError }}</p>
             <p v-else-if="!departments.length" class="register-empty-note">暂无启用科室。</p>
             <template v-else>
-              <div class="register-department-summary">
-                <div><span>已选科室</span><strong>{{ selectedPendingDepartment?.name || '请选择科室' }}</strong></div>
-                <span class="register-available-tag">可挂号</span>
-              </div>
               <div class="register-department-fields">
-                <label class="field"><span>科室</span><select v-model="pendingDepartmentId" data-testid="pending-department-select"><option v-for="item in departments" :key="item.departmentId" :value="item.departmentId">{{ item.name }}</option></select></label>
-                <label class="field"><span>医生</span><select v-model="pendingDoctorId" data-testid="pending-doctor-select"><option value="">暂不指定</option><option v-for="item in pendingDoctors" :key="item.doctorId" :value="item.doctorId">{{ item.name }}</option></select></label>
-                <label class="field"><span>就诊日期</span><input :value="today" readonly /></label>
+                <label class="field"><span>科室 <abbr class="req" title="必填">*</abbr></span><select v-model="pendingDepartmentId" data-testid="pending-department-select"><option value="">请选择科室</option><option v-for="item in departments" :key="item.departmentId" :value="item.departmentId">{{ item.name }}</option></select></label>
+                <label class="field"><span>医生 <abbr class="req" title="必填">*</abbr></span><select v-model="pendingDoctorId" data-testid="pending-doctor-select"><option value="">请选择医生</option><option v-for="item in pendingDoctors" :key="item.doctorId" :value="item.doctorId">{{ item.name }}</option></select></label>
+                <label class="field"><span>号别</span><input value="普通号" data-testid="pending-register-sort" disabled /></label>
+                <label class="field"><span>就诊日期</span><input v-model="visitDate" type="date" data-testid="pending-visit-date" /></label>
+                <label class="field"><span>接待方式</span><select v-model="appointmentMode" data-testid="pending-appointment-mode"><option :value="false">现场号</option><option :value="true">预约号</option></select></label>
+                <label class="field"><span>挂号费（元）</span><input v-model.number="registerFee" type="number" min="0" max="9999999999999999.99" step="0.01" inputmode="decimal" data-testid="pending-register-fee" :disabled="mockMode" /></label>
               </div>
-              <p class="register-empty-note">选择患者后，将按当前科室和医生进入挂号信息确认。</p>
+              <p class="register-empty-note">选择患者后，当前挂号信息会自动带入确认区。</p>
             </template>
           </div>
         </section>
@@ -635,23 +618,33 @@ async function onComplete(row) {
       <div class="clinical-register-layout">
         <section class="patient-panel clinical-patient-profile" data-testid="register-patient-panel" aria-labelledby="register-patient">
           <div class="panel-head">
-            <span class="clinical-kicker">就诊患者</span>
-            <button class="button button-ghost button-compact" type="button" data-testid="register-change-patient" @click="patientPickerOpen = true">更换患者</button>
+            <div><span class="clinical-kicker">患者档案</span><h2 id="register-patient">档案详情</h2></div>
+            <div class="register-archive-actions"><span class="clinical-badge">已读取</span><button class="button button-ghost button-compact" type="button" data-testid="register-change-patient" @click="patientPickerOpen = true">更换患者</button></div>
           </div>
-          <h2 id="register-patient" class="sr-only">{{ patient.name }}</h2>
           <div class="register-selected-patient-fields" data-testid="register-selected-patient-fields">
-            <label class="field"><span>姓名</span><input :value="patient.name || '—'" readonly /></label>
-            <label class="field"><span>年龄</span><input :value="patientAge(patient.birthday)" readonly /></label>
-            <label class="field"><span>性别</span><input :value="sexLabel(patient.sex)" readonly /></label>
+            <div class="register-archive-identity" data-testid="register-patient-identity">
+              <span class="register-archive-avatar" aria-hidden="true">{{ patient.name?.slice(0, 1) || '患' }}</span>
+              <div><strong>{{ patient.name }}</strong><span>{{ patient.patientNo || '患者号未提供' }}</span></div>
+              <span class="register-archive-state">已读取</span>
+            </div>
+            <table class="register-patient-detail-table" data-testid="register-patient-detail-table">
+              <tbody>
+                <tr><th>姓名</th><td>{{ patient.name || '—' }}</td></tr>
+                <tr><th>性别</th><td>{{ sexLabel(patient.sex) }}</td></tr>
+                <tr><th>出生日期</th><td>{{ patient.birthday || '—' }}</td></tr>
+                <tr><th>身份证号</th><td>{{ patient.idNumber || '—' }}</td></tr>
+                <tr><th>费别</th><td>{{ fareLabel(patient.fareIdentity) }}</td></tr>
+                <tr><th>手机号</th><td>{{ patient.phone || '—' }}</td></tr>
+                <tr><th>院内档案号</th><td>{{ patient.hospPkNo || '—' }}</td></tr>
+                <tr><th>联系地址</th><td>{{ patient.address || '—' }}</td></tr>
+              </tbody>
+            </table>
           </div>
-          <p class="clinical-profile-note">患者号：{{ patient.patientNo || '—' }}　身份证：{{ maskIdNumber(patient.idNumber) }}</p>
-          <p class="clinical-profile-note"><span aria-hidden="true">◇</span> 主索引不能在挂号页修改。</p>
         </section>
 
         <form class="patient-panel clinical-register-form" data-testid="register-form" novalidate @submit.prevent="onSave">
           <div class="panel-head">
-            <div><span class="clinical-kicker">本次就诊</span><h2>挂号信息</h2></div>
-            <span class="clinical-date-tag">{{ visitDate }}</span>
+            <div><span class="clinical-kicker">门诊安排</span><h2>科室信息</h2></div>
           </div>
           <p v-if="masterLoading" class="shell-status" role="status">正在读取科室和医生…</p>
           <div v-else-if="masterError" class="banner clinical-read-error" role="alert" data-testid="register-master-error"><p>{{ masterError }}。读取成功后才能保存挂号。</p><button class="button button-ghost button-compact" type="button" @click="loadMaster">重新读取科室和医生</button></div>
@@ -684,16 +677,10 @@ async function onComplete(row) {
                 <option :value="true">预约号</option>
               </select>
             </label>
-            <label v-if="!mockMode" class="field">
+            <label class="field">
               <span>挂号费（元）</span>
-              <input v-model.number="registerFee" type="number" min="0" max="9999999999999999.99" step="0.01" inputmode="decimal" />
+              <input v-model.number="registerFee" type="number" min="0" max="9999999999999999.99" step="0.01" inputmode="decimal" :disabled="mockMode" />
             </label>
-            <div class="clinical-date-presets field-wide" aria-label="就诊日期快捷选择">
-              <span>快速选择</span>
-              <button type="button" class="clinical-date-preset" :class="{ active: visitDate === today }" :disabled="saving" @click="setVisitDate(today)">今天</button>
-              <button type="button" class="clinical-date-preset" :class="{ active: visitDate === dateAfterMonths(1) }" :disabled="saving" @click="setVisitDate(dateAfterMonths(1))">1 个月后</button>
-              <button type="button" class="clinical-date-preset" :class="{ active: visitDate === dateAfterMonths(2) }" :disabled="saving" @click="setVisitDate(dateAfterMonths(2))">2 个月后</button>
-            </div>
             <template v-if="appointmentMode">
               <label class="field"><span>预约开始</span><input v-model="appointmentStart" type="datetime-local" :disabled="saving" /></label>
               <label class="field"><span>预约结束</span><input v-model="appointmentEnd" type="datetime-local" :disabled="saving" /></label>
@@ -805,24 +792,30 @@ async function onComplete(row) {
 <style scoped>
 .register-empty-workspace { display:grid; gap:14px; min-width:0; }
 .register-info-strip { display:flex; align-items:center; gap:8px; min-height:52px; padding:10px 14px; border:1px solid #cfe3e8; border-radius:8px; background:#fff; }
-.register-empty-grid { display:grid; grid-template-columns:minmax(0,1.25fr) minmax(0,1.25fr) minmax(220px,.8fr); align-items:start; gap:14px; min-width:0; }
+.register-empty-grid { display:grid; grid-template-columns:minmax(300px,.9fr) minmax(450px,1.35fr) minmax(170px,.55fr); align-items:start; gap:14px; min-width:0; }
 .register-empty-card { min-width:0; }
-.register-empty-patient, .register-empty-department { min-height:448px; }
+.register-empty-patient, .register-empty-department { min-height:438px; }
 .register-empty-patient .panel-head, .register-empty-department .panel-head, .register-empty-today .panel-head, .register-empty-fee .panel-head, .register-empty-history .panel-head { align-items:flex-start; }
 .register-empty-patient .panel-head h2, .register-empty-department .panel-head h2, .register-empty-fee .panel-head h2 { color:#173747; font-size:15px; }
 .register-empty-patient .panel-head h2::before, .register-empty-department .panel-head h2::before, .register-empty-fee .panel-head h2::before { display:none; }
-.register-patient-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); align-content:start; gap:16px; min-height:335px; margin-top:12px; padding:34px 22px; border-radius:14px; background:linear-gradient(135deg,#f9fcfd,#fff); }
-.register-patient-fields .register-empty-note { grid-column:1 / -1; margin-top:4px; }
-.register-patient-fields input, .register-selected-patient-fields input { height:40px; color:#365f6b; background:#f8fbfc; }
-.register-department-selected { display:grid; align-content:start; gap:18px; min-height:335px; padding:18px 0 0; }
-.register-department-summary { display:flex; align-items:center; justify-content:space-between; gap:14px; min-height:82px; padding:16px 18px; border:1px solid #b9dde3; border-radius:8px; background:linear-gradient(135deg,#eef9fa,#f9fcfd); }
-.register-department-summary > div { display:grid; gap:6px; min-width:0; }
-.register-department-summary span { color:#6f8c96; font-size:10px; }
-.register-department-summary strong { overflow:hidden; color:#145b6d; font-size:20px; text-overflow:ellipsis; white-space:nowrap; }
-.register-available-tag { flex:none; padding:5px 9px; border-radius:5px; color:#247d70 !important; background:#e3f4ec; font-size:10px !important; }
-.register-department-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
-.register-department-fields .field:last-child { grid-column:1 / -1; }
-.register-department-fields :is(select,input) { height:40px; }
+.register-patient-fields, .register-selected-patient-fields { display:grid; align-content:start; gap:12px; min-width:0; margin-top:10px; }
+.register-archive-identity { display:flex; align-items:center; gap:11px; min-width:0; padding:4px 0 14px; border-bottom:1px solid #d9e8e1; }
+.register-archive-identity > div { display:grid; min-width:0; gap:3px; }
+.register-archive-identity strong, .register-archive-identity > div span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.register-archive-identity strong { color:#294e3e; font-size:16px; font-weight:650; }
+.register-archive-identity > div span { color:#8fa497; font-size:11px; }
+.register-archive-avatar { display:grid; place-items:center; width:45px; height:45px; flex:none; border:1px solid #d2e6d9; border-radius:8px; color:#4c947a; background:#e5f2e9; font-size:20px; font-weight:650; }
+.register-archive-state { margin-left:auto; padding:5px 9px; border-radius:5px; color:#168b80; background:#e6f4ee; font-size:10px; font-weight:700; white-space:nowrap; }
+.register-archive-actions { display:flex; align-items:center; gap:8px; }
+.register-patient-detail-table { width:100%; border:1px solid #d9e8e1; border-radius:8px; border-collapse:separate; border-spacing:0; overflow:hidden; table-layout:fixed; }
+.register-patient-detail-table th, .register-patient-detail-table td { padding:8px 10px; border-bottom:1px solid #e8f0ec; text-align:left; vertical-align:middle; }
+.register-patient-detail-table tr:last-child th, .register-patient-detail-table tr:last-child td { border-bottom:0; }
+.register-patient-detail-table th { width:34%; color:#78948a; background:#f7fbf9; font-size:10px; font-weight:600; }
+.register-patient-detail-table td { overflow-wrap:anywhere; color:#31554c; font-size:11px; font-weight:600; }
+.register-department-selected { display:grid; align-content:start; gap:14px; min-height:335px; padding:18px 0 0; }
+.register-department-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px 12px; }
+.register-department-fields .field { min-width:0; gap:6px; }
+.register-department-fields :is(select,input) { width:100%; height:40px; min-width:0; }
 .register-empty-note { margin:0; color:#7c929c; font-size:12px; line-height:1.8; }
 .register-department-selected > .register-empty-note:first-child { padding:18px 12px; }
 .register-empty-today { min-height:128px; }
@@ -834,20 +827,12 @@ async function onComplete(row) {
 .register-empty-fee .panel-actions { justify-content:flex-end; margin-top:26px; }
 .register-empty-history { min-height:126px; height:126px; }
 .register-empty-history .register-empty-note { margin-top:12px; }
-.clinical-register-layout { display: grid; grid-template-columns: minmax(250px, .8fr) minmax(0, 1.2fr); align-items: start; gap: 14px; min-width: 0; }
+.clinical-register-layout { display: grid; grid-template-columns: minmax(330px, .9fr) minmax(0, 1.45fr); align-items: start; gap: 14px; min-width: 0; }
 .clinical-register-layout > *, .clinical-register-form { min-width: 0; }
 .clinical-register-layout .clinical-patient-profile { gap: 9px; padding: 14px; }
 .clinical-register-layout .panel-head { align-items: flex-start; }
 .clinical-register-layout .panel-head h2 { color: #173747; font-size: 15px; }
 .clinical-register-layout .panel-head h2::before { display: none; }
-.clinical-register-layout .clinical-profile-identity { min-width: 0; padding-block: 4px 10px; }
-.clinical-register-layout .clinical-profile-identity > div { min-width: 0; }
-.clinical-register-layout .clinical-profile-identity h2 { overflow: hidden; color: #173747; font-size: 16px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
-.clinical-register-layout .clinical-profile-identity p { overflow: hidden; color: #718995; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.register-selected-patient-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; padding:8px 0 4px; }
-.clinical-register-layout .register-patient-details { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; padding: 11px 12px; }
-.clinical-register-layout .register-patient-details > div { min-width: 0; }
-.clinical-register-layout .register-patient-details dd { overflow: hidden; color: #365f6b; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .clinical-register-workspace { gap: 10px; }
 .clinical-register-form { display: grid; gap: 10px; padding: 14px !important; border: 1px solid #dcebe1 !important; background: #fff !important; box-shadow: 0 5px 18px rgba(29, 81, 96, .04) !important; }
 .shell-main .register-page .clinical-register-form .field-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px 12px; }
@@ -865,6 +850,8 @@ async function onComplete(row) {
 .clinical-ticket-panel .business-empty-description { display: none; }
 .clinical-ticket-panel .register-table thead th { position: sticky; top: 0; z-index: 1; background: #f4f8f5; }
 @media (max-width: 1100px) {
+  .register-empty-grid { grid-template-columns:minmax(300px,.85fr) minmax(430px,1.25fr); }
+  .register-empty-today { grid-column:1 / -1; }
   .clinical-register-layout { grid-template-columns: minmax(220px, .75fr) minmax(0, 1.25fr); }
 }
 @media (max-width: 820px) {

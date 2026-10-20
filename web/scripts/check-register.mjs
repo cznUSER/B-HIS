@@ -30,6 +30,19 @@ function assert(condition, message) {
   if (!condition) throw new Error(message)
 }
 
+const registerViewForLayout = readFileSync(new URL('../src/views/RegisterView.vue', import.meta.url), 'utf8')
+const registerTemplateForLayout = registerViewForLayout.split('<template>')[1]
+for (const hook of ['register-patient-identity', 'register-patient-detail-table']) {
+  assert(registerTemplateForLayout.includes(`data-testid="${hook}"`), `patient archive keeps ${hook} hook`)
+}
+for (const label of ['出生日期', '身份证号', '费别', '手机号', '院内档案号', '联系地址']) {
+  assert(registerTemplateForLayout.includes(`<th>${label}</th>`), `patient archive includes ${label}`)
+}
+for (const hook of ['pending-register-sort', 'pending-visit-date', 'pending-appointment-mode', 'pending-register-fee']) {
+  assert(registerTemplateForLayout.includes(`data-testid="${hook}"`), `department card keeps ${hook} hook`)
+}
+assert(registerTemplateForLayout.includes('<h2 id="register-empty-department-title">科室信息</h2>'), 'empty department card uses the compact department heading')
+
 async function expectError(fn, code, status) {
   try {
     await fn()
@@ -341,7 +354,7 @@ assert(downServer.message === '挂号服务暂不可用', '5xx 沿用服务端�
 
 const view = readFileSync(new URL('../src/views/RegisterView.vue', import.meta.url), 'utf8')
 const template = view.split('<template>')[1]
-for (const text of ['选择患者', '请选择科室', '请选择医生', '普通号', '患者查询', '退号', '报到', '模拟报到冲突', '姓名', '年龄', '性别', '患者号', '身份证', '患者基本信息', '科室基本信息', '费用信息', '读取身份证', '读取医保卡', '今天还没有挂号操作记录']) {
+for (const text of ['选择患者', '请选择科室', '请选择医生', '普通号', '患者查询', '退号', '报到', '模拟报到冲突', '姓名', '性别', '患者号', '身份证', '档案详情', '科室信息', '费用信息', '读取身份证', '读取医保卡', '今天还没有挂号操作记录']) {
   assert(template.includes(text), `missing copy: ${text}`)
 }
 assert(!template.includes('去建档') && !template.includes('回建档页'), 'registration has no archive creation links')
@@ -357,7 +370,7 @@ for (const hook of ['register-info-strip', 'register-patient-fields', 'register-
 assert(template.includes('register-empty-grid') && template.includes('register-empty-history'), 'empty registration restores the reference card layout')
 assert(template.includes('读取身份证') && template.includes('读取医保卡'), 'empty registration keeps card-reader entry points')
 assert(template.indexOf('data-testid="register-choose-patient"') < template.indexOf('data-testid="read-id-card"'), 'patient selection precedes both card-reader controls in the same action strip')
-assert(template.includes('<span>姓名</span>') && template.includes('<span>年龄</span>') && template.includes('<span>性别</span>'), 'patient cards expose name, age, and sex fields')
+assert(template.includes('<th>姓名</th>') && template.includes('<th>性别</th>') && template.includes('<th>出生日期</th>'), 'patient archive exposes identity rows')
 assert(template.includes('data-testid="pending-department-select"') && template.includes('data-testid="pending-doctor-select"'), 'department card renders the selected department state')
 assert(template.includes('今天还没有挂号操作记录。'), 'empty registration keeps today-work empty copy')
 assert(view.includes('max-height: 210px') && view.includes('overflow: auto'), 'registration history is contained in an internal scroll region')
@@ -368,11 +381,6 @@ assert(view.includes('if (patient.value && !patientSwitching.value) refreshTicke
 assert(view.includes("tickets.value.filter((item) => item.visitDate === visitDate.value)"), '切换日期时旧日期记录不继续显示')
 assert(view.includes("item.visitType === 'APPOINTMENT'"), '预约记录与现场挂号分组展示')
 assert(view.includes("title: '预约记录'") && view.includes("testId: 'register-list'") && view.includes("testId: 'appointment-list'"), '预约不混入所选日期现场挂号列表')
-const dateAfterMonthsBody = view.match(/function dateAfterMonths\(months\) \{([\s\S]*?)\n\}/)?.[1]
-assert(dateAfterMonthsBody, 'dateAfterMonths helper exists')
-const dateAfterMonthsFor = new Function('today', 'months', dateAfterMonthsBody)
-assert(dateAfterMonthsFor('2026-01-31', 1) === '2026-02-28', 'month preset clamps to target month end')
-assert(dateAfterMonthsFor('2024-01-31', 1) === '2024-02-29', 'month preset clamps to leap day')
 const clinicalCss = readFileSync(new URL('../src/views/clinical-design.css', import.meta.url), 'utf8')
 assert(!clinicalCss.includes('.outpatient-rail-next { display: none; }'), 'register styles do not hide shared next-step panel')
 assert(template.includes('挂号费（元）'), '真实模式展示挂号费输入')

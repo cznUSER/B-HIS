@@ -7,7 +7,7 @@ import * as SSR from 'vue/server-renderer'
 import { ApiError, apiError } from '../src/api/errors.js'
 import * as registerMaster from '../src/register/master.js'
 import * as orderContract from '../src/api/orderContract.js'
-import { sexLabel, todayInShanghai } from '../src/api/patientContract.js'
+import { fareLabel, sexLabel, todayInShanghai } from '../src/api/patientContract.js'
 import { saveOrder as saveOrderHttp } from '../src/api/orderApi.js'
 import http from 'node:http'
 
@@ -19,6 +19,12 @@ const doctor = { doctorId: 'doc-1', doctorName: '真实医生', departmentId: 'd
 const savedOrder = (status = 'SAVE') => ({ orderId: 'order-live', orderNo: 'R-live', registerId: encounter.registerId, patientId: patient.patientId, departmentId: department.departmentId, doctorId: doctor.doctorId, status, charged: false, totalFee: 37, items: [{ orderItemId: 'line-live', ...catalog[0], itemName: '服务端药品名称', units: '支', price: 18.5, amount: 2, totalFee: 37 }] })
 const failure = () => apiError(503, 'HTTP_ERROR', '服务暂不可用')
 const componentStub = { props: ['title', 'description'], setup: (props, { slots }) => () => Vue.h('div', [props.title, props.description, slots.default?.(), slots.detail?.()]) }
+
+function visitDateAfter(days) {
+  const [year, month, day] = todayInShanghai().split('-').map(Number)
+  const result = new Date(Date.UTC(year, month - 1, day + days))
+  return [result.getUTCFullYear(), String(result.getUTCMonth() + 1).padStart(2, '0'), String(result.getUTCDate()).padStart(2, '0')].join('-')
+}
 
 function scriptWithoutImports(code) {
   return code.replace(/^import[\s\S]*?from\s+['"][^'"]+['"]\s*;?\r?\n/gm, '').replace(/^import\s+['"][^'"]+['"]\s*;?\r?\n/gm, '')
@@ -44,11 +50,11 @@ async function view(name, overrides = {}, query = {}) {
   const scope = Vue.effectScope()
   const dependencies = {
     ...Vue, ...registerMaster, ...orderContract,
-    ApiError, sexLabel, todayInShanghai,
+    ApiError, fareLabel, sexLabel, todayInShanghai,
     onMounted: (fn) => mounted.push(fn), useRoute: () => route,
     useRouter: () => ({ replace: async (target) => { route.query = target.query || {} } }),
     useMock: () => false, session: { accessToken: 'test-token' },
-    BusinessPageHeader: componentStub, BusinessEmptyState: componentStub,
+    BusinessPageHeader: componentStub, BusinessEmptyState: componentStub, RegisterPatientPicker: componentStub,
     fetchPatient: async () => patient,
     listRegisters: async () => ({ items: [] }), createRegister: async () => encounter,
     cancelRegister: async () => ({ ...encounter, status: 'BACK' }), checkInRegister: async () => ({ ...encounter, status: 'DIAGNOSING' }),
@@ -209,6 +215,51 @@ await check('route change during register save cannot add another patient ticket
     assert.equal(v.state.patient.value?.patientId, 'patient-other')
     assert.deepEqual(v.state.tickets.value, [], 'old patient save must not appear on new patient')
     assert.equal(v.state.notice.value, '')
+  } finally { v.close() }
+})
+
+await check('register date change reloads only for a selected patient and does not duplicate requests', async () => {
+  const calls = []
+  const nextDate = visitDateAfter(1)
+  const v = await view('RegisterView', { listRegisters: async (_, query) => { calls.push(query.visitDate); return { items: [] } } }, { patientId: patient.patientId })
+  try {
+    assert.equal(calls.length, 1, 'initial patient load requests the current date once')
+    v.state.setVisitDate(nextDate)
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.deepEqual(calls, [todayInShanghai(), nextDate], 'changing the date triggers one matching list request')
+  } finally { v.close() }
+})
+
+await check('register date change without patient does not query the list', async () => {
+  let calls = 0
+  const v = await view('RegisterView', { listRegisters: async () => { calls++; return { items: [] } } })
+  try {
+    v.state.setVisitDate(visitDateAfter(1))
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.equal(calls, 0)
+  } finally { v.close() }
+})
+
+await check('late register response for an older date cannot replace current results', async () => {
+  let finishOldDate
+  const calls = []
+  const oldDate = visitDateAfter(1)
+  const currentDate = visitDateAfter(2)
+  const v = await view('RegisterView', { listRegisters: async (_, query) => {
+    calls.push(query.visitDate)
+    if (query.visitDate === oldDate) return new Promise((resolve) => { finishOldDate = resolve })
+    return { items: [{ ...encounter, registerId: `reg-${query.visitDate}`, visitDate: query.visitDate }] }
+  } }, { patientId: patient.patientId })
+  try {
+    v.state.setVisitDate(oldDate)
+    await new Promise((resolve) => setImmediate(resolve))
+    v.state.setVisitDate(currentDate)
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.deepEqual(v.state.tickets.value.map((item) => item.visitDate), [currentDate])
+    finishOldDate({ items: [{ ...encounter, registerId: 'reg-old-date', visitDate: oldDate }] })
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.deepEqual(v.state.tickets.value.map((item) => item.visitDate), [currentDate])
+    assert.deepEqual(calls, [todayInShanghai(), oldDate, currentDate])
   } finally { v.close() }
 })
 
