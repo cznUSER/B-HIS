@@ -1,4 +1,7 @@
 <script setup>
+import { useErrorDialog } from '../components/feedback/useErrorDialog.js'
+import { createSubmitFeedback } from '../components/feedback/useSubmitFeedback.js'
+import SubmitStatusBanner from '../components/feedback/SubmitStatusBanner.vue'
 // 2026-10-12 P1-H05-ORDER-UI 门诊开单。主字段 registerId。
 // 2026-10-12 VITE_USE_MOCK=false 时暂存/改草稿/提交/作废走 /api/v1/orders；无挂号仍是空态。
 // 2026-10-13 P1-H05-MASTER-UI 开单医生和目录下拉跳过已停用项。
@@ -58,6 +61,11 @@ const saving = ref(false)
 const committing = ref(false)
 const abating = ref(false)
 const confirmAbate = ref(false)
+const submitFeedback = createSubmitFeedback()
+let saveAttempt = null
+let commitSaveAttempt = null
+let commitAttempt = null
+let abateAttempt = null
 let loadSeq = 0
 const mockMode = useMock()
 // 2026-10-14 P1-H05-WEB-USABILITY: distinguish failed live reads from empty data.
@@ -75,7 +83,7 @@ const ordersReady = ref(false)
 const ordersError = ref('')
 let ordersLoadSeq = 0
 
-const busy = computed(() => saving.value || committing.value || abating.value)
+const busy = computed(() => saving.value || committing.value || abating.value || submitFeedback.state.status === 'submitting')
 const selectedLineCount = computed(() => lines.value.filter((line) => line.itemNo).length)
 const orderableRegisters = computed(() => registers.value.filter((item) => registerIsOrderable(item)))
 const orderDoctors = computed(() => {
@@ -163,6 +171,7 @@ function clearBanner() {
   errorMessage.value = ''
   infoMessage.value = ''
   confirmAbate.value = false
+  submitFeedback.reset()
 }
 
 function startDraft(current) {
@@ -315,20 +324,30 @@ async function onSave() {
   if (busy.value || locked.value || !register.value || !canWrite.value) return
   clearBanner()
   if (!requireDoctor()) return
+  const body = draftBody()
+  const fingerprint = JSON.stringify({ action: 'save', body })
+  if (!saveAttempt || saveAttempt.fingerprint !== fingerprint) saveAttempt = { fingerprint, key: crypto.randomUUID() }
   saving.value = true
+  submitFeedback.beginAttempt('save')
   const currentSeq = loadSeq
   try {
-    const order = await saveOrder(session.accessToken, draftBody(), mockMode ? undefined : remoteCatalog.value)
+    const key = orderId.value ? undefined : saveAttempt.key
+    const order = await saveOrder(session.accessToken, body, mockMode ? undefined : remoteCatalog.value, key)
     if (currentSeq !== loadSeq) return
     applyOrder(order)
-    recordAction('处方已暂存', order.orderNo || order.orderId || '')
-    infoMessage.value = form.diagnoseName.trim()
-      ? '已暂存。暂存处方不能收费。'
-      : '已暂存。诊断可以后补，不影响暂存。暂存处方不能收费。'
+    recordAction('\u5904\u65b9\u5df2\u6682\u5b58', order.orderNo || order.orderId || '')
+    saveAttempt = null
+    infoMessage.value = ''
+    const tip = form.diagnoseName.trim()
+      ? '\u5df2\u6682\u5b58\u3002\u6682\u5b58\u5904\u65b9\u4e0d\u80fd\u6536\u8d39\u3002'
+      : '\u5df2\u6682\u5b58\u3002\u8bca\u65ad\u53ef\u4ee5\u540e\u8865\uff0c\u4e0d\u5f71\u54cd\u6682\u5b58\u3002\u6682\u5b58\u5904\u65b9\u4e0d\u80fd\u6536\u8d39\u3002'
+    submitFeedback.succeed({ orderId: order.orderId || '', orderNo: order.orderNo || '' }, tip + '\u6d41\u6c34\u53f7 ' + (order.orderNo || order.orderId || ''))
     await refreshOrders()
   } catch (error) {
     if (currentSeq !== loadSeq) return
-    errorMessage.value = error instanceof ApiError ? error.message : '暂存失败，请稍后重试'
+    const message = error instanceof ApiError ? error.message : '\u6682\u5b58\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5'
+    errorMessage.value = message
+    submitFeedback.fail(message, error?.code || '')
   } finally {
     saving.value = false
   }
@@ -338,26 +357,43 @@ async function onCommit() {
   if (busy.value || locked.value || !register.value || !canWrite.value) return
   clearBanner()
   if (!requireDoctor()) return
+  const body = draftBody()
+  const saveFingerprint = JSON.stringify({ action: 'commit-save', body })
+  if (!commitSaveAttempt || commitSaveAttempt.fingerprint !== saveFingerprint) {
+    commitSaveAttempt = { fingerprint: saveFingerprint, key: crypto.randomUUID() }
+  }
   committing.value = true
+  submitFeedback.beginAttempt('commit')
   const currentSeq = loadSeq
   try {
-    const saved = await saveOrder(session.accessToken, draftBody(), mockMode ? undefined : remoteCatalog.value)
+    const saveKey = orderId.value ? undefined : commitSaveAttempt.key
+    const saved = await saveOrder(session.accessToken, body, mockMode ? undefined : remoteCatalog.value, saveKey)
     if (currentSeq === loadSeq) applyOrder(saved)
-    const committed = await commitOrder(session.accessToken, saved.orderId)
+    const commitFingerprint = JSON.stringify({ action: 'commit', orderId: saved.orderId })
+    if (!commitAttempt || commitAttempt.fingerprint !== commitFingerprint) {
+      commitAttempt = { fingerprint: commitFingerprint, key: crypto.randomUUID() }
+    }
+    const committed = await commitOrder(session.accessToken, saved.orderId, commitAttempt.key)
     if (currentSeq !== loadSeq) return
     applyOrder(committed)
-    recordAction('处方已提交', committed.orderNo || committed.orderId || '')
-    infoMessage.value = form.diagnoseName.trim()
-      ? '已提交，可供收费。未收费前可以作废。'
-      : '已提交，可供收费。诊断未填，不影响提交。未收费前可以作废。'
+    recordAction('\u5904\u65b9\u5df2\u63d0\u4ea4', committed.orderNo || committed.orderId || '')
+    commitSaveAttempt = null
+    commitAttempt = null
+    infoMessage.value = ''
+    const tip = form.diagnoseName.trim()
+      ? '\u5df2\u63d0\u4ea4\uff0c\u53ef\u4f9b\u6536\u8d39\u3002\u672a\u6536\u8d39\u524d\u53ef\u4ee5\u4f5c\u5e9f\u3002'
+      : '\u5df2\u63d0\u4ea4\uff0c\u53ef\u4f9b\u6536\u8d39\u3002\u8bca\u65ad\u672a\u586b\uff0c\u4e0d\u5f71\u54cd\u63d0\u4ea4\u3002\u672a\u6536\u8d39\u524d\u53ef\u4ee5\u4f5c\u5e9f\u3002'
+    submitFeedback.succeed({ orderId: committed.orderId || '', orderNo: committed.orderNo || '' }, tip + '\u6d41\u6c34\u53f7 ' + (committed.orderNo || committed.orderId || ''))
     await refreshOrders()
   } catch (error) {
     if (currentSeq !== loadSeq) return
-    errorMessage.value = error instanceof ApiError ? error.message : '提交失败，请稍后重试'
+    const message = error instanceof ApiError ? error.message : '\u63d0\u4ea4\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5'
+    errorMessage.value = message
+    submitFeedback.fail(message, error?.code || '')
     try {
       await refreshOrders()
     } catch {
-      // 列表刷新失败时仍保留表单上的错误。
+      // keep form error when list refresh fails
     }
   } finally {
     committing.value = false
@@ -366,19 +402,28 @@ async function onCommit() {
 
 async function onAbate() {
   if (busy.value || !canAbate.value) return
-  abating.value = true
-  const currentSeq = loadSeq
   errorMessage.value = ''
+  infoMessage.value = ''
+  submitFeedback.reset()
+  const fingerprint = JSON.stringify({ action: 'abate', orderId: orderId.value })
+  if (!abateAttempt || abateAttempt.fingerprint !== fingerprint) abateAttempt = { fingerprint, key: crypto.randomUUID() }
+  abating.value = true
+  submitFeedback.beginAttempt('abate')
+  const currentSeq = loadSeq
   try {
-    const order = await abateOrder(session.accessToken, orderId.value)
+    const order = await abateOrder(session.accessToken, orderId.value, abateAttempt.key)
     if (currentSeq !== loadSeq) return
     applyOrder(order)
-    recordAction('处方已作废', order.orderNo || order.orderId || '')
-    infoMessage.value = '已作废。如需继续，请新开一张。'
+    recordAction('\u5904\u65b9\u5df2\u4f5c\u5e9f', order.orderNo || order.orderId || '')
+    abateAttempt = null
+    infoMessage.value = ''
+    submitFeedback.succeed({ orderId: order.orderId || '', orderNo: order.orderNo || '' }, '\u5df2\u4f5c\u5e9f\u3002\u5982\u9700\u7ee7\u7eed\uff0c\u8bf7\u65b0\u5f00\u4e00\u5f20\u3002\u6d41\u6c34\u53f7 ' + (order.orderNo || order.orderId || ''))
     await refreshOrders()
   } catch (error) {
     if (currentSeq !== loadSeq) return
-    errorMessage.value = error instanceof ApiError ? error.message : '作废失败，请稍后重试'
+    const message = error instanceof ApiError ? error.message : '\u4f5c\u5e9f\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5'
+    errorMessage.value = message
+    submitFeedback.fail(message, error?.code || '')
   } finally {
     abating.value = false
     confirmAbate.value = false
@@ -477,6 +522,15 @@ onMounted(loadMaster)
 watch(() => queryRegisterId(), (id) => {
   loadRegister(id)
 }, { immediate: true })
+
+useErrorDialog([
+  () => errorMessage.value,
+  () => masterError.value,
+  () => registersError.value,
+  () => registerError.value,
+  () => ordersError.value,
+  () => invalidMessage.value,
+])
 </script>
 
 <template>
@@ -499,8 +553,21 @@ watch(() => queryRegisterId(), (id) => {
 
     <div v-else-if="!register && registersError" class="banner clinical-read-error" role="alert"><p>{{ registersError }}。暂时无法核对已有挂号。</p><button class="button button-ghost button-compact" type="button" @click="loadRegisters">重试当日挂号</button></div>
 
-    <BusinessEmptyState v-else-if="!register" class="order-empty clinical-order-empty" data-testid="order-empty" title="请先挂号" description="没有有效挂号时不能开单。先为患者挂号，或选择下方已有挂号，进入处方工作区。" icon="order" eyebrow="为本次就诊开立处方">
-      <RouterLink class="button button-compact empty-back" :to="registerTo">去挂号</RouterLink>
+    <BusinessEmptyState
+      v-else-if="!register"
+      variant="revisit"
+      module-label="开单"
+      queue-label="待开单就诊"
+      title="选择一条挂号开始开单"
+      description="先选择有效挂号，患者资料、诊断和处方明细会在右侧连续展开。"
+      empty-label="暂无可开单挂号"
+      empty-description="有效挂号会进入队列；也可以直接去挂号创建一次就诊。"
+      primary-text="去挂号"
+      :primary-to="registerTo"
+      secondary-text="患者查询"
+      :secondary-to="{ name: 'patient-search' }"
+      test-id="order-queue-workspace"
+    >
       <template #detail>
       <p v-if="invalidMessage" class="banner order-empty-banner" role="alert">{{ invalidMessage }}</p>
       <p v-if="loadingRegisters" class="result-empty" role="status">正在读取当日挂号…</p>
@@ -660,8 +727,9 @@ watch(() => queryRegisterId(), (id) => {
         <ul v-if="warnings.length" class="stock-list" data-testid="stock-tip">
           <li v-for="text in warnings" :key="text">{{ text }}</li>
         </ul>
-        <p v-if="errorMessage" class="banner" role="alert" data-testid="order-error">{{ errorMessage }}</p>
-        <p v-if="infoMessage" class="ok-banner" role="status" data-testid="order-committed">{{ infoMessage }}</p>
+        <p v-if="errorMessage && submitFeedback.state.status !== 'error'" class="banner" role="alert" data-testid="order-error">{{ errorMessage }}</p>
+        <p v-if="infoMessage && submitFeedback.state.status !== 'success' && submitFeedback.state.status !== 'error'" class="ok-banner" role="status" data-testid="order-committed">{{ infoMessage }}</p>
+        <SubmitStatusBanner :feedback="submitFeedback.state" />
 
         <div class="clinical-order-actionbar">
           <p class="order-total" data-testid="order-total"><span>处方合计</span><span><strong>{{ money(totalFee) }}</strong> 元</span><span class="charge-chip" :data-charge="chargeText">{{ chargeText }}</span></p>

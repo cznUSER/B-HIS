@@ -28,6 +28,15 @@ import {
 
 const JSON_ACCEPT = 'application/json'
 
+
+function requireIdempotencyKey(idempotencyKey) {
+  if (typeof idempotencyKey !== 'string' || !idempotencyKey.trim()) {
+    throw apiError(400, 'VALIDATION_ERROR', 'Idempotency-Key is required')
+  }
+  return idempotencyKey.trim()
+}
+
+
 export const ORDER_ROUTES = {
   collection: '/orders',
   item: (orderId) => `/orders/${orderId}`,
@@ -196,12 +205,13 @@ export async function listOrders(accessToken, input) {
   return assertOrderList(await parseJson(response))
 }
 
-export async function saveOrder(accessToken, input, catalogRows) {
+export async function saveOrder(accessToken, input, catalogRows, idempotencyKey = crypto.randomUUID()) {
   const orderId = input && typeof input.orderId === 'string' ? input.orderId.trim() : ''
   if (useMock()) {
     await delay(180)
     if (orderId) return mockPatchOrder(accessToken, orderId, input)
-    return mockCreateOrder(accessToken, input, crypto.randomUUID())
+    const key = requireIdempotencyKey(idempotencyKey)
+    return mockCreateOrder(accessToken, input, key)
   }
   // 2026-10-14 P1-H05-WEB-USABILITY: never normalize real orders with fixture prices.
   // The view passes its completed live read; other callers read the same endpoint.
@@ -219,12 +229,13 @@ export async function saveOrder(accessToken, input, catalogRows) {
     if (!response.ok) throw presentOrderError(await readErrorResponse(response, accessToken))
     return assertOrderDto(await parseJson(response))
   }
+  const key = requireIdempotencyKey(idempotencyKey)
   const response = await callJson(ORDER_ROUTES.collection, {
     method: 'POST',
     headers: {
       Accept: JSON_ACCEPT,
       'Content-Type': 'application/json; charset=utf-8',
-      'Idempotency-Key': crypto.randomUUID(),
+      'Idempotency-Key': key,
       ...bearer(accessToken),
     },
     body: JSON.stringify(assertCreateOrderRequestWithCatalog(input, liveCatalog)),
@@ -233,12 +244,13 @@ export async function saveOrder(accessToken, input, catalogRows) {
   return assertOrderDto(await parseJson(response))
 }
 
-async function postOrderAction(accessToken, path) {
+async function postOrderAction(accessToken, path, idempotencyKey = crypto.randomUUID()) {
+  const key = requireIdempotencyKey(idempotencyKey)
   const response = await callJson(path, {
     method: 'POST',
     headers: {
       Accept: JSON_ACCEPT,
-      'Idempotency-Key': crypto.randomUUID(),
+      'Idempotency-Key': key,
       ...bearer(accessToken),
     },
   }, '无法连接开单服务')
@@ -246,22 +258,23 @@ async function postOrderAction(accessToken, path) {
   return assertOrderDto(await parseJson(response))
 }
 
-export async function commitOrder(accessToken, orderId) {
+export async function commitOrder(accessToken, orderId, idempotencyKey = crypto.randomUUID()) {
   const id = typeof orderId === 'string' ? orderId.trim() : ''
   if (!id) throw apiError(404, 'NOT_FOUND', '未找到处方')
   if (useMock()) {
     await delay(140)
-    return mockCommitOrder(accessToken, id)
+    return mockCommitOrder(accessToken, id, requireIdempotencyKey(idempotencyKey))
   }
-  return postOrderAction(accessToken, ORDER_ROUTES.commit(id))
+  return postOrderAction(accessToken, ORDER_ROUTES.commit(id), idempotencyKey)
 }
 
-export async function abateOrder(accessToken, orderId) {
+export async function abateOrder(accessToken, orderId, idempotencyKey = crypto.randomUUID()) {
   const id = typeof orderId === 'string' ? orderId.trim() : ''
   if (!id) throw apiError(404, 'NOT_FOUND', '未找到处方')
   if (useMock()) {
     await delay(140)
-    return mockAbateOrder(accessToken, id)
+    return mockAbateOrder(accessToken, id, requireIdempotencyKey(idempotencyKey))
   }
-  return postOrderAction(accessToken, ORDER_ROUTES.abate(id))
+  return postOrderAction(accessToken, ORDER_ROUTES.abate(id), idempotencyKey)
 }
+

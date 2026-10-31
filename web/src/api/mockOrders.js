@@ -210,6 +210,21 @@ function materializeItems(items, doctorId) {
   }))
 }
 
+
+function recallIdempotent(state, key, fingerprint) {
+  if (!key || !state.idempotency[key]) return null
+  const prior = state.idempotency[key]
+  if (prior.fingerprint !== fingerprint) {
+    throw apiError(409, 'IDEMPOTENCY_KEY_CONFLICT', '重复提交的内容不一致', { requestId: requestId() })
+  }
+  return copyOrder(prior.order)
+}
+
+function storeIdempotent(state, key, fingerprint, order) {
+  if (!key) return
+  state.idempotency[key] = { fingerprint, order }
+}
+
 export function mockCreateOrder(accessToken, input, idempotencyKey) {
   const user = mockMe(accessToken)
   const request = assertCreateOrderRequest(input)
@@ -291,10 +306,14 @@ export function mockPatchOrder(accessToken, orderId, input) {
   return copyOrder(order)
 }
 
-export function mockCommitOrder(accessToken, orderId) {
+export function mockCommitOrder(accessToken, orderId, idempotencyKey) {
   const user = mockMe(accessToken)
   const id = typeof orderId === 'string' ? orderId.trim() : ''
   const state = readState()
+  const key = typeof idempotencyKey === 'string' ? idempotencyKey.trim() : ''
+  const fingerprint = JSON.stringify({ kind: 'commit', orderId: id })
+  const recalled = recallIdempotent(state, key, fingerprint)
+  if (recalled) return recalled
   const current = state.orders.find((item) => item.orderId === id)
   if (!current) throw apiError(404, 'NOT_FOUND', '未找到处方', { requestId: requestId() })
   if (current.status !== 'SAVE' || current.charged) {
@@ -321,14 +340,19 @@ export function mockCommitOrder(accessToken, orderId) {
   }
   const index = state.orders.findIndex((item) => item.orderId === id)
   state.orders.splice(index, 1, order)
+  storeIdempotent(state, key, fingerprint, order)
   writeState(state)
   return copyOrder(order)
 }
 
-export function mockAbateOrder(accessToken, orderId) {
+export function mockAbateOrder(accessToken, orderId, idempotencyKey) {
   const user = mockMe(accessToken)
   const id = typeof orderId === 'string' ? orderId.trim() : ''
   const state = readState()
+  const key = typeof idempotencyKey === 'string' ? idempotencyKey.trim() : ''
+  const fingerprint = JSON.stringify({ kind: 'abate', orderId: id })
+  const recalled = recallIdempotent(state, key, fingerprint)
+  if (recalled) return recalled
   const current = state.orders.find((item) => item.orderId === id)
   if (!current) throw apiError(404, 'NOT_FOUND', '未找到处方', { requestId: requestId() })
   if (current.charged) {
@@ -349,6 +373,7 @@ export function mockAbateOrder(accessToken, orderId) {
   }
   const index = state.orders.findIndex((item) => item.orderId === id)
   state.orders.splice(index, 1, order)
+  storeIdempotent(state, key, fingerprint, order)
   writeState(state)
   return copyOrder(order)
 }
