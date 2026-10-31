@@ -3,6 +3,7 @@ import { useErrorDialog } from '../components/feedback/useErrorDialog.js'
 import { createSubmitFeedback } from '../components/feedback/useSubmitFeedback.js'
 import SubmitStatusBanner from '../components/feedback/SubmitStatusBanner.vue'
 import OrderPrintPanel from '../components/outpatient/OrderPrintPanel.vue'
+import OrderItemFinder from '../components/outpatient/OrderItemFinder.vue'
 import {
   buildPreviewModel,
   canPreviewOrderStatus,
@@ -109,6 +110,7 @@ const orderDoctors = computed(() => {
 })
 const drugOptions = computed(() => listedCatalog('DRUG'))
 const treatOptions = computed(() => listedCatalog('TREAT'))
+const findItems = computed(() => [...drugOptions.value, ...treatOptions.value])
 
 function listedCatalog(itemType) {
   return (mockMode ? openCatalog() : remoteCatalog.value.filter((item) => item.status === 'ACTIVE')).filter((item) => item.itemType === itemType)
@@ -759,16 +761,13 @@ useErrorDialog([
                   <tr>
                     <td>{{ index + 1 }}</td>
                     <td class="col-item">
-                      <select v-model="line.itemNo" :data-testid="`line-item-${index}`" :aria-label="`第 ${index + 1} 行项目`">
-                        <option value="">请选择</option>
-                        <option v-if="!mockMode && line.sourceItem?.itemNo === line.itemNo" :value="line.itemNo">{{ line.sourceItem.itemName }}</option>
-                        <optgroup label="药品">
-                          <option v-for="item in drugOptions.filter((item) => mockMode || item.itemNo !== line.sourceItem?.itemNo || line.sourceItem?.itemNo !== line.itemNo)" :key="item.itemNo" :value="item.itemNo">{{ item.itemName }}</option>
-                        </optgroup>
-                        <optgroup label="治疗">
-                          <option v-for="item in treatOptions.filter((item) => mockMode || item.itemNo !== line.sourceItem?.itemNo || line.sourceItem?.itemNo !== line.itemNo)" :key="item.itemNo" :value="item.itemNo">{{ item.itemName }}</option>
-                        </optgroup>
-                      </select>
+                      <OrderItemFinder
+                        v-model="line.itemNo"
+                        :items="findItems"
+                        :index="index"
+                        :disabled="locked || busy || !canWrite"
+                        :source-item="!mockMode ? line.sourceItem : null"
+                      />
                     </td>
                     <td>{{ catalogOf(line.itemNo, line)?.spec || '—' }}</td>
                     <td class="col-narrow">
