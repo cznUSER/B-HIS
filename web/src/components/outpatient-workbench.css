@@ -7,6 +7,20 @@
 .outpatient-context-id, .outpatient-context-meta, .outpatient-context-visit { color:#6f8791; font-size:11px; }
 .outpatient-context-id { padding:3px 7px; border-radius:4px; color:#4f7782; background:#eef7f8; font-variant-numeric:tabular-nums; }
 .outpatient-context-visit { padding-left:10px; border-left:1px solid #dcebee; }
+.outpatient-context-risk { flex-basis:100%; min-width:0; color:#647580; font-size:12px; overflow-wrap:anywhere; }
+.outpatient-context-risk[data-risk="high"] { color:#973c12; padding:7px 9px; border:1px solid #e8b487; border-radius:6px; background:#fff7ed; }
+.outpatient-context-risk summary { cursor:pointer; font-weight:700; }
+.outpatient-context-risk span { display:block; margin-top:6px; white-space:pre-wrap; }
+.outpatient-context-notice { margin:0; padding:10px 12px; border:1px solid #cfdee7; border-radius:6px; color:#3d5665; background:#f4f8fa; font-size:13px; overflow-wrap:anywhere; }
+.outpatient-context-error { color:#8b352d; border-color:#e6b9b3; background:#fff6f4; }
+.outpatient-context-dialog { width:min(520px, calc(100vw - 32px)); max-height:calc(100dvh - 32px); box-sizing:border-box; padding:22px; border:1px solid #bed5de; border-radius:10px; color:#173747; box-shadow:0 18px 60px #17374740; }
+.outpatient-context-dialog::backdrop { background:#102e4666; }
+.outpatient-context-dialog h2 { margin:0 0 12px; font-size:19px; }
+.outpatient-context-dialog p { margin:0; line-height:1.8; white-space:pre-line; overflow-wrap:anywhere; }
+.outpatient-context-dialog-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:20px; flex-wrap:wrap; }
+.outpatient-context-dialog-actions button { min-height:40px; padding:8px 16px; border:1px solid #adc9d2; border-radius:6px; background:#fff; color:#234f5d; cursor:pointer; }
+.outpatient-context-dialog-actions button:last-child { background:#0d6f83; color:#fff; }
+.outpatient-context-dialog-actions button:focus-visible { outline:3px solid #146fbe; outline-offset:3px; }
 .outpatient-context-actions { flex:0 0 auto; justify-content:flex-end; }
 .outpatient-context-state { display:inline-flex; align-items:center; min-height:25px; padding:0 9px; border:1px solid #c8e4e9; border-radius:6px; color:#176f82; background:#eaf7f9; font-size:10px; font-weight:700; white-space:nowrap; }
 .outpatient-context-state[data-tone="warning"] { border-color:#ead9b2; color:#8a6a2c; background:#fff8e9; }
@@ -29,7 +43,6 @@
 .outpatient-frame[data-module="register"] .outpatient-main-grid { grid-template-columns:minmax(0,1fr); }
 .outpatient-frame[data-module="register"] .outpatient-right-rail { display:none; }
 .outpatient-frame[data-module="register"] { gap:12px; }
-.outpatient-frame[data-module="register"] .outpatient-context-bar,
 .outpatient-frame[data-module="register"] .outpatient-status-chain,
 .outpatient-frame[data-module="register"] .workflow-steps { display:none; }
 .shell:has(.outpatient-frame[data-module="register"]) { overflow:hidden; }
