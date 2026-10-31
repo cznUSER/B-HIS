@@ -3,8 +3,17 @@ import { useErrorDialog } from '../components/feedback/useErrorDialog.js'
 import { createSubmitFeedback } from '../components/feedback/useSubmitFeedback.js'
 import SubmitStatusBanner from '../components/feedback/SubmitStatusBanner.vue'
 // 2026-10-15 P2-DIAGNOSIS-UI 诊断工作区：挂号选择、内容保存、提交和作废。
-import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
+import {
+  DIRTY_HINT,
+  LEAVE_CONFIRM_MESSAGE,
+  REGISTER_SWITCH_CONFIRM_MESSAGE,
+  NEW_DRAFT_CONFIRM_MESSAGE,
+  snapshotOf,
+  isDirty as snapshotIsDirty,
+  resumeSaveHint,
+} from '../workbench/diagnosisDirtyGuard.js'
 import { ApiError } from '../api/errors.js'
 import { useMock } from '../api/config.js'
 import { amendDiagnose, commitDiagnose, abateDiagnose, listDiagnoses, saveDiagnose } from '../api/diagnosisApi.js'
@@ -58,6 +67,11 @@ const submitFeedback = createSubmitFeedback()
 let saveAttempt = null
 let commitAttempt = null
 let abateAttempt = null
+const baselineSnapshot = ref(snapshotOf({}))
+const lastLocalSaveAt = ref(null)
+const lastLocalSaveDiagnoseId = ref('')
+let loadedRegisterId = ''
+let bypassDirtyGuard = false
 
 const hasAccess = computed(() => canEnter(findModule('diagnosis'), session.user))
 const selectedRegister = computed(() => registers.value.find((item) => item.registerId === selectedRegisterId.value) || null)
@@ -67,6 +81,18 @@ const canAmend = computed(() => Boolean(diagnoseId.value) && diagnoseStatus.valu
 const canCommit = computed(() => Boolean(diagnoseId.value) && diagnoseCanCommit(diagnoseStatus.value) && !busy.value)
 const canAbate = computed(() => Boolean(diagnoseId.value) && diagnoseCanAbate(diagnoseStatus.value) && !busy.value)
 const editorLocked = computed(() => Boolean(diagnoseId.value) && !['NEW', 'SAVE'].includes(diagnoseStatus.value))
+const currentEditorSnapshot = computed(() => snapshotOf({
+  structured,
+  templateCode: templateCode.value,
+  revisionReason: revisionReason.value,
+  amendSourceId: amendSourceId.value,
+}))
+const dirty = computed(() => snapshotIsDirty(baselineSnapshot.value, currentEditorSnapshot.value, { editorLocked: editorLocked.value }))
+const saveResumeHint = computed(() => resumeSaveHint({
+  lastLocalSaveAt: lastLocalSaveAt.value,
+  diagnoseStatus: diagnoseStatus.value,
+  diagnoseId: diagnoseId.value,
+}))
 const serializedContent = computed(() => serializeStructured(structured))
 const completion = computed(() => Object.values(structured).filter((value) => value.trim()).length)
 const contentTooLong = computed(() => serializedContent.value.length > 2000)
@@ -134,6 +160,20 @@ function clearNotice() {
   infoMessage.value = ''
 }
 
+function captureBaseline() {
+  baselineSnapshot.value = snapshotOf({
+    structured,
+    templateCode: templateCode.value,
+    revisionReason: revisionReason.value,
+    amendSourceId: amendSourceId.value,
+  })
+}
+
+function confirmLeaveIfDirty(message = LEAVE_CONFIRM_MESSAGE) {
+  if (bypassDirtyGuard || !dirty.value) return true
+  return window.confirm(message)
+}
+
 function applyDiagnosis(row) {
   if (!row) {
     diagnoseId.value = ''
@@ -146,6 +186,7 @@ function applyDiagnosis(row) {
     amendSourceId.value = ''
     revisionReason.value = ''
     parseStructured('')
+    captureBaseline()
     return
   }
   diagnoseId.value = row.diagnoseId
@@ -160,15 +201,24 @@ function applyDiagnosis(row) {
   if (row.structured && Object.values(row.structured).some((value) => String(value || '').trim())) Object.assign(structured, row.structured)
   else parseStructured(row.content || '')
   setDiagnosis(row, diagnoses.value)
+  captureBaseline()
 }
 
-function resetDraft() {
+function resetDraft({ force = false } = {}) {
+  if (!force && !confirmLeaveIfDirty(NEW_DRAFT_CONFIRM_MESSAGE)) return false
   clearNotice()
   saveAttempt = null
   commitAttempt = null
   abateAttempt = null
   submitFeedback.reset()
+  lastLocalSaveAt.value = null
+  lastLocalSaveDiagnoseId.value = ''
   applyDiagnosis(null)
+  return true
+}
+
+function requestNewDraft() {
+  resetDraft()
 }
 
 function beginAmend() {
@@ -200,7 +250,7 @@ async function loadRegisters() {
       selectedRegisterId.value = preferred.registerId
       await router.replace({ name: 'outpatient-module', params: { module: 'diagnosis' }, query: { registerId: preferred.registerId } })
     }
-    if (!preferred) resetDraft()
+    if (!preferred) resetDraft({ force: true })
   } catch (error) {
     registersError.value = error instanceof ApiError ? error.message : '暂时无法读取当日挂号'
   } finally {
@@ -213,7 +263,10 @@ async function loadDiagnoses(registerId) {
   const seq = ++loadSeq
   diagnoses.value = []
   diagnosesError.value = ''
-  resetDraft()
+  bypassDirtyGuard = true
+  resetDraft({ force: true })
+  bypassDirtyGuard = false
+  loadedRegisterId = id
   if (!id) return
   loadingDiagnoses.value = true
   try {
@@ -232,15 +285,27 @@ async function loadDiagnoses(registerId) {
 }
 
 async function chooseRegister() {
-  clearNotice()
   const id = selectedRegisterId.value
+  if (id === loadedRegisterId) return
+  if (!confirmLeaveIfDirty(REGISTER_SWITCH_CONFIRM_MESSAGE)) {
+    selectedRegisterId.value = loadedRegisterId
+    return
+  }
+  clearNotice()
+  bypassDirtyGuard = true
   await router.replace({ name: 'outpatient-module', params: { module: 'diagnosis' }, query: id ? { registerId: id } : {} })
   await loadDiagnoses(id)
+  bypassDirtyGuard = false
 }
 
 function chooseDiagnosis(row) {
+  if (row?.diagnoseId && row.diagnoseId === diagnoseId.value) return
+  if (!confirmLeaveIfDirty(LEAVE_CONFIRM_MESSAGE)) return
   clearNotice()
   applyDiagnosis(row)
+  if (row?.status === 'SAVE' && row.diagnoseId !== lastLocalSaveDiagnoseId.value) {
+    lastLocalSaveAt.value = null
+  }
 }
 
 async function onSave() {
@@ -281,6 +346,9 @@ async function onSave() {
     applyDiagnosis(saved)
     diagnoses.value = [...diagnoses.value.filter((row) => row.diagnoseId !== saved.diagnoseId), saved]
     setDiagnosis(saved, diagnoses.value)
+    lastLocalSaveAt.value = new Date()
+    lastLocalSaveDiagnoseId.value = saved.diagnoseId || ''
+    captureBaseline()
     recordAction('诊断已暂存', saved.diagnoseId || '')
     saveAttempt = null
     const msg = (isAmend ? '病历修订已暂存' : '诊断已暂存') + '，诊断号 ' + (saved.diagnoseId || '')
@@ -347,10 +415,50 @@ async function onAbate() {
 
 watch(() => queryText(route.query.registerId), (id) => {
   if (id && id !== selectedRegisterId.value) selectedRegisterId.value = id
+  if (bypassDirtyGuard) {
+    if (id) void loadDiagnoses(id)
+    else {
+      bypassDirtyGuard = true
+      resetDraft({ force: true })
+      bypassDirtyGuard = false
+      loadedRegisterId = ''
+    }
+    return
+  }
+  if (id === loadedRegisterId) return
+  if (dirty.value && !confirmLeaveIfDirty(REGISTER_SWITCH_CONFIRM_MESSAGE)) {
+    selectedRegisterId.value = loadedRegisterId
+    void router.replace({
+      name: 'outpatient-module',
+      params: { module: 'diagnosis' },
+      query: loadedRegisterId ? { registerId: loadedRegisterId } : {},
+    })
+    return
+  }
   if (id) void loadDiagnoses(id)
+  else {
+    bypassDirtyGuard = true
+    resetDraft({ force: true })
+    bypassDirtyGuard = false
+    loadedRegisterId = ''
+  }
 }, { immediate: true })
 
-onMounted(loadRegisters)
+function beforeUnloadGuard(event) {
+  if (!dirty.value) return
+  event.preventDefault()
+  event.returnValue = ''
+}
+
+onMounted(() => {
+  window.addEventListener('beforeunload', beforeUnloadGuard)
+  void loadRegisters()
+})
+onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnloadGuard))
+onBeforeRouteLeave(() => {
+  if (!dirty.value || window.confirm(LEAVE_CONFIRM_MESSAGE)) return true
+  return false
+})
 
 useErrorDialog([
   () => errorMessage.value,
@@ -386,13 +494,15 @@ useErrorDialog([
       <section class="diagnosis-selector" aria-label="挂号选择">
         <label class="diagnosis-register-field"><span>当前挂号</span><select v-model="selectedRegisterId" :disabled="loadingRegisters || busy" @change="chooseRegister"><option value="">请选择挂号</option><option v-for="row in registers" :key="row.registerId" :value="row.registerId">{{ registerName(row) }} · {{ row.registerNo || row.registerId.slice(0, 8) }}</option></select></label>
         <p v-if="selectedRegister" class="diagnosis-register-meta">{{ registerMeta(selectedRegister) }}</p>
-        <button class="button button-ghost button-compact" type="button" :disabled="busy || !selectedRegister" @click="resetDraft">新建诊断</button>
+        <button class="button button-ghost button-compact" type="button" :disabled="busy || !selectedRegister" @click="requestNewDraft">新建诊断</button>
       </section>
 
       <p v-if="registersError" class="diagnosis-alert diagnosis-alert-error" role="alert">{{ registersError }}</p>
       <p v-if="diagnosesError" class="diagnosis-alert diagnosis-alert-error" role="alert">{{ diagnosesError }}</p>
       <p v-if="errorMessage && submitFeedback.state.status !== 'error'" class="diagnosis-alert diagnosis-alert-error" role="alert">{{ errorMessage }}</p>
       <p v-if="infoMessage && submitFeedback.state.status !== 'success' && submitFeedback.state.status !== 'error'" class="diagnosis-alert diagnosis-alert-success" role="status">{{ infoMessage }}</p>
+      <p v-if="dirty" class="diagnosis-alert diagnosis-alert-dirty" role="status" data-testid="diagnosis-dirty-hint">{{ DIRTY_HINT }}</p>
+      <p v-else-if="saveResumeHint" class="diagnosis-alert diagnosis-alert-resume" role="status" data-testid="diagnosis-save-hint">{{ saveResumeHint }}</p>
       <SubmitStatusBanner :feedback="submitFeedback.state" />
 
       <div class="diagnosis-workspace">
@@ -430,6 +540,8 @@ useErrorDialog([
 .diagnosis-alert { padding: 11px 14px; border-radius: 10px; font-size: 12px; }
 .diagnosis-alert-error { color: #a94e4e; background: #fff3f2; border: 1px solid #f0d6d4; }
 .diagnosis-alert-success { color: #357c61; background: #edf8f0; border: 1px solid #d1e8d8; }
+.diagnosis-alert-dirty { color: #8a6d3b; background: #fff8e8; border: 1px solid #f0e0b8; }
+.diagnosis-alert-resume { color: #3f6f5c; background: #f2f8f4; border: 1px solid #d5e7dc; }
 .diagnosis-workspace { display: grid; grid-template-columns: minmax(240px, 320px) minmax(0, 1fr); gap: 16px; }
 .diagnosis-history, .diagnosis-editor { min-width: 0; padding: 20px; border: 1px solid #dfebe2; border-radius: 14px; background: #fff; }
 .diagnosis-section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 16px; }
