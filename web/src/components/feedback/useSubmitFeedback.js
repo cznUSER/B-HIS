@@ -2,6 +2,7 @@ import { reactive, readonly } from 'vue'
 
 const DIAGNOSIS_ACTIONS = new Set(['save', 'amend', 'commit', 'abate'])
 const ORDER_ACTIONS = new Set(['save', 'commit', 'abate'])
+const CHARGE_ACTIONS = new Set(['pay', 'refund'])
 
 export function createSubmitFeedback() {
   const state = reactive({
@@ -14,6 +15,8 @@ export function createSubmitFeedback() {
     diagnoseId: '',
     orderId: '',
     orderNo: '',
+    chargeId: '',
+    squareNo: '',
   })
 
   function beginAttempt(action) {
@@ -27,6 +30,8 @@ export function createSubmitFeedback() {
       diagnoseId: '',
       orderId: '',
       orderNo: '',
+      chargeId: '',
+      squareNo: '',
     })
   }
 
@@ -36,6 +41,8 @@ export function createSubmitFeedback() {
     const diagnoseId = typeof result?.diagnoseId === 'string' ? result.diagnoseId : ''
     const orderId = typeof result?.orderId === 'string' ? result.orderId : ''
     const orderNo = typeof result?.orderNo === 'string' ? result.orderNo : ''
+    const chargeId = typeof result?.chargeId === 'string' ? result.chargeId : ''
+    const squareNo = typeof result?.squareNo === 'string' ? result.squareNo : ''
     let defaultMessage = '操作成功'
     if (DIAGNOSIS_ACTIONS.has(state.action) && diagnoseId) {
       const statusHint = {
@@ -45,7 +52,7 @@ export function createSubmitFeedback() {
         abate: '已作废',
       }[state.action] || '操作成功'
       defaultMessage = `诊断${statusHint}，诊断号 ${diagnoseId}`
-    } else if ((ORDER_ACTIONS.has(state.action) || orderNo || orderId) && (orderNo || orderId)) {
+    } else if ((ORDER_ACTIONS.has(state.action) || orderNo || orderId) && (orderNo || orderId) && !CHARGE_ACTIONS.has(state.action) && !chargeId && !squareNo) {
       const statusHint = {
         save: '已暂存',
         commit: '已提交',
@@ -53,6 +60,13 @@ export function createSubmitFeedback() {
       }[state.action] || '操作成功'
       const identifier = orderNo || orderId
       defaultMessage = `处方${statusHint}，流水号 ${identifier}`
+    } else if (CHARGE_ACTIONS.has(state.action) || chargeId || squareNo) {
+      const identifier = squareNo || chargeId
+      if (state.action === 'refund') {
+        defaultMessage = identifier ? `已退费。收费单号 ${identifier}` : '已退费'
+      } else {
+        defaultMessage = identifier ? `收费成功，可去发药。收费单号 ${identifier}` : '收费成功，可去发药。'
+      }
     } else {
       const identifier = registerNo || registerId
       if (identifier) {
@@ -68,6 +82,8 @@ export function createSubmitFeedback() {
       diagnoseId,
       orderId,
       orderNo,
+      chargeId,
+      squareNo,
     })
   }
 
@@ -81,6 +97,8 @@ export function createSubmitFeedback() {
       diagnoseId: '',
       orderId: '',
       orderNo: '',
+      chargeId: '',
+      squareNo: '',
     })
   }
 
@@ -95,6 +113,8 @@ export function createSubmitFeedback() {
       diagnoseId: '',
       orderId: '',
       orderNo: '',
+      chargeId: '',
+      squareNo: '',
     })
   }
 

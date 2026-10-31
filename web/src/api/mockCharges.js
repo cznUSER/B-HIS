@@ -197,7 +197,7 @@ function seed() {
     status: 'SUCCEEDED',
     succeededAt: charge.operateAt,
   }))
-  return { seq: 7, subjects, charges, payments }
+  return { seq: 7, subjects, charges, payments, idempotency: {} }
 }
 
 function buildCharge(subject, operateAt, squareNo, chargeId, itemSuffixes) {
@@ -290,6 +290,7 @@ function readState() {
     }
     const parsed = JSON.parse(raw)
     if (!parsed || !Array.isArray(parsed.subjects) || !Array.isArray(parsed.charges)) return seed()
+    if (!parsed.idempotency || typeof parsed.idempotency !== 'object') parsed.idempotency = {}
     return parsed
   } catch {
     return seed()
@@ -505,8 +506,27 @@ function nextSquareNo(state) {
   return `SF${day}${String(seq).padStart(3, '0')}`
 }
 
+function chargeIdempotencyFingerprint(kind, payload) {
+  return JSON.stringify({ kind, ...payload })
+}
+
+function lookupChargeIdempotency(state, key) {
+  if (!key || !state.idempotency || !state.idempotency[key]) return null
+  return state.idempotency[key]
+}
+
+function rememberChargeIdempotency(state, key, fingerprint, result) {
+  if (!key) return
+  if (!state.idempotency) state.idempotency = {}
+  const prior = state.idempotency[key]
+  if (prior && prior.fingerprint !== fingerprint) {
+    throw apiError(409, 'IDEMPOTENCY_KEY_CONFLICT', '重复提交的内容不一致')
+  }
+  state.idempotency[key] = { fingerprint, result }
+}
 export function mockPay(accessToken, input) {
   requireSession(accessToken)
+  const payIdemKey = typeof input?.idempotencyKey === 'string' ? input.idempotencyKey.trim() : ''
   const orderId = input && input.orderId
   const payType = input && input.payType
   const amountCents = input && input.amountCents
@@ -514,6 +534,16 @@ export function mockPay(accessToken, input) {
     throw apiError(400, 'VALIDATION_ERROR', '电子支付为预留，不能收款')
   }
   const state = synchronizedState(accessToken)
+  if (!state.idempotency) state.idempotency = {}
+  const payFingerprint = chargeIdempotencyFingerprint('pay', { orderId, payType, amountCents })
+  // Early idempotent replay for pay (before ALREADY_CHARGED)
+  if (payIdemKey) {
+    const prior = lookupChargeIdempotency(state, payIdemKey)
+    if (prior) {
+      if (prior.fingerprint !== payFingerprint) throw apiError(409, 'IDEMPOTENCY_KEY_CONFLICT', '重复提交的内容不一致')
+      return prior.result
+    }
+  }
   const subject = state.subjects.find((item) => item.order && item.order.orderId === orderId)
   if (!subject) throw apiError(404, 'NOT_FOUND', '未找到待收处方')
   const scene = sceneOf(subject)
@@ -587,8 +617,10 @@ export function mockPay(accessToken, input) {
   if (subject.storedOrder) mockMarkOrderCharged(subject.order.orderId)
   state.charges.push(charge)
   state.payments.push(payment)
+  const payResult = { charge: presentCharge(charge), payment: presentPayment(payment) }
+  rememberChargeIdempotency(state, payIdemKey, payFingerprint, payResult)
   writeState(state)
-  return { charge: presentCharge(charge), payment: presentPayment(payment) }
+  return payResult
 }
 
 function presentPayment(payment) {
@@ -681,15 +713,25 @@ export function mockGetCharge(accessToken, chargeId) {
 
 export function mockRefund(accessToken, chargeId, input) {
   requireSession(accessToken)
+  const refundIdemKey = typeof input?.idempotencyKey === 'string' ? input.idempotencyKey.trim() : ''
   const state = readState()
-  const charge = state.charges.find((item) => item.chargeId === chargeId)
-  if (!charge) throw apiError(404, 'NOT_FOUND', '未找到收费单')
-  if (charge.status === 'ABATE') throw apiError(409, 'ALREADY_ABATED', '该收费单已作废，不能再退')
-  if (charge.status !== 'NORMAL') throw apiError(409, 'ALREADY_ABATED', '该收费单已作废，不能再退')
+  if (!state.idempotency) state.idempotency = {}
   const payType = input && input.payType
   if (payType !== PAY_CASH) throw apiError(400, 'VALIDATION_ERROR', '电子支付为预留，不能退款')
   const requested = Array.isArray(input && input.items) ? input.items : []
   if (requested.length === 0) throw apiError(400, 'INVALID_AMOUNT', '数量或金额不合法')
+  const refundFingerprint = chargeIdempotencyFingerprint('refund', { chargeId, reason: typeof input?.reason === 'string' ? input.reason : '', items: requested })
+  if (refundIdemKey) {
+    const prior = lookupChargeIdempotency(state, refundIdemKey)
+    if (prior) {
+      if (prior.fingerprint !== refundFingerprint) throw apiError(409, 'IDEMPOTENCY_KEY_CONFLICT', '重复提交的内容不一致')
+      return prior.result
+    }
+  }
+  const charge = state.charges.find((item) => item.chargeId === chargeId)
+  if (!charge) throw apiError(404, 'NOT_FOUND', '未找到收费单')
+  if (charge.status === 'ABATE') throw apiError(409, 'ALREADY_ABATED', '该收费单已作废，不能再退')
+  if (charge.status !== 'NORMAL') throw apiError(409, 'ALREADY_ABATED', '该收费单已作废，不能再退')
   const byId = new Map(charge.items.map((item) => [item.chargeItemId, item]))
   const plan = []
   const seen = new Set()
@@ -816,13 +858,15 @@ export function mockRefund(accessToken, chargeId, input) {
     reason,
   }
   state.payments.push(payment)
-  writeState(state)
-  return {
+  const refundResult = {
     abatedSquare: presentCharge(charge),
     newSquare: newSquare ? presentCharge(newSquare) : null,
     refundPayment: presentPayment(payment),
     fullRefund: newSquare == null,
   }
+  rememberChargeIdempotency(state, refundIdemKey, refundFingerprint, refundResult)
+  writeState(state)
+  return refundResult
 }
 
 // 2026-10-14: dispense imports only paid dynamic lines, never the unrelated fixtures.

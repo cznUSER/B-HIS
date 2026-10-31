@@ -92,6 +92,13 @@ function asText(value) {
   return typeof value === 'string' ? value.trim() : ''
 }
 
+function requireIdempotencyKey(idempotencyKey) {
+  if (typeof idempotencyKey !== 'string' || !idempotencyKey.trim()) {
+    throw apiError(400, 'VALIDATION_ERROR', 'Idempotency-Key is required')
+  }
+  return idempotencyKey.trim()
+}
+
 function assertMoney(value, field) {
   const number = Number(value)
   if (!Number.isFinite(number) || number < 0) {
@@ -269,13 +276,14 @@ export async function previewCharge(accessToken, orderId) {
   return readCharge(response, 200, accessToken)
 }
 
-async function createCharge(accessToken, orderId) {
+async function createCharge(accessToken, orderId, idempotencyKey = crypto.randomUUID()) {
+  const key = requireIdempotencyKey(idempotencyKey)
   const response = await callJson(CHARGE_ROUTES.collection, {
     method: 'POST',
     headers: {
       Accept: JSON_ACCEPT,
       'Content-Type': 'application/json; charset=utf-8',
-      'Idempotency-Key': crypto.randomUUID(),
+      'Idempotency-Key': key,
       ...bearer(accessToken),
     },
     body: JSON.stringify({ orderId }),
@@ -445,11 +453,19 @@ export async function payCharge(accessToken, input) {
   if (useMock()) {
     await delay(120)
     const amountCents = Number.isInteger(input.amountCents) ? input.amountCents : moneyCents(input.amount)
-    return mockPay(accessToken, { orderId: input.orderId, payType, amountCents })
+    const createKey = asText(input && input.createIdempotencyKey) || asText(input && input.idempotencyKeyCreate) || crypto.randomUUID()
+    const payKey = asText(input && input.idempotencyKey) || crypto.randomUUID()
+    return mockPay(accessToken, {
+      orderId: input.orderId,
+      payType,
+      amountCents,
+      idempotencyKey: payKey,
+      createIdempotencyKey: createKey,
+    })
   }
   let created
   try {
-    created = await createCharge(accessToken, input.orderId)
+    created = await createCharge(accessToken, input.orderId, asText(input && input.createIdempotencyKey) || asText(input && input.idempotencyKeyCreate) || crypto.randomUUID())
   } catch (error) {
     if (error.code === 'ILLEGAL_STATE_TRANSITION' && input.registerId) {
       created = await findOpenCharge(accessToken, input.registerId, input.orderId)

@@ -1,4 +1,7 @@
 <script setup>
+import { useErrorDialog } from '../components/feedback/useErrorDialog.js'
+import { createSubmitFeedback } from '../components/feedback/useSubmitFeedback.js'
+import SubmitStatusBanner from '../components/feedback/SubmitStatusBanner.vue'
 // 2026-10-12 P1-H05-CHARGE-UI 门诊收费：待收、现金、查询、退费。侧栏仍由 AppShell 提供。
 // 2026-10-12 VITE_USE_MOCK=false 时走 charge-preview / charges / pay / refund。
 // 2026-10-12 P1-H05-DISPENSE-UI 发药页「去退费」带 charge_id 时打开退费。
@@ -55,13 +58,15 @@ const refundError = ref('')
 const refundCode = ref('')
 const refundMessage = ref('')
 
-const paymentWrite = reactive({ orderId: '', key: '' })
+const submitFeedback = createSubmitFeedback()
+const paymentWrite = reactive({ orderId: '', createKey: '', payKey: '' })
 const refundWrite = reactive({ fingerprint: '', key: '' })
 
 const preview = computed(() => (pending.value && pending.value.preview) || null)
 const scene = computed(() => (pending.value && pending.value.scene) || '')
 const stockBlocked = computed(() => Boolean(preview.value && preview.value.stockBlocked))
-const canPay = computed(() => Boolean(preview.value) && preview.value.orderId !== paidOrderId.value && !stockBlocked.value && !loadingPending.value && !paying.value)
+const submitting = computed(() => submitFeedback.state.status === 'submitting')
+const canPay = computed(() => Boolean(preview.value) && preview.value.orderId !== paidOrderId.value && !stockBlocked.value && !loadingPending.value && !paying.value && !submitting.value && !refunding.value)
 
 const refundRows = computed(() => (refundTarget.value && refundTarget.value.items) || [])
 const refundHasDispensed = computed(() => refundRows.value.some((item) => item.dispenseBlocked))
@@ -79,12 +84,15 @@ function clearError() {
   errorCode.value = ''
 }
 
-function paymentKey(orderId) {
+function ensurePaymentKeys(orderId) {
   if (paymentWrite.orderId !== orderId) {
     paymentWrite.orderId = orderId
-    paymentWrite.key = crypto.randomUUID()
+    paymentWrite.createKey = crypto.randomUUID()
+    paymentWrite.payKey = crypto.randomUUID()
   }
-  return paymentWrite.key
+  if (!paymentWrite.createKey) paymentWrite.createKey = crypto.randomUUID()
+  if (!paymentWrite.payKey) paymentWrite.payKey = crypto.randomUUID()
+  return { createKey: paymentWrite.createKey, payKey: paymentWrite.payKey }
 }
 
 function applyError(error, fallback) {
@@ -132,7 +140,7 @@ async function refreshList(options = {}) {
 }
 
 async function openSubject(subject, options = {}) {
-  if (!subject || loadingPending.value || (!options.afterWrite && (paying.value || refunding.value))) return false
+  if (!subject || loadingPending.value || (!options.afterWrite && (paying.value || refunding.value || submitting.value))) return false
   activeSubject.value = subject
   activeKey.value = subject.key || subject.patientId
   loadingPending.value = true
@@ -193,12 +201,13 @@ async function onSearchSubjects() {
 
 async function onPay() {
   if (!canPay.value || !preview.value) return
-  // 2026-10-14: bind the receipt to the subject/order captured before the write.
   const paymentPreview = preview.value
   const paymentPending = pending.value
   const paymentSubject = activeSubject.value
   const paymentSubjectKey = activeKey.value
+  const keys = ensurePaymentKeys(paymentPreview.orderId)
   paying.value = true
+  submitFeedback.beginAttempt('pay')
   clearError()
   payMessage.value = ''
   refreshWarning.value = ''
@@ -209,23 +218,30 @@ async function onPay() {
       payType: PAY_CASH,
       amount: paymentPreview.squareFee,
       amountCents: paymentPreview.amountDueCents,
-      idempotencyKey: paymentKey(paymentPreview.orderId),
+      createIdempotencyKey: keys.createKey,
+      idempotencyKey: keys.payKey,
     })
     paidSquareNo.value = result.charge.squareNo
     paidChargeId.value = result.charge.chargeId
     paidOrderId.value = paymentPreview.orderId
+    paymentWrite.orderId = ""
+    paymentWrite.createKey = ""
+    paymentWrite.payKey = ""
     if (activeKey.value === paymentSubjectKey) {
-      pending.value = { ...paymentPending, scene: 'CHARGED', preview: null, squareNo: result.charge.squareNo, chargeId: result.charge.chargeId }
-      activeSubject.value = { ...paymentSubject, scene: 'CHARGED' }
+      pending.value = { ...paymentPending, scene: "CHARGED", preview: null, squareNo: result.charge.squareNo, chargeId: result.charge.chargeId }
+      activeSubject.value = { ...paymentSubject, scene: "CHARGED" }
     }
     charges.value = [result.charge, ...charges.value.filter((item) => item.chargeId !== result.charge.chargeId)]
     setCharges(charges.value)
-    recordAction('收费已完成', result.charge.squareNo || result.charge.chargeId || '')
-    payMessage.value = '收费成功，可去发药。'
+    recordAction("收费已完成", result.charge.squareNo || result.charge.chargeId || "")
+    const tip = `收费成功，可去发药。收费单号 ${result.charge.squareNo || result.charge.chargeId || ""}`
+    payMessage.value = tip
+    submitFeedback.succeed({ chargeId: result.charge.chargeId || "", squareNo: result.charge.squareNo || "" }, tip)
     await refreshAfterWrite()
     if (result.refreshWarning) refreshWarning.value = result.refreshWarning
   } catch (error) {
-    applyError(error, '收费失败')
+    applyError(error, "收费失败")
+    submitFeedback.fail(error instanceof ApiError ? error.message : "收费失败", error?.code || "")
   } finally {
     paying.value = false
   }
@@ -277,7 +293,9 @@ function closeRefund() {
 }
 
 async function onRefund() {
-  if (!refundTarget.value || refunding.value || refundBlocked.value || discountedPartialRefund.value) return
+  if (!refundTarget.value || refunding.value || submitting.value || refundBlocked.value || discountedPartialRefund.value) return
+  refundError.value = ''
+  refundCode.value = ''
   const items = refundChosen.value.map((item) => ({
     chargeItemId: item.chargeItemId,
     refundQty: Number(refundQty[item.chargeItemId]),
@@ -289,7 +307,7 @@ async function onRefund() {
   }
   const fingerprint = JSON.stringify({
     chargeId: refundTarget.value.chargeId,
-    reason: refundReason.value || '',
+    reason: refundReason.value || "",
     items,
   })
   if (refundWrite.fingerprint !== fingerprint) {
@@ -297,10 +315,9 @@ async function onRefund() {
     refundWrite.key = crypto.randomUUID()
   }
   refunding.value = true
+  submitFeedback.beginAttempt('refund')
   const refundChargeId = refundTarget.value.chargeId
   const originalRefundCharge = refundTarget.value
-  refundError.value = ''
-  refundCode.value = ''
   refreshWarning.value = ''
   try {
     const result = await refundCharge(session.accessToken, refundTarget.value.chargeId, {
@@ -317,15 +334,22 @@ async function onRefund() {
     if (result.newSquare) charges.value.unshift(result.newSquare)
     setCharges(charges.value)
     recordAction('收费已退费', refundChargeId)
+    let tip = ""
     if (result.fullRefund || !result.newSquare) {
-      refundMessage.value = '已全额退费。原单已作废，未生成新收费单。'
+      tip = '已全额退费。原单已作废，未生成新收费单。'
     } else {
-      refundMessage.value = `已部分退费。原单已作废，未退部分已生成新收费单 ${result.newSquare.squareNo}（${formatYuan(result.newSquare.squareFeeCents)}）。`
+      tip = `已部分退费。原单已作废，未退部分已生成新收费单 ${result.newSquare.squareNo}（${formatYuan(result.newSquare.squareFeeCents)}）。`
     }
+    refundMessage.value = tip
+    const squareNo = (result.abatedSquare && result.abatedSquare.squareNo) || originalRefundCharge.squareNo || ""
+    submitFeedback.succeed({ chargeId: refundChargeId, squareNo }, tip)
+    refundWrite.fingerprint = ""
+    refundWrite.key = ""
     await refreshAfterWrite()
   } catch (error) {
     refundCode.value = error instanceof ApiError ? error.code : ''
     refundError.value = error instanceof ApiError ? error.message : '退费失败'
+    submitFeedback.fail(refundError.value, refundCode.value)
   } finally {
     refunding.value = false
   }
@@ -351,10 +375,19 @@ onMounted(async () => {
     applyError(error, '收费页载入失败')
   }
 })
+
+useErrorDialog([
+  () => errorMessage.value,
+  () => subjectsError.value,
+  () => pendingError.value,
+  () => listError.value,
+  () => refundError.value,
+  () => refreshWarning.value,
+])
 </script>
 
 <template>
-  <section class="charge-page ui2-charge-page" aria-labelledby="charge-title">
+  <section class="charge-page" aria-labelledby="charge-title">
     <p v-if="!refundOnly" class="crumb">
       <RouterLink :to="{ name: 'home' }">首页</RouterLink>
       <span aria-hidden="true"> / </span>
@@ -418,6 +451,8 @@ onMounted(async () => {
         <p v-else-if="subjects.length === 0" class="charge-candidate-hint">暂无匹配候选，可调整姓名或单号后重新检索。</p>
         </div>
 
+        <SubmitStatusBanner :feedback="submitFeedback.state" />
+
         <div v-if="payMessage" class="ok-banner" role="status" data-testid="charge-paid">
           <p class="ok-title">{{ payMessage }}</p>
           <p v-if="paidSquareNo">收费单号 <strong>{{ paidSquareNo }}</strong></p>
@@ -429,9 +464,21 @@ onMounted(async () => {
         <BusinessEmptyState v-else-if="pendingError" icon="charge" title="待收读取失败" :description="pendingError" eyebrow="读取失败">
           <button class="button button-ghost button-compact" type="button" @click="openSubject(activeSubject)">重试载入</button>
         </BusinessEmptyState>
-        <BusinessEmptyState v-else-if="!pending" icon="register" title="请先挂号" description="未挂号/无有效就诊，不能收费。" eyebrow="待收前置条件" data-testid="charge-empty-register">
-          <RouterLink class="button button-ghost button-compact" :to="{ name: 'outpatient-module', params: { module: 'register' } }">去挂号</RouterLink>
-        </BusinessEmptyState>
+        <BusinessEmptyState
+          v-else-if="!pending"
+          variant="revisit"
+          module-label="收费"
+          queue-label="待收费就诊"
+          title="选择一条就诊开始收费"
+          description="先选择有效挂号或已提交处方，收费明细和支付动作会在右侧连续展开。"
+          empty-label="暂无待收费就诊"
+          empty-description="完成挂号和开单后，待收费患者会自动进入队列。"
+          primary-text="去挂号"
+          :primary-to="{ name: 'outpatient-module', params: { module: 'register' } }"
+          secondary-text="患者查询"
+          :secondary-to="{ name: 'patient-search' }"
+          test-id="charge-queue-workspace"
+        />
 
         <BusinessEmptyState v-else-if="scene === 'NO_REGISTER'" icon="register" title="请先挂号" :description="`${pending.patient.patientName}（${pending.patient.patientNo}）还没有有效挂号。`" eyebrow="待收前置条件" data-testid="charge-empty-register">
           <template #detail><p class="field-hint">未挂号/无有效就诊，不能收费。</p></template>
@@ -561,11 +608,26 @@ onMounted(async () => {
           <button class="button button-compact" type="submit" :disabled="loadingList">查询</button>
         </form>
 
+        <SubmitStatusBanner :feedback="submitFeedback.state" />
         <p v-if="refundMessage" class="ok-banner" role="status" data-testid="charge-refund-done">{{ refundMessage }}</p>
 
         <p v-if="loadingList" class="result-empty" role="status">正在查询收费记录…</p>
         <BusinessEmptyState v-else-if="listError" icon="charge" title="收费记录读取失败" :description="listError" eyebrow="读取失败"><button class="button button-ghost button-compact" type="button" @click="refreshList">重试查询</button></BusinessEmptyState>
-        <BusinessEmptyState v-else-if="charges.length === 0" icon="charge" title="暂无收费记录" description="可更换患者姓名、患者号，或取消仅看今日后重新查询。" eyebrow="已收查询" />
+        <BusinessEmptyState
+          v-else-if="charges.length === 0"
+          variant="revisit"
+          :module-label="refundOnly ? '退费' : '收费记录'"
+          queue-label="已收待处理"
+          :title="refundOnly ? '暂无可退收费记录' : '暂无收费记录'"
+          description="调整患者、收费单号或日期范围后，符合条件的记录会进入左侧队列。"
+          :empty-label="refundOnly ? '暂无可退收费单' : '暂无收费记录'"
+          empty-description="查询到收费记录后，可在右侧核对原单、项目和支付状态。"
+          primary-text="返回待收费"
+          :primary-to="{ name: 'outpatient-module', params: { module: 'charge' }, query: { view: 'pending' } }"
+          secondary-text="患者查询"
+          :secondary-to="{ name: 'patient-search' }"
+          test-id="charge-records-empty"
+        />
         <p v-if="charges.length && !loadingList && !listError" id="charge-records-scroll" class="table-scroll-hint">左右滑动可查看完整记录与操作</p>
         <div v-if="charges.length && !loadingList && !listError" class="result-wrap" role="region" aria-label="已收记录，可横向滚动" aria-describedby="charge-records-scroll" tabindex="0">
           <table class="patient-table">
@@ -746,38 +808,3 @@ onMounted(async () => {
 </template>
 
 <style scoped src="./charge-design.css"></style>
-
-<style scoped>
-/* UI2.0 Charge/ClinicChargeFrm: 47px search strip, grid, bottom cashier area. */
-.ui2-charge-page.charge-page { color: #202020; font: 16px SimSun, '宋体', serif; background: #f0f0f0; }
-.ui2-charge-page.charge-page .charge-layout { display: block; }
-.ui2-charge-page.charge-page .charge-pending-panel, .ui2-charge-page.charge-page .charge-records-panel { padding: 0; border: 1px solid #999; border-radius: 0; background: #f0f0f0; }
-.ui2-charge-page.charge-page .charge-candidate-zone { padding: 0; border: 0; border-radius: 0; background: #f0f0f0; }
-.ui2-charge-page.charge-page .charge-search { display: flex; align-items: center; gap: 8px; min-height: 47px; margin: 0; padding: 6px 10px; border-top: 1px solid #aaa; border-bottom: 1px solid #aaa; border-radius: 0; background: #f0f0f0; box-sizing: border-box; }
-.ui2-charge-page.charge-page .charge-search .field { display: flex; flex-direction: row; align-items: center; gap: 8px; flex: 1; }
-.ui2-charge-page.charge-page .field > span { color: #202020; font: 12px/17px 'Segoe UI', sans-serif; }
-.ui2-charge-page.charge-page .field input:not([type=radio]), .ui2-charge-page.charge-page .field select { min-height: 25px; height: 25px; padding: 2px 5px; border: 1px solid #999; border-radius: 0; background: white; color: #202020; font: 16px SimSun, '宋体', serif; }
-.ui2-charge-page.charge-page .button { min-height: 30px; height: 30px; padding: 0 10px; border: 1px solid #aaa; border-radius: 3px; background: #e6e6e6; color: #202020; font: 16px SimSun, '宋体', serif; }
-.ui2-charge-page.charge-page .charge-workspace { display: flex; flex-direction: column; gap: 0; margin: 0; }
-.ui2-charge-page.charge-page .charge-preview { padding: 8px; border: 0; border-radius: 0; background: white; }
-.ui2-charge-page.charge-page .charge-pay { padding: 10px; border: 1px solid #aaa; border-radius: 0; background: #f0f0f0; }
-.ui2-charge-page.charge-page .charge-meta { margin: 0 0 8px; padding: 6px 8px; gap: 5px 12px; border: 1px solid #aaa; border-radius: 0; background: #f0f0f0; }
-.ui2-charge-page.charge-page .charge-section-kicker { display: none; }
-.ui2-charge-page.charge-page .panel-head { min-height: 30px; margin: 0; padding: 5px 10px; }
-.ui2-charge-page.charge-page .panel-head h2, .ui2-charge-page.charge-page .charge-settle-head h2 { font: 16px SimSun, '宋体', serif; }
-.ui2-charge-page.charge-page .result-wrap { border: 1px solid #aaa; border-radius: 0; background: white; }
-.ui2-charge-page.charge-page .patient-table { border-collapse: collapse; font: 16px SimSun, '宋体', serif; }
-.ui2-charge-page.charge-page .patient-table th { padding: 5px 8px; border: 1px solid #aaa; background: #e7e7e7; color: #202020; font-weight: normal; }
-.ui2-charge-page.charge-page .patient-table td { padding: 4px 8px; border: 1px solid #d4d4d4; color: #202020; }
-.ui2-charge-page.charge-page .charge-amount-cell { text-align: right; font-variant-numeric: tabular-nums; }
-.ui2-charge-page.charge-page .charge-total { display: flex; align-items: baseline; justify-content: flex-end; gap: 12px; padding: 8px; border: 1px solid #aaa; border-radius: 0; background: white; }
-.ui2-charge-page.charge-page .charge-total strong { font: 24px SimSun, '宋体', serif; color: #202020; }
-.ui2-charge-page.charge-page .money-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.ui2-charge-page.charge-page .charge-settle-actions { justify-content: flex-end; }
-@media (max-width: 600px) {
-  .ui2-charge-page.charge-page .charge-search { flex-wrap: wrap; }
-  .ui2-charge-page.charge-page .charge-search .field { flex-basis: 100%; }
-  .ui2-charge-page.charge-page .money-grid { grid-template-columns: 1fr; }
-  .ui2-charge-page.charge-page .charge-total { flex-wrap: wrap; }
-}
-</style>
