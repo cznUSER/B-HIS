@@ -78,6 +78,12 @@ try {
       body = { items: registers.filter((item) => !url.searchParams.get('patientId') || item.patientId === url.searchParams.get('patientId')), hasMore: false }
     } else if (url.pathname === '/api/v1/departments') body = { items: [{ departmentId: 'dep1', deptName: '合成科室' }] }
     else if (url.pathname === '/api/v1/doctors') body = { items: [{ doctorId: 'doc1', doctorName: '合成医生' }] }
+    // P0-C StatusChain mounts in Frame and GETs domain lists; empty items keep context-only harness green.
+    else if (url.pathname === '/api/v1/patients') body = { items: [], total: 0, nextOffset: null }
+    else if (url.pathname === '/api/v1/orders') body = { items: [] }
+    else if (url.pathname === '/api/v1/charges') body = { items: [] }
+    else if (url.pathname === '/api/v1/dispenses') body = { items: [] }
+    else if (/^\/api\/v1\/registers\/[^/]+\/diagnoses$/.test(url.pathname)) body = { items: [] }
     else throw new Error('Unexpected endpoint ' + url.pathname)
     await route.fulfill({ json: body })
   })

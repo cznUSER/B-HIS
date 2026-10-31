@@ -1,0 +1,65 @@
+﻿[
+    {
+        "id":  "A1",
+        "cmd":  "node web/scripts/check-outpatient-context-p0.mjs",
+        "exit":  0,
+        "ms":  231,
+        "tail":  "P0_A_CONTEXT_CHECK_OK"
+    },
+    {
+        "id":  "A2",
+        "cmd":  "node web/scripts/check-outpatient-context-browser.mjs",
+        "exit":  1,
+        "ms":  3673,
+        "tail":  "    at AsyncLocalStorage.run (node:internal/async_local_storage/async_context_frame:63:14) |     at _Zone.run (E:\\B-HIS\\web\\node_modules\\playwright-core\\lib\\coreBundle.js:11049:40) |     at RouteHandler.handle (E:\\B-HIS\\web\\node_modules\\playwright-core\\lib\\coreBundle.js:61648:38) |     at _Page._onRoute (E:\\B-HIS\\web\\node_modules\\playwright-core\\lib\\coreBundle.js:62968:46) |     at Proxy.\u003canonymous\u003e (E:\\B-HIS\\web\\node_modules\\playwright-core\\lib\\coreBundle.js:62914:63) |     at Proxy._callHandler (E:\\B-HIS\\web\\node_modules\\playwright-core\\lib\\coreBundle.js:11647:33) |  | Node.js v24.16.0"
+    },
+    {
+        "id":  "B1",
+        "cmd":  "node web/scripts/check-outpatient-queue-p0.mjs",
+        "exit":  0,
+        "ms":  116,
+        "tail":  "P0_B_QUEUE_CHECK_OK"
+    },
+    {
+        "id":  "C1",
+        "cmd":  "node web/scripts/check-outpatient-status-chain.mjs",
+        "exit":  0,
+        "ms":  231,
+        "tail":  "P0_C_STATUS_CHECK_OK"
+    },
+    {
+        "id":  "D1",
+        "cmd":  "node web/scripts/check-register-submit-feedback.mjs",
+        "exit":  0,
+        "ms":  852,
+        "tail":  "P0_D1_REGISTER_FEEDBACK_OK"
+    },
+    {
+        "id":  "D2",
+        "cmd":  "node web/scripts/check-diagnosis-submit-feedback.mjs",
+        "exit":  0,
+        "ms":  1650,
+        "tail":  "P0_D2_DIAGNOSIS_FEEDBACK_OK"
+    },
+    {
+        "id":  "D3",
+        "cmd":  "node web/scripts/check-order-submit-feedback.mjs",
+        "exit":  0,
+        "ms":  2169,
+        "tail":  "P0_D3_ORDER_FEEDBACK_OK"
+    },
+    {
+        "id":  "D4",
+        "cmd":  "node web/scripts/check-charge-submit-feedback.mjs",
+        "exit":  0,
+        "ms":  716,
+        "tail":  "P0_D4_CHARGE_FEEDBACK_OK"
+    },
+    {
+        "id":  "D5",
+        "cmd":  "node web/scripts/check-dispense-submit-feedback.mjs",
+        "exit":  0,
+        "ms":  866,
+        "tail":  "P0_D5_DISPENSE_FEEDBACK_OK"
+    }
+]

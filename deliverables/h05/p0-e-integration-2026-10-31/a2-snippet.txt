@@ -1,0 +1,18 @@
+await page.route('**/api/v1/**', async (route) => {
+    const request = route.request()
+    methods.push(request.method())
+    assert.equal(request.method(), 'GET')
+    const url = new URL(request.url())
+    let body
+    if (url.pathname.startsWith('/api/v1/patients/')) {
+      patientReads++
+      body = patients[url.pathname.split('/').at(-1)]
+      if (!body) return route.fulfill({ status: 404, json: { code: 'NOT_FOUND', message: 'missing' } })
+    } else if (url.pathname === '/api/v1/registers') {
+      body = { items: registers.filter((item) => !url.searchParams.get('patientId') || item.patientId === url.searchParams.get('patientId')), hasMore: false }
+    } else if (url.pathname === '/api/v1/departments') body = { items: [{ departmentId: 'dep1', deptName: '合成科室' }] }
+    else if (url.pathname === '/api/v1/doctors') body = { items: [{ doctorId: 'doc1', doctorName: '合成医生' }] }
+    // P0-C StatusChain mounts in Frame and GETs domain lists; empty items keep context-only harness green.
+    else if (url.pathname === '/api/v1/orders') body = { items: [] }
+    else if (url.pathname === '/api/v1/charges') body = { items: [] }
+    else if (url.pathname === '/api/v1/dispenses') body = {
