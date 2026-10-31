@@ -10,6 +10,7 @@ info:
     Auth：JWT HS256 access token（默认 TTL 8h）；login/logout/me 供 H04+H05 登录页落地。
     拍板#24：科室/医生/目录/库存总量调整/轻量字典；本契约扩展用户、角色、权限目录、模块/科室范围与用户级权限例外。
     v0.3.11/P2-0A：增加 user_role_scope 显式用户角色科室范围、集合字段省略兼容和即时有效科室授权检查；旧角色范围保持兼容。
+    外观主题：新增医院主题与当前用户主题覆盖，服务端计算 effective；仅接受白名单色值、字体和字号档。
     H09：仅 DRUG 有 inventory_item；新建 DRUG 须建库存行（qty 可 0）；TREAT 不入；期初/盘盈盘亏均 biz_type=ADJUST（不新造 INIT）；ledger 只追加。
     v0.3.10/P1-H03-MASTER：departments/doctors/catalog-items/inventory adjust/dicts/users；迁移 008_master；
     错误码 DEPT_CODE_DUPLICATE、DOCTOR_*、ITEM_NO_DUPLICATE、ADJUST_RESULT_NEGATIVE、USERNAME_DUPLICATE 等；
@@ -20,6 +21,8 @@ servers:
   - url: /api/v1
 tags:
   - name: Auth
+  - name: Settings
+    description: 医院级系统设置；外观主题写操作需 admin:*。
   - name: Workbench
     description: |
       工作台汇总指标；只返回已授权科室范围内的聚合值，不返回患者或就诊明细。
@@ -153,6 +156,45 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorBody' }
+  /auth/me/change-password:
+    post:
+      tags: [Auth]
+      summary: 当前用户主动修改密码
+      description: 成功后撤销旧 access token，客户端必须重新登录；不新增固定密码长度要求，沿用服务端现有密码策略。
+      operationId: changeMyPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChangePasswordRequest' }
+      responses:
+        '204':
+          description: Password changed; issue a new login token
+        '400':
+          description: VALIDATION_ERROR / CURRENT_PASSWORD_INVALID
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+        '401':
+          description: UNAUTHORIZED / TOKEN_INVALID / TOKEN_EXPIRED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+        '403':
+          description: PASSWORD_CHANGE_NOT_ALLOWED / ACCOUNT_DISABLED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+        '428':
+          description: PASSWORD_CHANGE_REQUIRED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+        '503':
+          description: USER_AUDIT_UNAVAILABLE
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
   /auth/me:
     get:
       tags: [Auth]
@@ -179,6 +221,250 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
+    patch:
+      tags: [Auth]
+      summary: 修改当前用户显示名
+      description: 仅允许提交 displayName；角色、权限、科室范围和账号状态由管理员维护。
+      operationId: updateMyProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateMyProfileRequest' }
+      responses:
+        '200':
+          description: Updated current user
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserDto' }
+        '400':
+          description: VALIDATION_ERROR
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+        '401':
+          description: UNAUTHORIZED / TOKEN_INVALID / TOKEN_EXPIRED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+        '403':
+          description: ACCOUNT_DISABLED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+        '503':
+          description: USER_AUDIT_UNAVAILABLE
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+  /auth/me/preferences:
+    get:
+      tags: [Auth]
+      summary: 获取当前用户工作偏好
+      operationId: getMyPreferences
+      responses:
+        '200':
+          description: Current preferences
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserPreferences' }
+        '401':
+          description: UNAUTHORIZED / TOKEN_INVALID / TOKEN_EXPIRED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+        '403':
+          description: ACCOUNT_DISABLED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+    put:
+      tags: [Auth]
+      summary: 保存当前用户工作偏好
+      description: 偏好只影响界面展示和默认进入页面，不改变业务权限、收费、发药或临床规则。
+      operationId: updateMyPreferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserPreferences' }
+      responses:
+        '200':
+          description: Saved preferences
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserPreferences' }
+        '400':
+          description: VALIDATION_ERROR
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+        '401':
+          description: UNAUTHORIZED / TOKEN_INVALID / TOKEN_EXPIRED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+        '403':
+          description: ACCOUNT_DISABLED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+        '503':
+          description: USER_AUDIT_UNAVAILABLE
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+  /appearance/effective:
+    get:
+      tags: [Auth]
+      summary: 获取当前用户实际生效的外观主题
+      operationId: getEffectiveAppearance
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Server-resolved hospital or personal theme
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EffectiveAppearance' }
+        '401':
+          description: UNAUTHORIZED / TOKEN_INVALID / TOKEN_EXPIRED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+  /settings/appearance:
+    get:
+      tags: [Settings]
+      summary: 获取医院外观主题
+      operationId: getHospitalAppearance
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Hospital theme and force setting
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HospitalAppearance' }
+        '401':
+          description: UNAUTHORIZED / TOKEN_INVALID / TOKEN_EXPIRED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+        '403':
+          description: Permission denied; requires admin:*
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+    put:
+      tags: [Settings]
+      summary: 保存医院外观主题
+      operationId: updateHospitalAppearance
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HospitalAppearanceRequest' }
+      responses:
+        '200':
+          description: Saved hospital theme
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HospitalAppearance' }
+        '400':
+          description: VALIDATION_ERROR
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+        '401':
+          description: UNAUTHORIZED / TOKEN_INVALID / TOKEN_EXPIRED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+        '403':
+          description: Permission denied; requires admin:*
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+        '503':
+          description: USER_AUDIT_UNAVAILABLE; mutation rolled back
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+  /auth/me/appearance:
+    get:
+      tags: [Auth]
+      summary: 获取当前用户个人外观覆盖
+      operationId: getMyAppearance
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Personal override and editability
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MyAppearance' }
+        '401':
+          description: UNAUTHORIZED / TOKEN_INVALID / TOKEN_EXPIRED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+    put:
+      tags: [Auth]
+      summary: 保存当前用户个人外观覆盖
+      operationId: updateMyAppearance
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MyAppearanceRequest' }
+      responses:
+        '200':
+          description: Saved personal override
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MyAppearance' }
+        '400':
+          description: VALIDATION_ERROR
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+        '401':
+          description: UNAUTHORIZED / TOKEN_INVALID / TOKEN_EXPIRED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+        '403':
+          description: FORCED_HOSPITAL_THEME when hospital theme is forced
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+        '503':
+          description: USER_AUDIT_UNAVAILABLE; mutation rolled back
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+    delete:
+      tags: [Auth]
+      summary: 清除当前用户个人外观覆盖
+      operationId: resetMyAppearance
+      security: [{ bearerAuth: [] }]
+      responses:
+        '204':
+          description: Personal theme cleared; follows hospital theme
+        '401':
+          description: UNAUTHORIZED / TOKEN_INVALID / TOKEN_EXPIRED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+        '403':
+          description: FORCED_HOSPITAL_THEME when hospital theme is forced
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+        '503':
+          description: USER_AUDIT_UNAVAILABLE; mutation rolled back
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
   /workbench/summary:
     get:
       tags: [Workbench]
@@ -245,6 +531,9 @@ paths:
       tags: [Patients]
       summary: 患者查询
       operationId: searchPatients
+      description: |
+        返回未删除患者档案，结果按 `created_at ASC, patient_id ASC` 固定排序。
+        `offset` 从 0 开始；`limit` 默认为 100，允许 1-100。分页查询不会因排序字段相同而重复或遗漏记录。
       parameters:
         - name: patientNo
           in: query
@@ -270,6 +559,10 @@ paths:
           in: query
           description: 患者档案分页位置，从 0 开始
           schema: { type: integer, minimum: 0, default: 0 }
+        - name: limit
+          in: query
+          description: 每页记录数，默认 100，最大 100
+          schema: { type: integer, minimum: 1, maximum: 100, default: 100 }
       responses:
         '200':
           description: OK
@@ -277,15 +570,109 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [items, total, nextOffset]
                 properties:
                   items:
                     type: array
                     items:
                       $ref: '#/components/schemas/PatientDto'
+                  total:
+                    type: integer
+                    minimum: 0
+                    nullable: true
+                    description: 匹配条件下的未删除患者总数；旧适配器暂不支持计数时为 null
                   nextOffset:
                     type: integer
                     minimum: 0
                     nullable: true
+                    description: 下一页 offset；无更多记录时为 null
+        '400':
+          description: offset 或 limit 不合法
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+  /patients/registration-search:
+    post:
+      tags: [Patients]
+      summary: 挂号患者候选查询
+      description: |-
+        只读查询挂号患者候选。请求体不写入访问日志；响应使用 Cache-Control: no-store。
+        keyword 为空时返回全部未删除患者，非空时按姓名、电话、证件号或姓名助记码做 OR 字面子串匹配；每页最多 50 条。
+        仅 ACTIVE 的 selectable 为 true；INACTIVE 记录仍可显示。该标志不是挂号授权。
+        022 未应用或姓名助记码回填未完成时返回通用 503。
+      operationId: searchRegistrationPatients
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                keyword:
+                  type: string
+                  maxLength: 64
+                  description: 服务端按 Unicode code point（Go rune）计数校验，最多 64 个。
+                offset: { type: integer, minimum: 0, default: 0 }
+                limit: { type: integer, minimum: 1, maximum: 50, default: 50 }
+      responses:
+        '200':
+          description: 候选患者页；电话和证件号已掩码，响应不可缓存
+          headers:
+            Cache-Control:
+              schema: { type: string, example: no-store }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, total, nextOffset]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [patientId, patientNo, name, sex, idType, idNumberMasked, phoneMasked, status, selectable]
+                      properties:
+                        patientId: { type: string }
+                        patientNo: { type: string }
+                        name: { type: string }
+                        sex: { type: string, enum: [M, F, U] }
+                        idType: { type: string }
+                        idNumberMasked: { type: string }
+                        phoneMasked: { type: string }
+                        status: { type: string, enum: [ACTIVE, INACTIVE] }
+                        selectable: { type: boolean }
+                  total: { type: integer, minimum: 0 }
+                  nextOffset: { type: integer, minimum: 0, nullable: true }
+        '400':
+          description: keyword、offset 或 limit 不合法
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '423':
+          description: ACCOUNT_LOCKED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+        '428':
+          description: PASSWORD_CHANGE_REQUIRED
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+        '500':
+          description: INTERNAL_ERROR
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
+        '503':
+          description: 患者助记码搜索暂不可用
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorBody' }
   /patients/{patientId}:
     get:
       tags: [Patients]
@@ -349,6 +736,10 @@ paths:
           in: query
           description: 可选就诊日过滤
           schema: { type: string, format: date }
+        - { name: visitDateFrom, in: query, schema: { type: string, format: date }, description: '近诊历史范围起日；包含边界；日期范围查询按最新建单优先' }
+        - { name: visitDateTo, in: query, schema: { type: string, format: date }, description: '近诊历史范围止日；包含边界' }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
       responses:
         '200':
           description: OK
@@ -357,10 +748,34 @@ paths:
               schema:
                 type: object
                 properties:
+                  hasMore: { type: boolean }
+                  nextOffset: { type: integer, nullable: true }
                   items:
                     type: array
                     items:
                       $ref: '#/components/schemas/RegisterDto'
+  /registers/slot-board:
+    get:
+      tags: [Registers]
+      summary: 读取科室及医生当日可挂号源（Asia/Shanghai）
+      description: |
+        沿现有挂号读取权限及科室范围。workingHours 按 slotMinutes 展开，单格 capacity=1。
+        未退号且未删除的预约与有时段现场号均占用；占用查询不受挂号历史100行上限影响。
+        无任何排班的医生 scheduleConfigured=false、remain=null；已排班但当日休诊 remain=0。
+        这是瞬时可用量；创建挂号由事务内重叠检查终裁，冲突409 APPOINTMENT_CONFLICT。
+      operationId: registerSlotBoard
+      parameters:
+        - { name: visitDate, in: query, required: true, schema: { type: string, format: date } }
+        - { name: departmentId, in: query, schema: { type: string, maxLength: 64 } }
+        - { name: doctorId, in: query, schema: { type: string, maxLength: 64 } }
+      responses:
+        '200':
+          description: 当日号源
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RegisterSlotBoardDto' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
   /registers/{registerId}:
     get:
       tags: [Registers]
@@ -632,6 +1047,32 @@ paths:
       responses:
         '200':
           description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiagnoseDto'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /diagnoses/{diagnoseId}/amend:
+    post:
+      tags: [Diagnoses]
+      summary: 从已提交诊断发起修订草稿
+      description: 原版本保持不可变；新版本记录 supersedesDiagnoseId 和 revisionReason，返回 SAVE。
+      operationId: amendDiagnose
+      parameters:
+        - name: diagnoseId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AmendDiagnoseRequest'
+      responses:
+        '201':
+          description: Created
           content:
             application/json:
               schema:
@@ -1646,7 +2087,7 @@ paths:
       tags: [Dicts]
       summary: 字典总览（只读枚举汇总 + 可维护码表类型）
       description: |
-        返回系统只读枚举（性别/证件类型/支付方式等，与现契约对齐）+ 可维护 dictType 列表（本期 register_sort）。
+        返回系统只读枚举（性别/支付方式等，与现契约对齐）+ 可维护 dictType 列表（register_sort、id_type）。证件类型保留 ID_CARD 种子并可维护。
         权限：已登录可读；维护写操作需 SYSTEM / admin:*。
       operationId: listDicts
       responses:
@@ -1680,9 +2121,9 @@ paths:
                       $ref: '#/components/schemas/DictItemDto'
     post:
       tags: [Dicts]
-      summary: 新建可维护码表项（如号别）
+      summary: 新建可维护码表项（如号别、证件类型）
       description: |
-        本期可维护至少 register_sort（种子 sort-normal）。只读枚举类型拒绝写入。
+        可维护 register_sort（种子 sort-normal）与 id_type（种子 ID_CARD）。只读枚举类型拒绝写入。
         审计 dict.create。权限 SYSTEM / admin:*。
       operationId: createDictItem
       parameters:
@@ -1723,6 +2164,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DictItemDto'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    delete:
+      tags: [Dicts]
+      summary: 删除码表项
+      description: 软删除可维护码表项；只读枚举类型拒绝写入。删除后列表不再返回该项。
+      operationId: deleteDictItem
+      parameters:
+        - $ref: '#/components/parameters/DictType'
+        - $ref: '#/components/parameters/DictItemId'
+      responses:
+        '204':
+          description: No Content
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
@@ -2177,6 +2633,44 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '403':
           $ref: '#/components/responses/Forbidden'
+  /code-rules:
+    get:
+      tags: [Master]
+      summary: 查询业务编码规则
+      operationId: listCodeRules
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CodeRuleListDto' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+  /code-rules/{kind}:
+    patch:
+      tags: [Master]
+      summary: 修改业务编码规则
+      operationId: updateCodeRule
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: kind
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PatchCodeRuleRequest' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CodeRuleDto' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
 components:
   securitySchemes:
     bearerAuth:
@@ -2344,7 +2838,7 @@ components:
         password: { type: string, minLength: 1, format: password }
     UserDto:
       type: object
-      required: [id, username, displayName, roles, permissions, deniedPermissions, scopes, accessControlLoaded, system, super, developer, mustChangePassword, cannotModifyPassword]
+      required: [id, username, displayName, roles, permissions, deniedPermissions, scopes, accessControlLoaded, system, super, developer, mustChangePassword, cannotModifyPassword, status, accountLocked]
       properties:
         id: { type: string, description: 用户主键 }
         username: { type: string }
@@ -2378,12 +2872,88 @@ components:
           items: { $ref: '#/components/schemas/PermissionOverrideInput' }
         mustChangePassword: { type: boolean }
         cannotModifyPassword: { type: boolean }
+        status: { type: string, enum: [ACTIVE, DISABLED, STOPPED] }
+        accountLocked: { type: boolean }
+    UpdateMyProfileRequest:
+      type: object
+      required: [displayName]
+      properties:
+        displayName: { type: string, description: 非空显示名，由服务端校验 }
+    UserPreferences:
+      type: object
+      required: [density, sidebarCollapsed, defaultPage, pageSize]
+      properties:
+        density: { type: string, enum: [standard, compact] }
+        sidebarCollapsed: { type: boolean }
+        defaultPage: { type: string, enum: [home, workbench] }
+        pageSize: { type: integer, enum: [10, 20, 50, 100] }
+    ThemeTokens:
+      type: object
+      additionalProperties: false
+      required: [sidebarBg, sidebarText, sidebarActive, surface, card, ink, muted, label, required, primary, primaryDeep, line, danger, ok, fontFamily, fontScale]
+      properties:
+        sidebarBg: { type: string, pattern: '^#[0-9A-Fa-f]{6}$' }
+        sidebarText: { type: string, pattern: '^#[0-9A-Fa-f]{6}$' }
+        sidebarActive: { type: string, pattern: '^#[0-9A-Fa-f]{6}$' }
+        surface: { type: string, pattern: '^#[0-9A-Fa-f]{6}$' }
+        card: { type: string, pattern: '^#[0-9A-Fa-f]{6}$' }
+        ink: { type: string, pattern: '^#[0-9A-Fa-f]{6}$' }
+        muted: { type: string, pattern: '^#[0-9A-Fa-f]{6}$' }
+        label: { type: string, pattern: '^#[0-9A-Fa-f]{6}$' }
+        required: { type: string, pattern: '^#[0-9A-Fa-f]{6}$' }
+        primary: { type: string, pattern: '^#[0-9A-Fa-f]{6}$' }
+        primaryDeep: { type: string, pattern: '^#[0-9A-Fa-f]{6}$' }
+        line: { type: string, pattern: '^#[0-9A-Fa-f]{6}$' }
+        danger: { type: string, pattern: '^#[0-9A-Fa-f]{6}$' }
+        ok: { type: string, pattern: '^#[0-9A-Fa-f]{6}$' }
+        fontFamily: { type: string, enum: [system, yahei, pingfang, noto] }
+        fontScale: { type: number, format: float, enum: [0.9, 1.0, 1.1] }
+    EffectiveAppearance:
+      type: object
+      required: [forceHospitalTheme, source, tokens, canEditPersonal]
+      properties:
+        forceHospitalTheme: { type: boolean }
+        source: { type: string, enum: [hospital, personal] }
+        tokens: { $ref: '#/components/schemas/ThemeTokens' }
+        canEditPersonal: { type: boolean }
+    HospitalAppearance:
+      type: object
+      required: [forceHospitalTheme, tokens, updatedAt, updatedBy]
+      properties:
+        forceHospitalTheme: { type: boolean }
+        tokens: { $ref: '#/components/schemas/ThemeTokens' }
+        updatedAt: { type: string, format: date-time }
+        updatedBy: { type: string }
+    HospitalAppearanceRequest:
+      type: object
+      additionalProperties: false
+      required: [forceHospitalTheme, tokens]
+      properties:
+        forceHospitalTheme: { type: boolean }
+        tokens: { $ref: '#/components/schemas/ThemeTokens' }
+    MyAppearance:
+      type: object
+      required: [hasOverride, tokens, forceHospitalTheme, canEditPersonal]
+      properties:
+        hasOverride: { type: boolean }
+        tokens:
+          oneOf:
+            - $ref: '#/components/schemas/ThemeTokens'
+            - type: 'null'
+        forceHospitalTheme: { type: boolean }
+        canEditPersonal: { type: boolean }
+    MyAppearanceRequest:
+      type: object
+      additionalProperties: false
+      required: [tokens]
+      properties:
+        tokens: { $ref: '#/components/schemas/ThemeTokens' }
     ChangePasswordRequest:
       type: object
       required: [currentPassword, newPassword]
       properties:
         currentPassword: { type: string, minLength: 1, format: password }
-        newPassword: { type: string, minLength: 8, maxLength: 72, format: password }
+        newPassword: { type: string, minLength: 1, format: password }
     LoginResponse:
       type: object
       required: [accessToken, tokenType, expiresIn, user]
@@ -2406,24 +2976,25 @@ components:
         requestId: { type: string }
     CreatePatientRequest:
       type: object
-      required: [name, sex, birthday, fareIdentity]
+      required: [name, sex, idType, idNumber, phone, nationality]
       properties:
         name: { type: string, description: '姓名必填（H02 P-01 / 建档清单）' }
         sex: { type: string, enum: [M, F, U], description: '一期必填' }
-        birthday: { type: string, format: date, description: '>1900-01-01 且 ≤今天（DB CHECK >1900-01-01；≤今天由应用校验）' }
-        idType: { type: string }
-        idNumber: { type: string, description: '选填；非空则查重，冲突 409 DUPLICATE_ID_NUMBER / DUPLICATE_PATIENT；拒绝不合并' }
+        birthday: { type: string, format: date, description: '可填写；身份证类型且为空时服务端按证件号码推算，用户填写的日期会保留。必须 >1900-01-01 且 ≤今天' }
+        idType: { type: string, description: '证件类型，必填' }
+        idNumber: { type: string, description: '证件号码，必填；身份证类型须为有效日期格式。非空则查重，冲突 409 DUPLICATE_ID_NUMBER / DUPLICATE_PATIENT；拒绝不合并' }
         cardNo: { type: string, description: '选填；非空则查重，冲突 409 DUPLICATE_CARD_NO；拒绝不合并' }
-        phone: { type: string }
+        phone: { type: string, description: '手机号，必填' }
         address: { type: string, nullable: true, description: '选填可空（H02 建档清单）' }
-        fareIdentity: { type: string, description: '费别一期必填' }
+        fareIdentity: { type: string, description: '费别，选填' }
+        allergyHistory: { type: string, maxLength: 1000, description: '可选事实过敏史；空表示未记录，不表示无过敏；缺027迁移且非空写入返回503 SCHEMA_NOT_READY' }
         memberCardNo: { type: string, maxLength: 32 }
         memberLevel: { type: string, maxLength: 32 }
         contractUnit: { type: string, maxLength: 128 }
         patientCertificateNo: { type: string, maxLength: 32 }
         birthPlace: { type: string, maxLength: 128 }
         ethnicity: { type: string, maxLength: 32 }
-        nationality: { type: string, maxLength: 32 }
+        nationality: { type: string, maxLength: 32, description: '国籍，必填' }
         maritalStatus: { type: string, maxLength: 32 }
         occupationCategory: { type: string, maxLength: 64 }
         occupation: { type: string, maxLength: 128 }
@@ -2453,6 +3024,7 @@ components:
         phone: { type: string }
         address: { type: string, nullable: true }
         fareIdentity: { type: string }
+        allergyHistory: { type: string, description: '已记录的过敏史；空表示未记录；旧库未迁移027时详情仍可读' }
         memberCardNo: { type: string }
         memberLevel: { type: string }
         contractUnit: { type: string }
@@ -2479,17 +3051,58 @@ components:
           enum: [NOT_SENT, NORMAL, LOST, CANCELLED]
         status: { type: string, enum: [ACTIVE, INACTIVE] }
         createdAt: { type: string, format: date-time }
+    RegisterSlotBoardDto:
+      type: object
+      required: [visitDate, departments, doctors]
+      properties:
+        visitDate: { type: string, format: date }
+        departments:
+          type: array
+          items:
+            type: object
+            required: [departmentId, departmentName, remainTotal]
+            properties:
+              departmentId: { type: string }
+              departmentName: { type: string }
+              remainTotal: { type: integer, nullable: true, minimum: 0 }
+        doctors:
+          type: array
+          items:
+            type: object
+            required: [doctorId, departmentId, doctorName, scheduleConfigured, remain, slots]
+            properties:
+              doctorId: { type: string }
+              departmentId: { type: string }
+              doctorName: { type: string }
+              scheduleConfigured: { type: boolean }
+              remain: { type: integer, nullable: true, minimum: 0 }
+              slots:
+                type: array
+                items:
+                  type: object
+                  required: [start, end, capacity, used, remain, period]
+                  properties:
+                    start: { type: string, format: date-time }
+                    end: { type: string, format: date-time }
+                    capacity: { type: integer, enum: [1] }
+                    used: { type: integer, minimum: 0 }
+                    remain: { type: integer, enum: [0, 1] }
+                    period: { type: string, enum: [AM, PM] }
     CreateRegisterRequest:
       type: object
       required: [patientId, departmentId, doctorId, visitDate]
       description: |
-        对齐 H02 挂号字段清单。号源=科室+医生（拍板#19）；无排班。
+        对齐 H02 挂号字段清单。现场号保持原流程；预约号可补充时间窗，服务端按医生检查重叠。
         registerSort 可选占位；registerFee 默认 0。
       properties:
         patientId: { type: string, format: uuid, description: '必填；不存在 → PATIENT_NOT_FOUND' }
         departmentId: { type: string, description: '必填；主数据科室 id（种子如 dept-1）；不存在 → DEPARTMENT_NOT_FOUND' }
         doctorId: { type: string, description: '必填；主数据医生 id（种子如 doc-1）；不存在 → DOCTOR_NOT_FOUND；必须属于所选科室，否则 DOCTOR_DEPARTMENT_MISMATCH' }
         visitDate: { type: string, format: date, description: '就诊日必填' }
+        visitType: { type: string, enum: [WALK_IN, APPOINTMENT], default: WALK_IN, description: '现场号或预约号；省略时按是否提供预约时间自动推导' }
+        appointmentStart: { type: string, format: date-time, nullable: true, description: '预约号及已配置排班医生必填；现场WALK_IN选格同样提交，与visitDate为同一上海日期，精确匹配单格起止' }
+        appointmentEnd: { type: string, format: date-time, nullable: true, description: '预约结束时间；必须晚于开始时间且不超过 12 小时' }
+        appointmentNote: { type: string, maxLength: 256, nullable: true, description: '预约备注' }
         registerSort: { type: string, nullable: true, description: '号别可选占位（如 sort-normal）；可空' }
         registerFee: { type: number, minimum: 0, description: '挂号费，单位元；大于 0 时通过 POST /registers/{registerId}/fee-charge 创建独立收费单，现金收费与全额退费复用 Charges 接口' }
     RegisterDto:
@@ -2536,6 +3149,19 @@ components:
       type: object
       properties:
         content: { type: string }
+        structured:
+          $ref: '#/components/schemas/StructuredDiagnose'
+          description: 结构化诊疗栏目；服务端会兼容并回读旧 content 文本
+        templateCode: { type: string, maxLength: 32, default: GENERAL, description: 记录模板编码 }
+    AmendDiagnoseRequest:
+      type: object
+      required: [revisionReason]
+      properties:
+        content: { type: string }
+        structured:
+          $ref: '#/components/schemas/StructuredDiagnose'
+        templateCode: { type: string, maxLength: 32, description: 修订后病历模板编码；省略时沿用原版本 }
+        revisionReason: { type: string, minLength: 1, maxLength: 256, description: 修订原因；只允许从已提交版本发起修订 }
     DiagnoseDto:
       type: object
       properties:
@@ -2543,6 +3169,24 @@ components:
         encounterId: { type: string, format: uuid, description: '≡ registerId' }
         status: { type: string, enum: [NEW, SAVE, COMMIT, ABATE] }
         content: { type: string }
+        structured:
+          $ref: '#/components/schemas/StructuredDiagnose'
+        templateCode: { type: string }
+        version: { type: integer, minimum: 1, description: 当前挂号下的病历版本序号 }
+        supersedesDiagnoseId: { type: string, format: uuid, nullable: true, description: 本版本直接修订的前一条诊断记录 }
+        revisionReason: { type: string, nullable: true, description: 发起修订时填写的原因 }
+        signedAt: { type: string, format: date-time, nullable: true, description: 提交签名时间 }
+        signedBy: { type: string, nullable: true, description: 提交签名操作员 }
+    StructuredDiagnose:
+      type: object
+      description: 一期电子病历结构化栏目；每项建议不超过 320 个字符
+      properties:
+        chiefComplaint: { type: string, description: 主诉 }
+        presentHistory: { type: string, description: 现病史 }
+        pastHistory: { type: string, description: 既往史与过敏史 }
+        examination: { type: string, description: 查体与检查 }
+        assessment: { type: string, description: 初步诊断 }
+        plan: { type: string, description: 处置计划 }
     OrderItemInput:
       type: object
       required: [itemNo, itemType, itemName, amount, price]
@@ -3067,13 +3711,18 @@ components:
         sortNo: { type: integer }
     DoctorDto:
       type: object
-      required: [doctorId, doctorCode, doctorName, departmentId, status]
+      required: [doctorId, doctorCode, doctorName, departmentId, status, workingHours]
       properties:
         doctorId: { type: string }
         doctorCode: { type: string }
         doctorName: { type: string }
         departmentId: { type: string }
         status: { type: string, enum: [ACTIVE, INACTIVE] }
+        workingHours:
+          type: array
+          description: 每周本地接诊时段；weekday 采用 1=周一至 7=周日。为空表示尚未配置排班。
+          items:
+            $ref: '#/components/schemas/DoctorWorkingHour'
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     CreateDoctorRequest:
@@ -3084,6 +3733,10 @@ components:
         doctorName: { type: string, minLength: 1 }
         departmentId: { type: string }
         status: { type: string, enum: [ACTIVE, INACTIVE], default: ACTIVE }
+        workingHours:
+          type: array
+          items:
+            $ref: '#/components/schemas/DoctorWorkingHour'
     PatchDoctorRequest:
       type: object
       properties:
@@ -3091,6 +3744,18 @@ components:
         doctorName: { type: string }
         departmentId: { type: string }
         status: { type: string, enum: [ACTIVE, INACTIVE] }
+        workingHours:
+          type: array
+          items:
+            $ref: '#/components/schemas/DoctorWorkingHour'
+    DoctorWorkingHour:
+      type: object
+      required: [weekday, start, end, slotMinutes]
+      properties:
+        weekday: { type: integer, minimum: 1, maximum: 7, description: 1=周一，7=周日 }
+        start: { type: string, pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' }
+        end: { type: string, pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' }
+        slotMinutes: { type: integer, minimum: 5, maximum: 240, description: 预约号源建议间隔 }
     CatalogItemDto:
       type: object
       required: [catalogItemId, itemNo, itemName, itemType, units, price, status]
@@ -3157,8 +3822,8 @@ components:
           items:
             type: object
             properties:
-              dictType: { type: string, example: register_sort }
-              name: { type: string, example: 号别 }
+              dictType: { type: string, enum: [register_sort, id_type], example: register_sort }
+              name: { type: string, examples: [号别, 证件类型] }
     DictItemDto:
       type: object
       required: [dictItemId, dictType, code, name, status]
@@ -3595,3 +4260,38 @@ components:
         moduleCode: { type: string }
         departmentId: { type: string }
         effect: { type: string, enum: [ALLOW, DENY] }
+    CodeRuleDto:
+      type: object
+      required: [kind, name, prefix, dateMode, separator, sequenceLength, resetPeriod, enabled, version]
+      properties:
+        kind: { type: string }
+        name: { type: string }
+        prefix: { type: string }
+        dateMode: { type: string, enum: [NONE, YYYY, YYYYMM, YYYYMMDD] }
+        separator: { type: string, maxLength: 1 }
+        sequenceLength: { type: integer, minimum: 1, maximum: 12 }
+        resetPeriod: { type: string, enum: [NEVER, YEAR, MONTH, DAY] }
+        enabled: { type: boolean }
+        currentPeriod: { type: string }
+        currentValue: { type: integer, format: int64 }
+        version: { type: integer, format: int64 }
+        updatedAt: { type: string, format: date-time }
+    CodeRuleListDto:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/CodeRuleDto' }
+    PatchCodeRuleRequest:
+      type: object
+      required: [version]
+      properties:
+        name: { type: string }
+        prefix: { type: string }
+        dateMode: { type: string, enum: [NONE, YYYY, YYYYMM, YYYYMMDD] }
+        separator: { type: string, maxLength: 1 }
+        sequenceLength: { type: integer, minimum: 1, maximum: 12 }
+        resetPeriod: { type: string, enum: [NEVER, YEAR, MONTH, DAY] }
+        enabled: { type: boolean }
+        version: { type: integer, format: int64 }
