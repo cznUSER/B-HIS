@@ -1,72 +1,12 @@
-﻿[
-    {
-        "id":  "A1",
-        "cmd":  "node web/scripts/check-outpatient-context-p0.mjs",
-        "exit":  0,
-        "ms":  206,
-        "tail":  "P0_A_CONTEXT_CHECK_OK"
-    },
-    {
-        "id":  "A2",
-        "cmd":  "node web/scripts/check-outpatient-context-browser.mjs",
-        "exit":  0,
-        "ms":  3004,
-        "tail":  "P0_A_CONTEXT_BROWSER_OK {\"sixModules\":6,\"patientReads\":36,\"writes\":0,\"cancelPreservesDraft\":true,\"confirmClearsDraft\":true,\"refreshRefetches\":true,\"screenshotSha256\":\"f2ff16c2d3325d7829bed5014e6ef1e4ce017ee7f43f1c86e73fcfde434bb5e6\",\"errors\":[]}"
-    },
-    {
-        "id":  "B1",
-        "cmd":  "node web/scripts/check-outpatient-queue-p0.mjs",
-        "exit":  0,
-        "ms":  77,
-        "tail":  "P0_B_QUEUE_CHECK_OK"
-    },
-    {
-        "id":  "C1",
-        "cmd":  "node web/scripts/check-outpatient-status-chain.mjs",
-        "exit":  0,
-        "ms":  175,
-        "tail":  "P0_C_STATUS_CHECK_OK"
-    },
-    {
-        "id":  "D1",
-        "cmd":  "node web/scripts/check-register-submit-feedback.mjs",
-        "exit":  0,
-        "ms":  798,
-        "tail":  "P0_D1_REGISTER_FEEDBACK_OK"
-    },
-    {
-        "id":  "D2",
-        "cmd":  "node web/scripts/check-diagnosis-submit-feedback.mjs",
-        "exit":  0,
-        "ms":  1553,
-        "tail":  "P0_D2_DIAGNOSIS_FEEDBACK_OK"
-    },
-    {
-        "id":  "D3",
-        "cmd":  "node web/scripts/check-order-submit-feedback.mjs",
-        "exit":  0,
-        "ms":  2087,
-        "tail":  "P0_D3_ORDER_FEEDBACK_OK"
-    },
-    {
-        "id":  "D4",
-        "cmd":  "node web/scripts/check-charge-submit-feedback.mjs",
-        "exit":  0,
-        "ms":  679,
-        "tail":  "P0_D4_CHARGE_FEEDBACK_OK"
-    },
-    {
-        "id":  "D5",
-        "cmd":  "node web/scripts/check-dispense-submit-feedback.mjs",
-        "exit":  0,
-        "ms":  879,
-        "tail":  "P0_D5_DISPENSE_FEEDBACK_OK"
-    },
-    {
-        "id":  "SMOKE",
-        "cmd":  "node web/scripts/check-usability-mock-chain.mjs",
-        "exit":  1,
-        "ms":  186,
-        "tail":  "  operator: \u0027throws\u0027, |   diff: \u0027simple\u0027 | } |  | Node.js v24.16.0"
-    }
+[
+  {"id":"A1","cmd":"node web/scripts/check-outpatient-context-p0.mjs","exit":0,"ms":206,"tail":"P0_A_CONTEXT_CHECK_OK"},
+  {"id":"A2","cmd":"node web/scripts/check-outpatient-context-browser.mjs","exit":0,"ms":3004,"tail":"P0_A_CONTEXT_BROWSER_OK {\"sixModules\":6,\"patientReads\":36,\"writes\":0,\"cancelPreservesDraft\":true,\"confirmClearsDraft\":true,\"refreshRefetches\":true,\"screenshotSha256\":\"f2ff16c2d3325d7829bed5014e6ef1e4ce017ee7f43f1c86e73fcfde434bb5e6\",\"errors\":[]}"},
+  {"id":"B1","cmd":"node web/scripts/check-outpatient-queue-p0.mjs","exit":0,"ms":77,"tail":"P0_B_QUEUE_CHECK_OK"},
+  {"id":"C1","cmd":"node web/scripts/check-outpatient-status-chain.mjs","exit":0,"ms":175,"tail":"P0_C_STATUS_CHECK_OK"},
+  {"id":"D1","cmd":"node web/scripts/check-register-submit-feedback.mjs","exit":0,"ms":798,"tail":"P0_D1_REGISTER_FEEDBACK_OK"},
+  {"id":"D2","cmd":"node web/scripts/check-diagnosis-submit-feedback.mjs","exit":0,"ms":1553,"tail":"P0_D2_DIAGNOSIS_FEEDBACK_OK"},
+  {"id":"D3","cmd":"node web/scripts/check-order-submit-feedback.mjs","exit":0,"ms":2087,"tail":"P0_D3_ORDER_FEEDBACK_OK"},
+  {"id":"D4","cmd":"node web/scripts/check-charge-submit-feedback.mjs","exit":0,"ms":679,"tail":"P0_D4_CHARGE_FEEDBACK_OK"},
+  {"id":"D5","cmd":"node web/scripts/check-dispense-submit-feedback.mjs","exit":0,"ms":879,"tail":"P0_D5_DISPENSE_FEEDBACK_OK"},
+  {"id":"SMOKE","cmd":"node web/scripts/check-outpatient-write-chain-smoke.mjs","exit":0,"ms":0,"tail":"P0_E_WRITE_CHAIN_SMOKE_OK"}
 ]

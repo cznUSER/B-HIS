@@ -71,9 +71,9 @@
 
 ## Origin
 
-- 开跑：本机 tip = origin `4e4b856`（ahead 0）  
-- 本片 commit 后：见回报短/全 SHA；能推则 `git push origin HEAD`
-
+- 开跑：本机 tip = origin `4e4b85643c122f14d28eb007be8510b9a864bdeb`（ahead 0）
+- 本片 commit：`edd10e178977e2350c0567ba27b848c23aa4e502`（短 `edd10e1`）`test(h05): P0-E-INTEGRATION-01 Ea harness reverify`
+- `git push origin HEAD` → **ok**（`4e4b856..edd10e1` → `codex/register-slot-card-20261028`；ahead 0）
 ## 残余 / 给 H06·H01
 
 - 旧 `check-usability-mock-chain.mjs` 与 D5 幂等语义不一致（非本片阻塞；可另立清理）  
