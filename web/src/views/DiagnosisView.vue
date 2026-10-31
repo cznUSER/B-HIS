@@ -19,6 +19,15 @@ import {
   appendDiagnosisName,
   assessmentIncludesName,
 } from '../workbench/commonDiagnoses.js'
+import {
+  MOCK_ICD_CODES,
+  ICD_DEMO_DISCLAIMER,
+  EMPTY_ICD_MATCH_MESSAGE,
+  filterIcdByKeyword,
+  formatIcdEntryToken,
+  appendIcdToken,
+  assessmentIncludesIcdToken,
+} from '../workbench/mockIcdCodes.js'
 import { ApiError } from '../api/errors.js'
 import { useMock } from '../api/config.js'
 import { amendDiagnose, commitDiagnose, abateDiagnose, listDiagnoses, saveDiagnose } from '../api/diagnosisApi.js'
@@ -136,6 +145,10 @@ function parseStructured(raw) {
   Object.assign(structured, next)
 }
 
+const icdKeyword = ref('')
+
+const icdFindResults = computed(() => filterIcdByKeyword(MOCK_ICD_CODES, icdKeyword.value))
+
 function applyCommonDiagnosis(name) {
   if (editorLocked.value || busy.value) return
   structured.assessment = appendDiagnosisName(structured.assessment, name)
@@ -143,6 +156,15 @@ function applyCommonDiagnosis(name) {
 
 function isCommonDiagnosisSelected(name) {
   return assessmentIncludesName(structured.assessment, name)
+}
+
+function applyIcdEntry(entry) {
+  if (editorLocked.value || busy.value || !entry) return
+  structured.assessment = appendIcdToken(structured.assessment, entry)
+}
+
+function isIcdEntrySelected(entry) {
+  return assessmentIncludesIcdToken(structured.assessment, entry)
 }
 
 function applyTemplate() {
@@ -562,6 +584,52 @@ useErrorDialog([
                   @click="applyCommonDiagnosis(name)"
                 >+ {{ name }}</button>
               </div>
+              <div
+                v-if="field.key === 'assessment'"
+                class="diagnosis-icd-find"
+                data-testid="diagnosis-icd-find"
+                aria-label="ICD 检索（演示）"
+              >
+                <div class="diagnosis-icd-find-head">
+                  <span class="diagnosis-icd-find-label">ICD 检索（演示）</span>
+                  <span class="diagnosis-icd-find-disclaimer" data-testid="icd-find-disclaimer">{{ ICD_DEMO_DISCLAIMER }}</span>
+                </div>
+                <input
+                  v-model="icdKeyword"
+                  class="diagnosis-icd-find-input"
+                  data-testid="icd-find-input"
+                  type="search"
+                  maxlength="64"
+                  placeholder="关键词过滤演示码表（编码/名称/别名）"
+                  :disabled="editorLocked || busy"
+                  autocomplete="off"
+                />
+                <ul
+                  class="diagnosis-icd-find-results"
+                  data-testid="icd-find-results"
+                  role="listbox"
+                  aria-label="演示 ICD 结果"
+                >
+                  <li v-if="!icdFindResults.length" class="diagnosis-icd-find-empty" data-testid="icd-find-empty">{{ EMPTY_ICD_MATCH_MESSAGE }}</li>
+                  <li
+                    v-for="entry in icdFindResults"
+                    :key="entry.code"
+                    class="diagnosis-icd-find-item"
+                  >
+                    <button
+                      type="button"
+                      class="diagnosis-icd-find-item-btn"
+                      :data-testid="'icd-find-item-' + entry.code"
+                      :disabled="editorLocked || busy || isIcdEntrySelected(entry)"
+                      :title="isIcdEntrySelected(entry) ? '已在初步诊断中' : ('填入 ' + formatIcdEntryToken(entry))"
+                      @click="applyIcdEntry(entry)"
+                    >
+                      <span class="diagnosis-icd-find-code">{{ entry.code }}</span>
+                      <span class="diagnosis-icd-find-name">{{ entry.name }}</span>
+                    </button>
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
           <div class="diagnosis-editor-foot"><span :class="{ 'diagnosis-length-error': contentTooLong }">{{ serializedContent.length }}/2000 · 已填写 {{ completion }}/{{ STRUCTURED_FIELDS.length }} 项</span><span v-if="editorLocked">已提交或已作废的诊断不能直接修改，可从已提交版本发起修订</span><span v-else-if="amendSourceId">修订草稿将保存为 v{{ (diagnoses.length || 0) + 1 }}</span></div>
@@ -618,6 +686,18 @@ useErrorDialog([
 .diagnosis-common-label { color: #84a18f; font-size: 10px; letter-spacing: .04em; }
 .diagnosis-common-chip { border: 0; padding: 2px 0; color: #1e6e5d; background: transparent; font: inherit; font-size: 11px; cursor: pointer; }
 .diagnosis-common-chip:disabled { color: #a0b0ab; cursor: default; }
+.diagnosis-icd-find { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; padding: 8px 10px; border: 1px dashed #cfe2d5; border-radius: 10px; background: #f8fcf9; }
+.diagnosis-icd-find-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.diagnosis-icd-find-label { color: #4e7966; font-size: 10px; letter-spacing: .04em; font-weight: 600; }
+.diagnosis-icd-find-disclaimer { color: #9a7a3a; font-size: 10px; }
+.diagnosis-icd-find-input { width: 100%; min-height: 32px; padding: 0 10px; border: 1px solid #cfe2d5; border-radius: 8px; color: #314e41; background: #fff; font: inherit; font-size: 12px; }
+.diagnosis-icd-find-input:disabled { color: #8a9b93; background: #f3f6f4; }
+.diagnosis-icd-find-results { list-style: none; margin: 0; padding: 0; max-height: 148px; overflow: auto; display: flex; flex-direction: column; gap: 2px; }
+.diagnosis-icd-find-empty { color: #95a69b; font-size: 11px; padding: 4px 2px; }
+.diagnosis-icd-find-item-btn { display: flex; gap: 10px; width: 100%; align-items: baseline; border: 0; padding: 4px 2px; background: transparent; color: #1e6e5d; font: inherit; font-size: 11px; text-align: left; cursor: pointer; }
+.diagnosis-icd-find-item-btn:disabled { color: #a0b0ab; cursor: default; }
+.diagnosis-icd-find-code { flex: 0 0 auto; min-width: 4.5em; color: #5b7d6c; font-variant-numeric: tabular-nums; }
+.diagnosis-icd-find-name { flex: 1 1 auto; }
 .diagnosis-content-field textarea { width: 100%; min-height: 76px; resize: vertical; padding: 10px 11px; border: 1px solid #cfe2d5; border-radius: 10px; color: #314e41; background: #fcfefd; font: inherit; line-height: 1.65; }
 .diagnosis-content-field textarea:focus { outline: 2px solid #a9d8bc; outline-offset: 1px; }
 .diagnosis-content-field textarea[readonly] { color: #768a7e; background: #f5f8f5; }
