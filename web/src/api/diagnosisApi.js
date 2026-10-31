@@ -2,12 +2,14 @@
 import { apiUrl, useMock } from './config.js'
 import { apiError, readErrorResponse } from './errors.js'
 import {
+  assertAmendDiagnoseRequest,
   assertCreateDiagnoseRequest,
   assertDiagnoseDto,
   assertDiagnoseList,
 } from './diagnosisContract.js'
 import {
   mockAbateDiagnose,
+  mockAmendDiagnose,
   mockCommitDiagnose,
   mockCreateDiagnose,
   mockListDiagnoses,
@@ -19,6 +21,7 @@ export const DIAGNOSIS_ROUTES = {
   collection: (registerId) => `/registers/${encodeURIComponent(registerId)}/diagnoses`,
   commit: (diagnoseId) => `/diagnoses/${encodeURIComponent(diagnoseId)}/commit`,
   abate: (diagnoseId) => `/diagnoses/${encodeURIComponent(diagnoseId)}/abate`,
+  amend: (diagnoseId) => `/diagnoses/${encodeURIComponent(diagnoseId)}/amend`,
 }
 
 function bearer(accessToken) { return accessToken ? { Authorization: `Bearer ${accessToken}` } : {} }
@@ -51,6 +54,13 @@ function requireId(value, label) {
   return id
 }
 
+function requireIdempotencyKey(idempotencyKey) {
+  if (typeof idempotencyKey !== 'string' || !idempotencyKey.trim()) {
+    throw apiError(400, 'VALIDATION_ERROR', '诊断请求缺少幂等键')
+  }
+  return idempotencyKey.trim()
+}
+
 export async function listDiagnoses(accessToken, registerId) {
   const id = requireId(registerId, '挂号')
   if (useMock()) { await delay(80); return mockListDiagnoses(accessToken, id) }
@@ -59,33 +69,50 @@ export async function listDiagnoses(accessToken, registerId) {
   }, '无法连接诊断服务'))
 }
 
-export async function saveDiagnose(accessToken, registerId, input) {
+export async function saveDiagnose(accessToken, registerId, input, idempotencyKey = crypto.randomUUID()) {
   const id = requireId(registerId, '挂号')
+  const key = requireIdempotencyKey(idempotencyKey)
   const body = assertCreateDiagnoseRequest(input)
-  if (useMock()) { await delay(140); return mockCreateDiagnose(accessToken, id, body) }
+  if (useMock()) { await delay(140); return mockCreateDiagnose(accessToken, id, body, key) }
   return assertDiagnoseDto(await request(accessToken, DIAGNOSIS_ROUTES.collection(id), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
-      'Idempotency-Key': crypto.randomUUID(),
+      'Idempotency-Key': key,
     },
     body: JSON.stringify(body),
   }, '无法连接诊断服务'))
 }
 
-async function diagnoseAction(accessToken, diagnoseId, action, mockAction) {
+async function diagnoseAction(accessToken, diagnoseId, action, mockAction, idempotencyKey = crypto.randomUUID()) {
   const id = requireId(diagnoseId, '诊断')
-  if (useMock()) { await delay(120); return mockAction(accessToken, id) }
+  const key = requireIdempotencyKey(idempotencyKey)
+  if (useMock()) { await delay(120); return mockAction(accessToken, id, key) }
   return assertDiagnoseDto(await request(accessToken, action(id), {
     method: 'POST',
-    headers: { 'Idempotency-Key': crypto.randomUUID() },
+    headers: { 'Idempotency-Key': key },
   }, '无法连接诊断服务'))
 }
 
-export function commitDiagnose(accessToken, diagnoseId) {
-  return diagnoseAction(accessToken, diagnoseId, DIAGNOSIS_ROUTES.commit, mockCommitDiagnose)
+export function commitDiagnose(accessToken, diagnoseId, idempotencyKey = crypto.randomUUID()) {
+  return diagnoseAction(accessToken, diagnoseId, DIAGNOSIS_ROUTES.commit, mockCommitDiagnose, idempotencyKey)
 }
 
-export function abateDiagnose(accessToken, diagnoseId) {
-  return diagnoseAction(accessToken, diagnoseId, DIAGNOSIS_ROUTES.abate, mockAbateDiagnose)
+export function abateDiagnose(accessToken, diagnoseId, idempotencyKey = crypto.randomUUID()) {
+  return diagnoseAction(accessToken, diagnoseId, DIAGNOSIS_ROUTES.abate, mockAbateDiagnose, idempotencyKey)
+}
+
+export async function amendDiagnose(accessToken, diagnoseId, input, idempotencyKey = crypto.randomUUID()) {
+  const id = requireId(diagnoseId, '诊断')
+  const key = requireIdempotencyKey(idempotencyKey)
+  const body = assertAmendDiagnoseRequest(input)
+  if (useMock()) { await delay(140); return mockAmendDiagnose(accessToken, id, body, key) }
+  return assertDiagnoseDto(await request(accessToken, DIAGNOSIS_ROUTES.amend(id), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Idempotency-Key': key,
+    },
+    body: JSON.stringify(body),
+  }, '无法连接诊断修订服务'))
 }
