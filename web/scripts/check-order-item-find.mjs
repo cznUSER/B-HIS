@@ -73,7 +73,7 @@ assert.match(orderView, /orderItemFind|findItems/)
 assert.match(orderView, /:disabled="locked \|\| busy \|\| !canWrite"/)
 assert.match(orderView, /常用项目/)
 assert.match(orderView, /data-testid="order-common-bar"/)
-assert.equal(orderView.includes('最近使用'), false)
+assert.match(orderView, /最近使用/) // P1-ORDER-RECENT-01 coexistence; FIND filter contract unchanged
 assert.equal(/皮试/.test(orderView) && /特殊处方/.test(orderView.replace('普通处方', '')), false)
 
 // PRINT / 提交接线不得被本片拆掉

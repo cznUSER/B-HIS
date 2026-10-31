@@ -10,6 +10,11 @@ import {
   resolveCommonItem,
 } from '../workbench/commonOrderItems.js'
 import {
+  getSessionRecentItemNos,
+  rememberSessionItemNo,
+  resolveRecentItem,
+} from '../workbench/recentOrderItems.js'
+import {
   buildPreviewModel,
   canPreviewOrderStatus,
   createOrderPrintController,
@@ -128,6 +133,20 @@ const commonChips = computed(() =>
     }
   }),
 )
+const recentMissingTip = ref('')
+const recentTick = ref(0)
+const recentChips = computed(() => {
+  recentTick.value
+  return getSessionRecentItemNos().map((itemNo) => {
+    const resolved = resolveRecentItem(itemNo, findItems.value)
+    const label = resolved?.itemName || resolved?.label || itemNo
+    return {
+      itemNo,
+      label,
+      resolved: Boolean(resolved),
+    }
+  })
+})
 
 function listedCatalog(itemType) {
   return (mockMode ? openCatalog() : remoteCatalog.value.filter((item) => item.status === 'ACTIVE')).filter((item) => item.itemType === itemType)
@@ -556,7 +575,38 @@ function applyCommonOrderItem(itemNo) {
   }
   commonMissingTip.value = ''
   lines.value = applyCommonItemToLines(lines.value, resolved, { addBlankLine: () => blankLine() })
+  rememberSessionItemNo(resolved.itemNo || itemNo)
+  recentTick.value += 1
 }
+
+function applyRecentOrderItem(itemNo) {
+  if (locked.value || busy.value || !canWrite.value) return
+  const resolved = resolveRecentItem(itemNo, findItems.value)
+  if (!resolved) {
+    recentMissingTip.value = '该最近项目当前目录不可用（未启用或不在目录中），未写入明细。'
+    return
+  }
+  recentMissingTip.value = ''
+  lines.value = applyCommonItemToLines(lines.value, resolved, { addBlankLine: () => blankLine() })
+  rememberSessionItemNo(resolved.itemNo || itemNo)
+  recentTick.value += 1
+}
+
+watch(
+  () => lines.value.map((line) => ({ key: line.key, itemNo: String(line.itemNo || '').trim() })),
+  (curr, prev) => {
+    const prevMap = new Map((prev || []).map((row) => [row.key, row.itemNo]))
+    let changed = false
+    for (const row of curr) {
+      if (!row.itemNo) continue
+      if (row.itemNo !== prevMap.get(row.key)) {
+        rememberSessionItemNo(row.itemNo)
+        changed = true
+      }
+    }
+    if (changed) recentTick.value += 1
+  },
+)
 
 function removeLine(key) {
   if (locked.value || busy.value || !canWrite.value) return
@@ -858,6 +908,26 @@ useErrorDialog([
             </button>
           </div>
           <p v-if="commonMissingTip" class="field-hint" data-testid="order-common-missing" role="status">{{ commonMissingTip }}</p>
+          <div class="order-recent-bar" data-testid="order-recent-bar">
+            <span class="order-recent-label">最近使用</span>
+            <span class="order-recent-honesty">本会话内存（刷新后清空）</span>
+            <template v-if="recentChips.length">
+              <button
+                v-for="item in recentChips"
+                :key="item.itemNo"
+                type="button"
+                class="order-recent-chip"
+                :data-testid="`order-recent-item-${item.itemNo}`"
+                :disabled="locked || busy || !canWrite || !item.resolved"
+                :title="item.resolved ? ('填入 ' + item.label) : '当前目录不可用'"
+                @click="applyRecentOrderItem(item.itemNo)"
+              >
+                {{ item.label }}
+              </button>
+            </template>
+            <span v-else class="order-recent-empty" data-testid="order-recent-empty">本会话暂无最近使用（刷新后清空）</span>
+          </div>
+          <p v-if="recentMissingTip" class="field-hint" data-testid="order-recent-missing" role="status">{{ recentMissingTip }}</p>
           <div class="panel-actions">
             <button class="button button-ghost button-compact" type="button" @click="addLine">添加明细</button>
           </div>
@@ -954,6 +1024,36 @@ useErrorDialog([
   cursor: pointer;
 }
 .order-common-chip:disabled {
+  color: #a0b0ab;
+  cursor: default;
+}
+.order-recent-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 4px;
+}
+.order-recent-label {
+  color: #84a18f;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+.order-recent-honesty,
+.order-recent-empty {
+  color: #9aa8a2;
+  font-size: 10px;
+}
+.order-recent-chip {
+  border: 0;
+  padding: 2px 0;
+  color: #1e6e5d;
+  background: transparent;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.order-recent-chip:disabled {
   color: #a0b0ab;
   cursor: default;
 }
