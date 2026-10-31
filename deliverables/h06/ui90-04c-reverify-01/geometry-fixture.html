@@ -1,0 +1,73 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>UI90-04C tip CSS geometry probe</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #dfe6ee; }
+  /* Tip scoped CSS extracted from git show 2b69533:UserOperationsLogPanel.vue (geometry tokens only) */
+  .user-operations-panel.access-data-panel.patient-panel.access-data-panel {
+    gap: 0; padding: 0; border: 1px solid #999; border-radius: 0; background: #f0f0f0; color: #202020;
+    font: 16px SimSun, '宋体', serif; width: 100%; box-sizing: border-box;
+  }
+  .user-operations-panel .master-panel-header {
+    min-height: 45px; height: 45px; padding: 4px 12px; margin: 0; border-bottom: 1px solid #999;
+    border-radius: 0; background: #e8e8e8; box-sizing: border-box; display: flex; align-items: center; gap: 12px;
+  }
+  .user-operations-panel .master-panel-symbol { width: 28px; height: 28px; background: #cfcfcf; flex: 0 0 auto; }
+  .user-operations-panel h2 { margin: 0; font: 16px SimSun, '宋体', serif; }
+  .user-operations-panel .user-operations-filters {
+    display: grid; grid-template-columns: repeat(4, minmax(130px, 1fr)) 90px; align-items: end; gap: 8px;
+    min-height: 81px; padding: 6px 12px 10px; margin: 0; border: 0; border-bottom: 1px solid #999;
+    border-radius: 0; background: #f0f0f0; box-sizing: border-box;
+  }
+  .user-operations-panel .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .user-operations-panel .field > span {
+    align-self: flex-start; padding: 3px 5px; border: 1px solid #bfbfbf; border-radius: 5px;
+    background: #dedede; font: 12px/17px 'Segoe UI', sans-serif;
+  }
+  .user-operations-panel .field input,
+  .user-operations-panel .field select {
+    min-height: 25px; height: 25px; padding: 2px 5px; border: 1px solid #999; border-radius: 0;
+    background: white; color: #202020; font: 16px SimSun, '宋体', serif; box-sizing: border-box; width: 100%;
+  }
+  .user-operations-panel .button {
+    min-height: 30px; height: 30px; border: 1px solid #aaa; border-radius: 3px; background: #e6e6e6;
+    color: #202020; font: 14px SimSun, '宋体', serif; box-sizing: border-box;
+  }
+  .user-operations-panel .user-operations-results { margin: 0; border: 0; background: white; }
+  .user-operations-panel .register-table { border-collapse: collapse; width: 100%; font: 16px SimSun, '宋体', serif; }
+  .user-operations-panel .register-table th { padding: 5px 8px; background: #e7e7e7; border: 1px solid #b7b7b7; font-weight: normal; }
+  .user-operations-panel .register-table td { padding: 4px 8px; border: 1px solid #d4d4d4; }
+  @media (max-width: 860px) {
+    .user-operations-panel .user-operations-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .user-operations-filters > button { width: 100%; }
+  }
+  @media (max-width: 520px) {
+    .user-operations-panel .master-panel-header { height: auto; min-height: 45px; }
+    .user-operations-panel .user-operations-filters { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<section class="user-operations-panel access-data-panel patient-panel" id="panel">
+  <header class="master-panel-header" id="header">
+    <div class="master-panel-symbol"></div>
+    <h2>用户操作日志</h2>
+  </header>
+  <form class="user-operations-filters" id="filters">
+    <label class="field"><span>模块名称</span><select><option>全部模块</option></select></label>
+    <label class="field"><span>用户</span><input type="search" value="" /></label>
+    <label class="field"><span>开始日期</span><input type="date" /></label>
+    <label class="field"><span>结束日期</span><input type="date" /></label>
+    <button class="button" type="button">检索(S)</button>
+  </form>
+  <div class="user-operations-results">
+    <table class="register-table"><thead><tr>
+      <th>模块名称</th><th>日志类型</th><th>记录时间</th><th>用户名称</th><th>登陆科室</th><th>日志内容</th>
+      <th>IP地址</th><th>MAC地址</th><th>程序版本号</th><th>结果</th><th>请求编号</th><th>错误代码</th>
+    </tr></thead><tbody><tr><td colspan="12">probe row</td></tr></tbody></table>
+  </div>
+</section>
+</body>
+</html>

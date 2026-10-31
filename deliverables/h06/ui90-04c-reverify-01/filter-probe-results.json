@@ -1,0 +1,32 @@
+{
+  "mode": "tip accessAuditApi mock path (BHIS_WEB_TEST_MODE=1 VITE_USE_MOCK=true); not live HTTP",
+  "tip": "2b69533",
+  "cases": [
+    {
+      "name": "default-limit-page",
+      "ok": true,
+      "count": 5
+    },
+    {
+      "name": "user+date empty",
+      "ok": true,
+      "count": 0
+    },
+    {
+      "name": "module+user+date filter",
+      "ok": true,
+      "count": 2
+    },
+    {
+      "name": "search clears cursor (empty cursor = first page)",
+      "ok": true,
+      "count": 2
+    },
+    {
+      "name": "csv formula escape",
+      "ok": true,
+      "sample": "\"'=1+1\",\"t\",\"t\",\"u\",\"\",\"\",\"\",\"\",\"\",\"\",\"\",\"\""
+    }
+  ],
+  "allOk": true
+}

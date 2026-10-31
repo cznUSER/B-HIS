@@ -1,0 +1,103 @@
+{
+  "mode": "tip-CSS isolated fixture (not full AppShell); source tip 2b69533 UserOperationsLogPanel scoped CSS",
+  "tip": "2b69533",
+  "targets": {
+    "header": 45,
+    "filters": 81,
+    "input": 25,
+    "button": 30,
+    "gridTopFromHeaderPlusFilters": 126
+  },
+  "measurements": [
+    {
+      "viewport": 1440,
+      "header": {
+        "h": 45,
+        "bottom": 46
+      },
+      "filters": {
+        "h": 81,
+        "top": 46,
+        "y": 46
+      },
+      "gridStartApprox": 127,
+      "headerToFilterGap": 0,
+      "controls": {
+        "inputHeights": [
+          25,
+          25,
+          25,
+          25
+        ],
+        "buttonHeight": 30
+      },
+      "overlap": false,
+      "overflow": false,
+      "tableFont": "16px SimSun, 宋体, serif",
+      "labelFont": "12px / 17px \"Segoe UI\", sans-serif"
+    },
+    {
+      "viewport": 1024,
+      "header": {
+        "h": 45,
+        "bottom": 46
+      },
+      "filters": {
+        "h": 81,
+        "top": 46,
+        "y": 46
+      },
+      "gridStartApprox": 127,
+      "headerToFilterGap": 0,
+      "controls": {
+        "inputHeights": [
+          25,
+          25,
+          25,
+          25
+        ],
+        "buttonHeight": 30
+      },
+      "overlap": false,
+      "overflow": false,
+      "tableFont": "16px SimSun, 宋体, serif",
+      "labelFont": "12px / 17px \"Segoe UI\", sans-serif"
+    },
+    {
+      "viewport": 390,
+      "header": {
+        "h": 45,
+        "bottom": 46
+      },
+      "filters": {
+        "h": 299,
+        "top": 46,
+        "y": 46
+      },
+      "gridStartApprox": 345,
+      "headerToFilterGap": 0,
+      "controls": {
+        "inputHeights": [
+          25,
+          25,
+          25,
+          25
+        ],
+        "buttonHeight": 30
+      },
+      "overlap": false,
+      "overflow": true,
+      "tableFont": "16px SimSun, 宋体, serif",
+      "labelFont": "12px / 17px \"Segoe UI\", sans-serif"
+    }
+  ],
+  "desktopGeometryPassWithin2px": true,
+  "mobileNote": {
+    "headerH": 45,
+    "filtersH": 299,
+    "overflow": true,
+    "overlap": false,
+    "remark": "DFM has no mobile layout; 520px media sets header height:auto / single-column filters"
+  },
+  "errors": []
+}
