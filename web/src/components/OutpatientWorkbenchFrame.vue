@@ -7,8 +7,8 @@ import { listRegisters } from '../api/registerApi.js'
 import { fetchDepartments, fetchDoctors } from '../master/api.js'
 import { decorateModules } from '../workbench/catalog.js'
 import WorkflowSteps from './WorkflowSteps.vue'
+import OutpatientStatusChain from './outpatient/OutpatientStatusChain.vue'
 import {
-  deriveWorkflowProgress,
   deriveWorkflowStatus,
   outpatientContext,
   patientDisplayMeta,
@@ -215,7 +215,6 @@ const departmentLabel = computed(() => currentRegister.value?.departmentName || 
 const doctorLabel = computed(() => currentRegister.value?.doctorName || doctors.value.find((item) => item.doctorId === currentRegister.value?.doctorId)?.doctorName || (masterLoading.value ? '加载中' : '未知'))
 const currentRegisterNo = computed(() => currentRegister.value?.registerNo || currentRegister.value?.registerId || '')
 const workflowStatus = computed(() => deriveWorkflowStatus(outpatientContext))
-const workflowProgress = computed(() => deriveWorkflowProgress(outpatientContext))
 const patientSearchRoute = computed(() => ({
   name: 'patient-search',
   query: currentPatientId.value ? { patientId: currentPatientId.value } : {},
@@ -288,15 +287,7 @@ const inventorySummary = computed(() => {
       </template>
     </dialog>
 
-    <section class="outpatient-status-chain" data-testid="outpatient-status-chain" aria-label="流程状态">
-      <ol class="outpatient-status-steps">
-        <li v-for="step in workflowProgress" :key="step.key" :class="{ 'is-complete': step.complete, 'is-current': step.current }">
-          <span class="outpatient-status-dot" aria-hidden="true">{{ step.complete ? '✓' : '·' }}</span>
-          <span>{{ step.complete ? step.completeLabel : step.label }}</span>
-        </li>
-      </ol>
-      <span class="outpatient-status-next">下一步：{{ workflowStatus.next }}</span>
-    </section>
+    <OutpatientStatusChain />
 
     <WorkflowSteps v-if="isAuthenticated" />
 
