@@ -5,6 +5,11 @@ import SubmitStatusBanner from '../components/feedback/SubmitStatusBanner.vue'
 import OrderPrintPanel from '../components/outpatient/OrderPrintPanel.vue'
 import OrderItemFinder from '../components/outpatient/OrderItemFinder.vue'
 import {
+  COMMON_ORDER_ITEMS,
+  applyCommonItemToLines,
+  resolveCommonItem,
+} from '../workbench/commonOrderItems.js'
+import {
   buildPreviewModel,
   canPreviewOrderStatus,
   createOrderPrintController,
@@ -111,6 +116,18 @@ const orderDoctors = computed(() => {
 const drugOptions = computed(() => listedCatalog('DRUG'))
 const treatOptions = computed(() => listedCatalog('TREAT'))
 const findItems = computed(() => [...drugOptions.value, ...treatOptions.value])
+const commonMissingTip = ref('')
+const commonChips = computed(() =>
+  COMMON_ORDER_ITEMS.map((item) => {
+    const resolved = resolveCommonItem(item.itemNo, findItems.value)
+    return {
+      itemNo: item.itemNo,
+      label: item.label,
+      itemType: item.itemType,
+      resolved: Boolean(resolved),
+    }
+  }),
+)
 
 function listedCatalog(itemType) {
   return (mockMode ? openCatalog() : remoteCatalog.value.filter((item) => item.status === 'ACTIVE')).filter((item) => item.itemType === itemType)
@@ -530,6 +547,17 @@ function addLine() {
   lines.value = [...lines.value, blankLine()]
 }
 
+function applyCommonOrderItem(itemNo) {
+  if (locked.value || busy.value || !canWrite.value) return
+  const resolved = resolveCommonItem(itemNo, findItems.value)
+  if (!resolved) {
+    commonMissingTip.value = '该常用项目当前目录不可用（未启用或不在目录中），未写入明细。'
+    return
+  }
+  commonMissingTip.value = ''
+  lines.value = applyCommonItemToLines(lines.value, resolved, { addBlankLine: () => blankLine() })
+}
+
 function removeLine(key) {
   if (locked.value || busy.value || !canWrite.value) return
   const next = lines.value.filter((line) => line.key !== key)
@@ -813,6 +841,23 @@ useErrorDialog([
               </tbody>
             </table>
           </div>
+          <div class="order-common-bar" data-testid="order-common-bar">
+            <span class="order-common-label">常用项目</span>
+            <span class="order-common-honesty">演示短表（非个人收藏）</span>
+            <button
+              v-for="item in commonChips"
+              :key="item.itemNo"
+              type="button"
+              class="order-common-chip"
+              :data-testid="`order-common-item-${item.itemNo}`"
+              :disabled="locked || busy || !canWrite || !item.resolved"
+              :title="item.resolved ? ('填入 ' + item.label) : '当前目录不可用'"
+              @click="applyCommonOrderItem(item.itemNo)"
+            >
+              {{ item.label }}
+            </button>
+          </div>
+          <p v-if="commonMissingTip" class="field-hint" data-testid="order-common-missing" role="status">{{ commonMissingTip }}</p>
           <div class="panel-actions">
             <button class="button button-ghost button-compact" type="button" @click="addLine">添加明细</button>
           </div>
@@ -881,3 +926,35 @@ useErrorDialog([
     </div>
   </section>
 </template>
+
+<style scoped>
+.order-common-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 4px;
+}
+.order-common-label {
+  color: #84a18f;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+.order-common-honesty {
+  color: #9aa8a2;
+  font-size: 10px;
+}
+.order-common-chip {
+  border: 0;
+  padding: 2px 0;
+  color: #1e6e5d;
+  background: transparent;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.order-common-chip:disabled {
+  color: #a0b0ab;
+  cursor: default;
+}
+</style>

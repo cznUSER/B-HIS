@@ -71,7 +71,8 @@ const orderView = fs.readFileSync(path.join(root, 'src/views/OrderView.vue'), 'u
 assert.match(orderView, /OrderItemFinder/)
 assert.match(orderView, /orderItemFind|findItems/)
 assert.match(orderView, /:disabled="locked \|\| busy \|\| !canWrite"/)
-assert.equal(orderView.includes('常用'), false)
+assert.match(orderView, /常用项目/)
+assert.match(orderView, /data-testid="order-common-bar"/)
 assert.equal(orderView.includes('最近使用'), false)
 assert.equal(/皮试/.test(orderView) && /特殊处方/.test(orderView.replace('普通处方', '')), false)
 
