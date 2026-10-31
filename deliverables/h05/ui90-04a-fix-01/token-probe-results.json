@@ -1,0 +1,125 @@
+[
+  {
+    "viewport": 1440,
+    "base": {
+      "dialog": {
+        "borderTopWidth": "2px",
+        "borderRightWidth": "2px",
+        "borderBottomWidth": "2px",
+        "borderLeftWidth": "2px",
+        "transform": "none",
+        "transitionProperty": "all"
+      },
+      "form": {
+        "borderTopWidth": "0px",
+        "borderRightWidth": "2px",
+        "borderBottomWidth": "2px",
+        "borderLeftWidth": "2px",
+        "transform": "none",
+        "transitionProperty": "all"
+      },
+      "button": {
+        "borderTopWidth": "2px",
+        "borderRightWidth": "2px",
+        "borderBottomWidth": "2px",
+        "borderLeftWidth": "2px",
+        "transform": "none",
+        "transitionProperty": "none"
+      },
+      "overflow": false,
+      "scrollWidth": 1440,
+      "innerWidth": 1440
+    },
+    "hover": {
+      "transform": "none",
+      "borderTopWidth": "2px"
+    },
+    "active": {
+      "transform": "none",
+      "borderTopWidth": "2px"
+    },
+    "screenshot": "E:\\B-HIS\\deliverables\\h05\\ui90-04a-fix-01\\token-probe-1440.png"
+  },
+  {
+    "viewport": 1024,
+    "base": {
+      "dialog": {
+        "borderTopWidth": "2px",
+        "borderRightWidth": "2px",
+        "borderBottomWidth": "2px",
+        "borderLeftWidth": "2px",
+        "transform": "none",
+        "transitionProperty": "all"
+      },
+      "form": {
+        "borderTopWidth": "0px",
+        "borderRightWidth": "2px",
+        "borderBottomWidth": "2px",
+        "borderLeftWidth": "2px",
+        "transform": "none",
+        "transitionProperty": "all"
+      },
+      "button": {
+        "borderTopWidth": "2px",
+        "borderRightWidth": "2px",
+        "borderBottomWidth": "2px",
+        "borderLeftWidth": "2px",
+        "transform": "none",
+        "transitionProperty": "none"
+      },
+      "overflow": false,
+      "scrollWidth": 1024,
+      "innerWidth": 1024
+    },
+    "hover": {
+      "transform": "none",
+      "borderTopWidth": "2px"
+    },
+    "active": {
+      "transform": "none",
+      "borderTopWidth": "2px"
+    },
+    "screenshot": "E:\\B-HIS\\deliverables\\h05\\ui90-04a-fix-01\\token-probe-1024.png"
+  },
+  {
+    "viewport": 390,
+    "base": {
+      "dialog": {
+        "borderTopWidth": "2px",
+        "borderRightWidth": "2px",
+        "borderBottomWidth": "2px",
+        "borderLeftWidth": "2px",
+        "transform": "none",
+        "transitionProperty": "all"
+      },
+      "form": {
+        "borderTopWidth": "0px",
+        "borderRightWidth": "2px",
+        "borderBottomWidth": "2px",
+        "borderLeftWidth": "2px",
+        "transform": "none",
+        "transitionProperty": "all"
+      },
+      "button": {
+        "borderTopWidth": "2px",
+        "borderRightWidth": "2px",
+        "borderBottomWidth": "2px",
+        "borderLeftWidth": "2px",
+        "transform": "none",
+        "transitionProperty": "none"
+      },
+      "overflow": false,
+      "scrollWidth": 390,
+      "innerWidth": 390
+    },
+    "hover": {
+      "transform": "none",
+      "borderTopWidth": "2px"
+    },
+    "active": {
+      "transform": "none",
+      "borderTopWidth": "2px"
+    },
+    "screenshot": "E:\\B-HIS\\deliverables\\h05\\ui90-04a-fix-01\\token-probe-390.png"
+  }
+]

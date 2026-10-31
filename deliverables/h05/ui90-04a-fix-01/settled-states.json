@@ -1,0 +1,50 @@
+{
+  "states": {
+    "normal": {
+      "borderWidth": "2px",
+      "transform": "none"
+    },
+    "hover": {
+      "borderWidth": "2px",
+      "transform": "none"
+    },
+    "active": {
+      "borderWidth": "2px",
+      "transform": "none"
+    },
+    "dialogBorder": "2px",
+    "formBorderTop": "0px",
+    "formBorderLeft": "2px"
+  },
+  "viewports": [
+    {
+      "viewport": 1440,
+      "overflow": false,
+      "dialogBorder": "2px",
+      "formBorder": "0px",
+      "buttonBorder": "2px",
+      "hoverTransform": "none",
+      "activeTransform": "none"
+    },
+    {
+      "viewport": 1024,
+      "overflow": false,
+      "dialogBorder": "2px",
+      "formBorder": "0px",
+      "buttonBorder": "2px",
+      "hoverTransform": "none",
+      "activeTransform": "none"
+    },
+    {
+      "viewport": 390,
+      "overflow": false,
+      "dialogBorder": "2px",
+      "formBorder": "0px",
+      "buttonBorder": "2px",
+      "hoverTransform": "none",
+      "activeTransform": "none"
+    }
+  ],
+  "errors": [],
+  "note": "Isolated HTML fixture with design-system .button motion leak + PasswordChangeView scoped CSS copy; not full Vue mount."
+}

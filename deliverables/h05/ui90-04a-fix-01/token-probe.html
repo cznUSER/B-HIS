@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>UI90-04A-FIX-01 token probe</title>
+<style>
+/* Minimal global .button motion leak (from design-system.css) */
+.button {
+  position: relative;
+  border-radius: 11px;
+  transition: transform .2s ease, background .2s, box-shadow .2s, border-color .2s;
+}
+.button:hover:enabled {
+  transform: translateY(-1px);
+}
+.button:active:enabled { transform: translateY(0) scale(.98); }
+/* Password page scoped CSS under test (copied from PasswordChangeView.vue) */
+.ui2-password-dialog { width: 326px; max-width: calc(100vw - 24px); padding: 0; border: 2px solid ButtonShadow; border-radius: 0; background: ButtonFace; color: ButtonText; box-shadow: 0 8px 24px #0003; }
+.ui2-password-dialog::backdrop { background: #0002; }
+.password-change-page { display: flex; flex-direction: column; gap: 0; align-items: center; padding: 0; background: ButtonFace; color: ButtonText; font-family: SimSun, '宋体', serif; font-size: 16px; }
+.password-change-page .crumb, .master-eyebrow, .master-access-tag { display: none; }
+.password-change-page .master-page-header { display: block; width: 326px; max-width: 100%; margin: 0; padding: 6px 10px; border: 0; border-bottom: 1px solid ButtonShadow; background: ButtonFace; box-sizing: border-box; }
+.password-change-page.password-change-page h1 { font: 12px 'Microsoft YaHei UI', sans-serif; margin: 0; }
+.password-change-page .master-page-description { font: 12px/1.5 'Segoe UI', sans-serif; margin: 7px 0 0; color: #515151; }
+.password-change-page .password-change-form { display: block; width: 326px; max-width: 100%; min-height: 301px; padding: 27px 27px 30px 47px; box-sizing: border-box; border: 2px solid #a5a5a5; border-top: 0; border-radius: 0; background: #f0f0f0; box-shadow: 0 8px 20px #00000012; }
+.password-change-page .password-change-form .field { display: block; margin: 0 0 7px; min-width: 0; }
+.password-change-page .password-change-form .field > span { width: 88px; display: table; height: 25px; margin-bottom: 7px; padding: 3px 5px; border: 1px solid #cacaca; border-radius: 5px; background: #ddd; box-sizing: border-box; font: 12px/17px 'Segoe UI', sans-serif; color: #000; }
+.password-change-page .password-change-form .field:nth-child(3) > span { width: 127px; }
+.password-change-page.password-change-page .password-change-form input { width: 250px; max-width: 100%; height: 25px; min-height: 25px; padding: 2px 5px; border: 1px solid #999; border-radius: 0; background: white; color: #000; box-sizing: border-box; font: 16px SimSun, '宋体', serif; }
+.password-change-page .password-change-form input:focus { outline: 2px solid #0078d4; outline-offset: 1px; }
+.password-change-page .password-change-form .access-inline-note { display: none; font: 12px/1.5 'Segoe UI', sans-serif; margin: 0 0 10px; }
+.password-change-page .password-change-form .panel-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 29px; }
+.password-change-page .password-change-form .button { flex: 0 0 90px; width: 90px; height: 30px; min-height: 30px; padding: 0 4px; border: 2px solid #aeaeae; border-radius: 3px; background: #e7e7e7; color: #000; font: 16px SimSun, '宋体', serif; box-shadow: none; transform: none; transition: none; }
+.password-change-page .password-change-form .button:hover:enabled,
+.password-change-page .password-change-form .button:active:enabled,
+.password-change-page .password-change-form .button:hover:not(:disabled),
+.password-change-page .password-change-form .button:active:not(:disabled) { transform: none; transition: none; }
+.password-change-blocked .button { transform: none; transition: none; border-width: 2px; }
+.password-change-blocked .button:hover:enabled,
+.password-change-blocked .button:active:enabled,
+.password-change-blocked .button:hover:not(:disabled),
+.password-change-blocked .button:active:not(:disabled) { transform: none; transition: none; }
+.password-change-page .password-change-form .button:hover:not(:disabled) { border-color: #929292; background: #ddd; transform: none; transition: none; }
+.password-change-page .password-change-form .button:focus-visible { outline: 1px dotted #000; outline-offset: -4px; border-color: #0078d7; background: #f0f0f0; }
+.password-change-page .password-change-form .button:active:not(:disabled) { border-color: #636363; background: #d4d4d4; transform: none; transition: none; }
+.password-change-page .password-change-form .button:disabled { background: #ebebeb; border-color: #d4d4d4; color: #a0a0a0; cursor: wait; }
+.password-change-page .password-change-form .banner { font: 12px/1.5 'Segoe UI', sans-serif; margin: 8px 0; }
+.password-change-blocked { width: 326px; max-width: 100%; box-sizing: border-box; }
+@media (max-width: 350px) { .password-change-page .password-change-form { padding-left: 24px; padding-right: 24px; } }
+</style>
+</head>
+<body>
+<dialog open class="ui2-password-dialog" id="dlg">
+  <section class="password-change-page">
+    <form class="master-form password-change-form" data-testid="password-change-form">
+      <label class="field"><span>请输入原密码</span><input type="password" /></label>
+      <label class="field"><span>请输入新密码</span><input type="password" /></label>
+      <label class="field"><span>请在输入一次新密码</span><input type="password" /></label>
+      <div class="panel-actions">
+        <button class="button button-compact" type="submit" id="ok">确定(O)</button>
+        <button class="button button-ghost button-compact" type="button" id="cancel">取消(C)</button>
+      </div>
+    </form>
+  </section>
+</dialog>
+</body>
+</html>

@@ -76,14 +76,14 @@ async function leave() {
 </template>
 
 <style scoped>
-.ui2-password-dialog { width: 326px; max-width: calc(100vw - 24px); padding: 0; border: 1px solid ButtonShadow; border-radius: 0; background: ButtonFace; color: ButtonText; box-shadow: 0 8px 24px #0003; }
+.ui2-password-dialog { width: 326px; max-width: calc(100vw - 24px); padding: 0; border: 2px solid ButtonShadow; border-radius: 0; background: ButtonFace; color: ButtonText; box-shadow: 0 8px 24px #0003; }
 .ui2-password-dialog::backdrop { background: #0002; }
 .password-change-page { display: flex; flex-direction: column; gap: 0; align-items: center; padding: 0; background: ButtonFace; color: ButtonText; font-family: SimSun, '宋体', serif; font-size: 16px; }
 .password-change-page .crumb, .master-eyebrow, .master-access-tag { display: none; }
 .password-change-page .master-page-header { display: block; width: 326px; max-width: 100%; margin: 0; padding: 6px 10px; border: 0; border-bottom: 1px solid ButtonShadow; background: ButtonFace; box-sizing: border-box; }
 .password-change-page.password-change-page h1 { font: 12px 'Microsoft YaHei UI', sans-serif; margin: 0; }
 .password-change-page .master-page-description { font: 12px/1.5 'Segoe UI', sans-serif; margin: 7px 0 0; color: #515151; }
-.password-change-page .password-change-form { display: block; width: 326px; max-width: 100%; min-height: 301px; padding: 27px 27px 30px 47px; box-sizing: border-box; border: 1px solid #a5a5a5; border-top: 0; border-radius: 0; background: #f0f0f0; box-shadow: 0 8px 20px #00000012; }
+.password-change-page .password-change-form { display: block; width: 326px; max-width: 100%; min-height: 301px; padding: 27px 27px 30px 47px; box-sizing: border-box; border: 2px solid #a5a5a5; border-top: 0; border-radius: 0; background: #f0f0f0; box-shadow: 0 8px 20px #00000012; }
 .password-change-page .password-change-form .field { display: block; margin: 0 0 7px; min-width: 0; }
 .password-change-page .password-change-form .field > span { width: 88px; display: table; height: 25px; margin-bottom: 7px; padding: 3px 5px; border: 1px solid #cacaca; border-radius: 5px; background: #ddd; box-sizing: border-box; font: 12px/17px 'Segoe UI', sans-serif; color: #000; }
 .password-change-page .password-change-form .field:nth-child(3) > span { width: 127px; }
@@ -91,10 +91,19 @@ async function leave() {
 .password-change-page .password-change-form input:focus { outline: 2px solid #0078d4; outline-offset: 1px; }
 .password-change-page .password-change-form .access-inline-note { display: none; font: 12px/1.5 'Segoe UI', sans-serif; margin: 0 0 10px; }
 .password-change-page .password-change-form .panel-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 29px; }
-.password-change-page .password-change-form .button { flex: 0 0 90px; width: 90px; height: 30px; min-height: 30px; padding: 0 4px; border: 1px solid #aeaeae; border-radius: 3px; background: #e7e7e7; color: #000; font: 16px SimSun, '宋体', serif; box-shadow: none; }
-.password-change-page .password-change-form .button:hover:not(:disabled) { border-color: #929292; background: #ddd; }
+.password-change-page .password-change-form .button { flex: 0 0 90px; width: 90px; height: 30px; min-height: 30px; padding: 0 4px; border: 2px solid #aeaeae; border-radius: 3px; background: #e7e7e7; color: #000; font: 16px SimSun, '宋体', serif; box-shadow: none; transform: none; transition: none; }
+.password-change-page .password-change-form .button:hover:enabled,
+.password-change-page .password-change-form .button:active:enabled,
+.password-change-page .password-change-form .button:hover:not(:disabled),
+.password-change-page .password-change-form .button:active:not(:disabled) { transform: none; transition: none; }
+.password-change-blocked .button { transform: none; transition: none; border-width: 2px; }
+.password-change-blocked .button:hover:enabled,
+.password-change-blocked .button:active:enabled,
+.password-change-blocked .button:hover:not(:disabled),
+.password-change-blocked .button:active:not(:disabled) { transform: none; transition: none; }
+.password-change-page .password-change-form .button:hover:not(:disabled) { border-color: #929292; background: #ddd; transform: none; transition: none; }
 .password-change-page .password-change-form .button:focus-visible { outline: 1px dotted #000; outline-offset: -4px; border-color: #0078d7; background: #f0f0f0; }
-.password-change-page .password-change-form .button:active:not(:disabled) { border-color: #636363; background: #d4d4d4; }
+.password-change-page .password-change-form .button:active:not(:disabled) { border-color: #636363; background: #d4d4d4; transform: none; transition: none; }
 .password-change-page .password-change-form .button:disabled { background: #ebebeb; border-color: #d4d4d4; color: #a0a0a0; cursor: wait; }
 .password-change-page .password-change-form .banner { font: 12px/1.5 'Segoe UI', sans-serif; margin: 8px 0; }
 .password-change-blocked { width: 326px; max-width: 100%; box-sizing: border-box; }
