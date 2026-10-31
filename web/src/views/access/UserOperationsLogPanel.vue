@@ -86,15 +86,22 @@ onMounted(async () => {
 
 <template>
   <section class="patient-panel master-data-panel access-data-panel user-operations-panel" aria-labelledby="user-operations-heading">
-    <MasterPanelHeader title="用户操作日志" title-id="user-operations-heading" icon="overview" description="查询账号与权限相关的操作记录。" :count="ready ? rows.length : null" count-label="已加载记录" :loading="loading">
+    <MasterPanelHeader title="用户操作日志查询" title-id="user-operations-heading" icon="overview" description="查询账号与权限相关的操作记录。" :count="ready ? rows.length : null" count-label="已加载记录" :loading="loading">
       <template #actions><RouterLink class="button button-ghost button-compact" :to="{ name: 'access-users' }">返回</RouterLink><button class="button button-compact" type="submit" form="user-log-search" :disabled="loading">{{ loading ? '正在查询…' : '检索(S)' }}</button><button class="button button-ghost button-compact" type="button" :disabled="!canExport" title="导出已加载" @click="exportCsv">{{ exporting ? '正在导出…' : '导出(E)' }}</button></template>
     </MasterPanelHeader>
 
     <form id="user-log-search" class="master-filters user-operations-filters" @submit.prevent="search">
+      <p class="user-operations-filters-legend">检索条件</p>
       <label class="field"><span>模块名称</span><select v-model="filters.moduleId"><option value="">全部模块</option><option v-for="item in modules" :key="item.id" :value="String(item.id)">{{ item.name }}（{{ item.id }}）</option></select></label>
       <label class="field"><span>用户</span><input v-model.trim="filters.userId" type="search" maxlength="64" placeholder="精确匹配用户编号" aria-label="用户编号" /></label>
-      <label class="field"><span>开始日期</span><input v-model="filters.begin" type="date" /></label>
-      <label class="field"><span>结束日期</span><input v-model="filters.end" type="date" /></label>
+      <div class="field user-operations-record-date">
+        <span>记录日期</span>
+        <div class="user-operations-date-range">
+          <input v-model="filters.begin" type="date" aria-label="记录日期起" />
+          <span class="user-operations-date-sep" aria-hidden="true">——</span>
+          <input v-model="filters.end" type="date" aria-label="记录日期止" />
+        </div>
+      </div>
     </form>
 
     <p v-if="error" class="banner" role="alert">{{ error }} <button class="button button-ghost button-compact" type="button" :disabled="loading" @click="search">重试</button></p>
@@ -132,7 +139,7 @@ onMounted(async () => {
 .user-operations-panel.access-data-panel.patient-panel :deep(.master-panel-copy p) { display: none; }
 .user-operations-panel.access-data-panel.patient-panel :deep(.master-panel-symbol) { width: 28px; height: 28px; }
 .user-operations-panel.access-data-panel.patient-panel :deep(h2) { font: 16px SimSun, '宋体', serif; }
-.user-operations-panel.access-data-panel.patient-panel .user-operations-filters { display: grid; grid-template-columns: repeat(4, minmax(130px, 1fr)) 90px; align-items: end; gap: 8px; min-height: 81px; padding: 6px 12px 10px; margin: 0; border: 0; border-bottom: 1px solid #999; border-radius: 0; background: #f0f0f0; box-sizing: border-box; }
+.user-operations-panel.access-data-panel.patient-panel .user-operations-filters { display: grid; grid-template-columns: repeat(3, minmax(130px, 1fr)); align-items: end; gap: 8px; min-height: 81px; padding: 6px 12px 10px; margin: 0; border: 0; border-bottom: 1px solid #999; border-radius: 0; background: #f0f0f0; box-sizing: border-box; }
 .user-operations-panel.access-data-panel.patient-panel .field { display: flex; flex-direction: column; gap: 5px; }
 .user-operations-panel.access-data-panel.patient-panel .field > span { align-self: flex-start; padding: 3px 5px; border: 1px solid #bfbfbf; border-radius: 5px; background: #dedede; font: 12px/17px 'Segoe UI', sans-serif; }
 .user-operations-panel.access-data-panel.patient-panel .field input, .user-operations-panel.access-data-panel.patient-panel .field select { min-height: 25px; height: 25px; padding: 2px 5px; border: 1px solid #999; border-radius: 0; background: white; color: #202020; font: 16px SimSun, '宋体', serif; }
@@ -143,6 +150,11 @@ onMounted(async () => {
 .user-operations-panel.access-data-panel.patient-panel .register-table td { padding: 4px 8px; border: 1px solid #d4d4d4; color: #202020; }
 .user-operations-panel.access-data-panel.patient-panel .register-table tbody tr:nth-child(even) { background: #f4f4f4; }
 .user-operations-panel.access-data-panel.patient-panel .result-empty, .user-operations-panel.access-data-panel.patient-panel .shell-status { min-height: 160px; padding: 20px; background: white; }
+.user-operations-filters-legend { grid-column: 1 / -1; margin: 0; padding: 0 0 2px; color: #202020; font: 12px/17px 'Segoe UI', sans-serif; }
+.user-operations-record-date { min-width: 0; }
+.user-operations-date-range { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.user-operations-date-range input { flex: 1 1 0; min-width: 0; }
+.user-operations-date-sep { flex: none; color: #202020; font: 12px/17px 'Segoe UI', sans-serif; }
 .user-operations-filters .field { min-width: 0; }
 .user-operations-results { max-width: 100%; }
 .user-operations-time { min-width: 155px; white-space: nowrap; }
