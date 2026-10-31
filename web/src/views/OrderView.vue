@@ -2,6 +2,14 @@
 import { useErrorDialog } from '../components/feedback/useErrorDialog.js'
 import { createSubmitFeedback } from '../components/feedback/useSubmitFeedback.js'
 import SubmitStatusBanner from '../components/feedback/SubmitStatusBanner.vue'
+import OrderPrintPanel from '../components/outpatient/OrderPrintPanel.vue'
+import {
+  buildPreviewModel,
+  canPreviewOrderStatus,
+  createOrderPrintController,
+  PLACEHOLDER_HONESTY,
+  SESSION_PERSISTENCE_NOTE,
+} from '../workbench/orderPrintStatus.js'
 // 2026-10-12 P1-H05-ORDER-UI 门诊开单。主字段 registerId。
 // 2026-10-12 VITE_USE_MOCK=false 时暂存/改草稿/提交/作废走 /api/v1/orders；无挂号仍是空态。
 // 2026-10-13 P1-H05-MASTER-UI 开单医生和目录下拉跳过已停用项。
@@ -62,6 +70,14 @@ const committing = ref(false)
 const abating = ref(false)
 const confirmAbate = ref(false)
 const submitFeedback = createSubmitFeedback()
+const printController = createOrderPrintController()
+const printStatus = computed(() => printController.status)
+const printLocked = computed(() => printController.isLocked)
+const printPreviewModel = computed(() => printController.previewModel)
+const printCanPreview = computed(() => Boolean(orderId.value) && canPreviewOrderStatus(status.value))
+const printErrorMessage = computed(() => printController.errorMessage)
+const printLastPrintedAt = computed(() => printController.lastPrintedAt || '')
+let printActionKind = 'print'
 let saveAttempt = null
 let commitSaveAttempt = null
 let commitAttempt = null
@@ -83,7 +99,7 @@ const ordersReady = ref(false)
 const ordersError = ref('')
 let ordersLoadSeq = 0
 
-const busy = computed(() => saving.value || committing.value || abating.value || submitFeedback.state.status === 'submitting')
+const busy = computed(() => saving.value || committing.value || abating.value || submitFeedback.state.status === 'submitting' || printLocked.value)
 const selectedLineCount = computed(() => lines.value.filter((line) => line.itemNo).length)
 const orderableRegisters = computed(() => registers.value.filter((item) => registerIsOrderable(item)))
 const orderDoctors = computed(() => {
@@ -174,6 +190,80 @@ function clearBanner() {
   submitFeedback.reset()
 }
 
+function resetPrintSession() {
+  printController.resetToIdle()
+}
+
+function currentPrintPreviewModel() {
+  if (!register.value || !orderId.value) return null
+  return buildPreviewModel({
+    register: register.value,
+    orderMeta: {
+      patientId: register.value.patientId,
+      patientName: register.value.patientName,
+      patientNo: register.value.patientNo,
+      registerId: register.value.registerId,
+      registerNo: register.value.registerNo,
+      orderId: orderId.value,
+      orderNo: orderNo.value,
+      status: status.value,
+      diagnoseName: form.diagnoseName,
+    },
+    lines: lines.value,
+    catalogLookup: (itemNo, line) => catalogOf(itemNo, line),
+  })
+}
+
+function onPrintPreview() {
+  if (!printCanPreview.value || printLocked.value) return
+  try {
+    const model = currentPrintPreviewModel()
+    if (!model) return
+    printController.openPreview(model)
+  } catch (error) {
+    errorMessage.value = error?.message || '无法打开预览'
+  }
+}
+
+function runPrintPlaceholder(kind) {
+  if (printLocked.value) return
+  printActionKind = kind === 'reprint' ? 'reprint' : 'print'
+  const started = kind === 'reprint' ? printController.reprint() : kind === 'retry' ? printController.retry() : printController.startOutput()
+  if (!started) return
+  try {
+    if (typeof window !== 'undefined' && typeof window.print === 'function') {
+      window.print()
+    }
+    // Keep PRINTING until user confirms; window.print is only a local placeholder.
+  } catch (error) {
+    printController.fail(error?.message || '本机打印占位失败')
+  }
+}
+
+function onPrintOutput() {
+  runPrintPlaceholder('print')
+}
+
+function onPrintConfirm() {
+  if (!printController.confirmPrinted(new Date().toISOString())) return
+  const label = printActionKind === 'reprint' ? '重打' : '打印'
+  recordAction(label, orderNo.value || orderId.value || '')
+  printActionKind = 'print'
+}
+
+function onPrintRetry() {
+  runPrintPlaceholder('retry')
+}
+
+function onPrintReprint() {
+  runPrintPlaceholder('reprint')
+}
+
+function onPrintClose() {
+  if (printLocked.value) return
+  resetPrintSession()
+}
+
 function startDraft(current) {
   orderId.value = ''
   orderNo.value = ''
@@ -183,6 +273,7 @@ function startDraft(current) {
   form.diagnoseName = ''
   lines.value = [blankLine()]
   clearBanner()
+  resetPrintSession()
 }
 
 function applyOrder(order) {
@@ -207,6 +298,8 @@ function applyOrder(order) {
   orders.value = [order, ...orders.value.filter((item) => item.orderId !== order.orderId)]
   setOrders(orders.value)
   confirmAbate.value = false
+  // Keep print session bound to current order id; rebuild on next preview.
+  if (printController.previewModel && printController.previewModel.orderId && printController.previewModel.orderId !== order.orderId) resetPrintSession()
 }
 
 function draftBody() {
@@ -452,6 +545,7 @@ async function usePicked() {
 }
 
 function openListed(id) {
+  resetPrintSession()
   if (busy.value) return
   const found = orders.value.find((item) => item.orderId === id)
   if (!found) return
@@ -460,6 +554,7 @@ function openListed(id) {
 }
 
 function onNew() {
+  resetPrintSession()
   if (!register.value || busy.value) return
   startDraft(register.value)
 }
@@ -730,6 +825,22 @@ useErrorDialog([
         <p v-if="errorMessage && submitFeedback.state.status !== 'error'" class="banner" role="alert" data-testid="order-error">{{ errorMessage }}</p>
         <p v-if="infoMessage && submitFeedback.state.status !== 'success' && submitFeedback.state.status !== 'error'" class="ok-banner" role="status" data-testid="order-committed">{{ infoMessage }}</p>
         <SubmitStatusBanner :feedback="submitFeedback.state" />
+        <OrderPrintPanel
+          :preview-model="printPreviewModel"
+          :print-status="printStatus"
+          :locked="printLocked"
+          :can-preview="printCanPreview"
+          :honesty-note="PLACEHOLDER_HONESTY"
+          :session-note="SESSION_PERSISTENCE_NOTE"
+          :last-printed-at="printLastPrintedAt"
+          :error-message="printErrorMessage"
+          @preview="onPrintPreview"
+          @print="onPrintOutput"
+          @confirm="onPrintConfirm"
+          @retry="onPrintRetry"
+          @reprint="onPrintReprint"
+          @close="onPrintClose"
+        />
 
         <div class="clinical-order-actionbar">
           <p class="order-total" data-testid="order-total"><span>处方合计</span><span><strong>{{ money(totalFee) }}</strong> 元</span><span class="charge-chip" :data-charge="chargeText">{{ chargeText }}</span></p>
