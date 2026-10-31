@@ -35,7 +35,7 @@ node web/scripts/check-register-submit-feedback.mjs
 
 ## Git
 
-- commit：短 294f356 / 全 294f356af1780e12b60e576f136ddeb4f64ee9a3
+- commit：短 0036456 / 全 003645684e7035e5745bd42d14f462f138e8ffc3
 - `git push origin HEAD`：（写入后回填）
 - 未混交无关 dirty（mockRegisters 预约冲突等既有脏改未 stage）。
 
