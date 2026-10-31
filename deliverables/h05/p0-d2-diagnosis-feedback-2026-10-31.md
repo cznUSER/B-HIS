@@ -32,10 +32,10 @@ node web/scripts/check-register-submit-feedback.mjs
 
 ## Git
 
-- feat commit：短 `5159de4` / 全 `5159de42b99f52d103982329f348892e63759f86`
-- tip HEAD：以 `git rev-parse HEAD` 为准
+- feat commit：短 `4c8ceb1` / 全 `4c8ceb135b3c91958b8ea15e080d8d3728dd7599`
+- tip HEAD：`6e407c0`（全 `6e407c0b4b16e5ef97a4b430971dcf0424810e84`）
 - 分支：`codex/register-slot-card-20261028`
-- `git push origin HEAD`：见提交后实测
+- `git push origin HEAD`：**成功** `ddab6df..4c8ceb1`（feat）；docs tip `6e407c0` 已推
 - 未混交无关 dirty
 
 `DONE_P0_D2`
