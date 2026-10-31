@@ -25,7 +25,10 @@ function runChain(storageMode) {
   resetMockCharges()
   resetMockDispenses()
   const token = mockLogin({ username: 'system', password: '1' }).accessToken
-  const patient = mockCreatePatient(token, { name: `链路患者${storageMode}`, sex: 'F', birthday: '1990-01-01', fareIdentity: 'SELF' })
+  const patient = mockCreatePatient(token, {
+    name: `链路患者${storageMode}`, sex: 'F', birthday: '1990-01-01', fareIdentity: 'SELF',
+    idType: 'ID_CARD', idNumber: '110101199001011234', phone: '13800000000', nationality: '中国',
+  })
   const register = mockCreateRegister(token, { patientId: patient.patientId, departmentId: 'dept-1', doctorId: 'doc-1', visitDate: todayInShanghai() })
   mockCheckInRegister(token, register.registerId)
   const order = mockCreateOrder(token, { registerId: register.registerId, items: [{ itemNo: 'DRUG-A', amount: 2 }, { itemNo: 'TREAT-1', amount: 1 }] })
@@ -70,7 +73,10 @@ function runChain(storageMode) {
   assert.equal(issued.lines[0].stockQty, beforeQty - 2)
   assert.equal(listInventoryItems({ itemNo: 'DRUG-A' }).items[0].qtyOnHand, beforeQty - 2)
   assert.equal(listLedger(sku.skuId).items.length, beforeLedger + 1)
-  expectError(() => mockConfirmDispense(token, input), 'IDEMPOTENT_REJECT')
+  const issuedAgain = mockConfirmDispense(token, input)
+  assert.equal(issuedAgain.dispenseId, issued.dispenseId, 'same-key same-fingerprint dispense must replay prior result')
+  assert.equal(issuedAgain.dispenseNo, issued.dispenseNo)
+  expectError(() => mockConfirmDispense(token, { ...input, items: [{ chargeItemId: drugCharge.chargeItemId, dispenseQty: 1 }] }), 'IDEMPOTENCY_KEY_CONFLICT')
   assert.equal(listInventoryItems({ itemNo: 'DRUG-A' }).items[0].qtyOnHand, beforeQty - 2, 'dispense replay must not deduct twice')
   assert.equal(mockSearchPending(token, charge.chargeId).empty, 'done', 'sync must not reset dispensed counters')
   assert.equal(mockLoadPending(token, patient.patientId).scene, 'DISPENSED')
@@ -83,7 +89,11 @@ function runChain(storageMode) {
   assert.equal(returned.items[0].stockQty, beforeQty)
   assert.equal(listInventoryItems({ itemNo: 'DRUG-A' }).items[0].qtyOnHand, beforeQty)
   assert.equal(listLedger(sku.skuId).items.length, beforeLedger + 2)
-  expectError(() => mockReturnDispense(token, returnInput), 'IDEMPOTENT_REJECT')
+  const returnedAgain = mockReturnDispense(token, returnInput)
+  assert.equal(returnedAgain.returnId, returned.returnId, 'same-key same-fingerprint return must replay prior result')
+  assert.equal(returnedAgain.dispenseId, returned.dispenseId)
+  assert.equal(returnedAgain.returnedQty, returned.returnedQty)
+  expectError(() => mockReturnDispense(token, { ...returnInput, reason: '不同原因' }), 'IDEMPOTENCY_KEY_CONFLICT')
   assert.equal(listInventoryItems({ itemNo: 'DRUG-A' }).items[0].qtyOnHand, beforeQty, 'return replay must not restore twice')
   assert.equal(mockGetCharge(token, charge.chargeId).items.find((item) => item.itemNo === 'DRUG-A').dispenseBlocked, false)
   assert.equal(mockSearchPending(token, charge.chargeId).items[0].availableQty, 2)
