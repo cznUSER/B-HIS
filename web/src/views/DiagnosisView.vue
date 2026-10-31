@@ -28,6 +28,13 @@ import {
   appendIcdToken,
   assessmentIncludesIcdToken,
 } from '../workbench/mockIcdCodes.js'
+import {
+  DIFF_NEED_TWO_HINT,
+  DIFF_NO_CHANGES_HINT,
+  canOpenVersionDiff,
+  defaultDiffPair,
+  diffDiagnosisRecords,
+} from '../workbench/diagnosisVersionDiff.js'
 import { ApiError } from '../api/errors.js'
 import { useMock } from '../api/config.js'
 import { amendDiagnose, commitDiagnose, abateDiagnose, listDiagnoses, saveDiagnose } from '../api/diagnosisApi.js'
@@ -148,6 +155,39 @@ function parseStructured(raw) {
 const icdKeyword = ref('')
 
 const icdFindResults = computed(() => filterIcdByKeyword(MOCK_ICD_CODES, icdKeyword.value))
+
+const diffOpen = ref(false)
+const diffLeftId = ref('')
+const diffRightId = ref('')
+const diffCanOpen = computed(() => canOpenVersionDiff(diagnoses.value))
+const diffLeftRow = computed(() => diagnoses.value.find((row) => row.diagnoseId === diffLeftId.value) || null)
+const diffRightRow = computed(() => diagnoses.value.find((row) => row.diagnoseId === diffRightId.value) || null)
+const diffResult = computed(() => {
+  if (!diffLeftRow.value || !diffRightRow.value) return null
+  if (diffLeftRow.value.diagnoseId === diffRightRow.value.diagnoseId) return null
+  return diffDiagnosisRecords(diffLeftRow.value, diffRightRow.value)
+})
+
+function openVersionDiff() {
+  if (!diffCanOpen.value) return
+  const pair = defaultDiffPair(diagnoses.value, diagnoseId.value)
+  if (!pair) return
+  diffLeftId.value = pair.left?.diagnoseId || ''
+  diffRightId.value = pair.right?.diagnoseId || ''
+  diffOpen.value = true
+}
+
+function closeVersionDiff() {
+  diffOpen.value = false
+}
+
+function diagnosisDiffOptionLabel(row) {
+  if (!row) return ''
+  const ver = row.version || 1
+  const status = diagnoseStatusLabel(row.status)
+  const id = String(row.diagnoseId || '').slice(0, 8)
+  return `v${ver} · ${status} · ${id}`
+}
 
 function applyCommonDiagnosis(name) {
   if (editorLocked.value || busy.value) return
@@ -544,6 +584,72 @@ useErrorDialog([
       <div class="diagnosis-workspace">
         <aside class="diagnosis-history" aria-label="诊断记录">
           <div class="diagnosis-section-head"><div><p class="diagnosis-kicker">RECORDS</p><h2>本次诊断</h2></div><span>{{ diagnoses.length }} 条</span></div>
+          <div class="diagnosis-version-diff-toolbar">
+            <button
+              type="button"
+              class="button button-ghost button-compact"
+              data-testid="diagnosis-version-diff-open"
+              :disabled="!diffCanOpen || busy"
+              :title="diffCanOpen ? '对比两个历史版本' : DIFF_NEED_TWO_HINT"
+              @click="openVersionDiff"
+            >对比版本</button>
+            <p
+              v-if="!diffCanOpen"
+              class="diagnosis-muted diagnosis-version-diff-need-two"
+              data-testid="diagnosis-version-diff-need-two"
+            >{{ DIFF_NEED_TWO_HINT }}</p>
+          </div>
+          <div
+            v-if="diffOpen"
+            class="diagnosis-version-diff-panel"
+            data-testid="diagnosis-version-diff-panel"
+            role="region"
+            aria-label="诊断版本对比"
+          >
+            <div class="diagnosis-version-diff-panel-head">
+              <strong>版本对比</strong>
+              <button type="button" class="button button-ghost button-compact" data-testid="diagnosis-version-diff-close" @click="closeVersionDiff">关闭</button>
+            </div>
+            <div class="diagnosis-version-diff-pickers">
+              <label>
+                <span>版本 A</span>
+                <select v-model="diffLeftId" data-testid="diagnosis-version-diff-left">
+                  <option v-for="row in diagnoses" :key="'L-' + row.diagnoseId" :value="row.diagnoseId">{{ diagnosisDiffOptionLabel(row) }}</option>
+                </select>
+              </label>
+              <label>
+                <span>版本 B</span>
+                <select v-model="diffRightId" data-testid="diagnosis-version-diff-right">
+                  <option v-for="row in diagnoses" :key="'R-' + row.diagnoseId" :value="row.diagnoseId">{{ diagnosisDiffOptionLabel(row) }}</option>
+                </select>
+              </label>
+            </div>
+            <p
+              v-if="diffResult && diffResult.identical"
+              class="diagnosis-muted"
+              data-testid="diagnosis-version-diff-empty"
+            >{{ DIFF_NO_CHANGES_HINT }}</p>
+            <ul v-else-if="diffResult" class="diagnosis-version-diff-fields">
+              <li
+                v-for="field in diffResult.fields"
+                :key="field.key"
+                class="diagnosis-version-diff-field"
+                :class="{ 'is-changed': field.changed }"
+                :data-testid="'diagnosis-version-diff-field-' + field.key"
+              >
+                <span class="diagnosis-version-diff-label">{{ field.label }}</span>
+                <span class="diagnosis-version-diff-side">
+                  <span class="diagnosis-version-diff-side-tag">A</span>
+                  <span>{{ field.left || '（空）' }}</span>
+                </span>
+                <span class="diagnosis-version-diff-side">
+                  <span class="diagnosis-version-diff-side-tag">B</span>
+                  <span>{{ field.right || '（空）' }}</span>
+                </span>
+              </li>
+            </ul>
+            <p v-else class="diagnosis-muted">请选择两个不同的诊断版本。</p>
+          </div>
           <p v-if="loadingDiagnoses" class="diagnosis-muted">读取中…</p>
           <p v-else-if="!diagnoses.length" class="diagnosis-muted">尚无已保存诊断。</p>
           <button v-for="row in diagnoses" :key="row.diagnoseId" class="diagnosis-record" :class="{ 'is-active': row.diagnoseId === diagnoseId }" type="button" @click="chooseDiagnosis(row)">
@@ -707,4 +813,23 @@ useErrorDialog([
 .diagnosis-actions .danger { color: #a25f5f; border-color: #eed8d5; background: #fff8f7; }
 @media (max-width: 840px) { .diagnosis-workspace { grid-template-columns: 1fr; } .diagnosis-history { order: 2; } .diagnosis-editor { order: 1; } .diagnosis-structured-grid { grid-template-columns: 1fr; } .diagnosis-content-field-wide { grid-column: auto; } }
 @media (max-width: 600px) { .diagnosis-selector { align-items: stretch; flex-direction: column; } .diagnosis-register-field { min-width: 0; } .diagnosis-register-meta { align-self: flex-start; } .diagnosis-template-bar { align-items: stretch; flex-direction: column; } .diagnosis-template-bar label { flex-direction: column; align-items: stretch; } .diagnosis-reason-field input { min-width: 0; } }
+
+.diagnosis-version-diff-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 10px; }
+.diagnosis-version-diff-need-two { margin: 0; font-size: 11px; }
+.diagnosis-version-diff-panel { display: flex; flex-direction: column; gap: 8px; margin: 0 0 12px; padding: 10px; border: 1px dashed #cfe2d5; border-radius: 10px; background: #f8fcf9; }
+.diagnosis-version-diff-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.diagnosis-version-diff-panel-head strong { color: #2f5d4a; font-size: 13px; }
+.diagnosis-version-diff-pickers { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.diagnosis-version-diff-pickers label { display: flex; flex-direction: column; gap: 4px; color: #4e7966; font-size: 11px; }
+.diagnosis-version-diff-pickers select { min-height: 30px; padding: 0 8px; border: 1px solid #cfe2d5; border-radius: 8px; color: #314e41; background: #fff; font: inherit; font-size: 12px; }
+.diagnosis-version-diff-fields { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 280px; overflow: auto; }
+.diagnosis-version-diff-field { display: grid; grid-template-columns: 88px 1fr 1fr; gap: 6px; padding: 6px 8px; border: 1px solid #e4efe8; border-radius: 8px; background: #fff; font-size: 11px; color: #5b6f66; }
+.diagnosis-version-diff-field.is-changed { border-color: #e6c97a; background: #fff9eb; color: #4a4030; }
+.diagnosis-version-diff-label { font-weight: 600; color: #3f6a56; }
+.diagnosis-version-diff-side { display: flex; gap: 6px; min-width: 0; white-space: pre-wrap; word-break: break-word; }
+.diagnosis-version-diff-side-tag { flex: 0 0 auto; color: #7a9186; font-weight: 600; }
+@media (max-width: 840px) {
+  .diagnosis-version-diff-pickers { grid-template-columns: 1fr; }
+  .diagnosis-version-diff-field { grid-template-columns: 1fr; }
+}
 </style>
