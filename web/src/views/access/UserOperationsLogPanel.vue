@@ -1,8 +1,8 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { ApiError } from '../../api/errors.js'
 import { session } from '../../auth/session.js'
-import { fetchAccessModules } from '../../master/api.js'
+import { fetchAccessModules, fetchUsers } from '../../master/api.js'
 import { buildUserOperationsCsv, fetchUserOperationLogs } from '../../master/accessAuditApi.js'
 import MasterPanelHeader from '../master/MasterPanelHeader.vue'
 
@@ -10,6 +10,15 @@ const rows = ref([])
 const nextCursor = ref('')
 const modules = ref([])
 const filters = reactive({ moduleId: '', userId: '', begin: '', end: '' })
+const selectedUserLabel = ref('')
+const pickerOpen = ref(false)
+const pickerQ = ref('')
+const pickerUsers = ref([])
+const pickerLoading = ref(false)
+const pickerError = ref('')
+const pickerButton = ref(null)
+const pickerInput = ref(null)
+let pickerRequestId = 0
 const loading = ref(false)
 const exporting = ref(false)
 const ready = ref(false)
@@ -18,6 +27,53 @@ const limit = 50
 
 const canLoadMore = computed(() => ready.value && Boolean(nextCursor.value) && !loading.value)
 const canExport = computed(() => ready.value && rows.value.length > 0 && !loading.value && !exporting.value)
+
+function userLabel(user) {
+  const name = user.displayName || user.username
+  return name ? `${name}(${user.userId})` : user.userId
+}
+
+async function loadPickerUsers() {
+  const requestId = ++pickerRequestId
+  pickerLoading.value = true
+  pickerError.value = ''
+  pickerUsers.value = []
+  try {
+    const page = await fetchUsers(session.accessToken, { q: pickerQ.value })
+    if (requestId === pickerRequestId) pickerUsers.value = page.items
+  } catch (cause) {
+    if (requestId === pickerRequestId) pickerError.value = cause instanceof Error ? cause.message : '读取用户列表失败'
+  } finally {
+    if (requestId === pickerRequestId) pickerLoading.value = false
+  }
+}
+
+async function openUserPicker() {
+  pickerOpen.value = true
+  const pending = loadPickerUsers()
+  await nextTick()
+  pickerInput.value?.focus()
+  await pending
+}
+
+function closeUserPicker() {
+  pickerOpen.value = false
+  pickerRequestId += 1
+  pickerLoading.value = false
+  pickerButton.value?.focus()
+}
+
+function selectUser(user) {
+  filters.userId = user.userId
+  selectedUserLabel.value = userLabel(user)
+  closeUserPicker()
+}
+
+function clearUser() {
+  filters.userId = ''
+  selectedUserLabel.value = ''
+  closeUserPicker()
+}
 
 function message(errorValue) {
   return errorValue instanceof ApiError || errorValue instanceof Error ? errorValue.message : '读取用户操作日志失败'
@@ -93,7 +149,30 @@ onMounted(async () => {
     <form id="user-log-search" class="master-filters user-operations-filters" @submit.prevent="search">
       <p class="user-operations-filters-legend">检索条件</p>
       <label class="field"><span>模块名称</span><select v-model="filters.moduleId"><option value="">全部模块</option><option v-for="item in modules" :key="item.id" :value="String(item.id)">{{ item.name }}（{{ item.id }}）</option></select></label>
-      <label class="field"><span>用户</span><input v-model.trim="filters.userId" type="search" maxlength="64" placeholder="精确匹配用户编号" aria-label="用户编号" /></label>
+      <div class="field user-operations-user-field">
+        <span id="user-operations-user-label">用户</span>
+        <div class="user-operations-user-button-edit">
+          <input :value="selectedUserLabel || filters.userId" type="text" readonly placeholder="点击省略号选择用户" aria-labelledby="user-operations-user-label" />
+          <button ref="pickerButton" type="button" aria-label="选择用户" aria-haspopup="dialog" :aria-expanded="pickerOpen" :aria-controls="pickerOpen ? 'user-operations-user-picker' : undefined" @click="pickerOpen ? closeUserPicker() : openUserPicker()">…</button>
+        </div>
+        <div v-if="pickerOpen" id="user-operations-user-picker" class="user-operations-user-picker" role="dialog" aria-label="选择用户" @keydown.esc.stop.prevent="closeUserPicker">
+          <div class="user-operations-user-picker-actions">
+            <strong>选择用户</strong>
+            <button type="button" :disabled="!filters.userId" @click="clearUser">清除</button>
+            <button type="button" @click="closeUserPicker">关闭</button>
+          </div>
+          <div class="user-operations-user-picker-search">
+            <input ref="pickerInput" v-model.trim="pickerQ" type="text" aria-label="筛选用户" placeholder="输入用户名或姓名" @keydown.enter.prevent="loadPickerUsers" />
+            <button type="button" :disabled="pickerLoading" @click="loadPickerUsers">筛选</button>
+          </div>
+          <p v-if="pickerLoading" role="status">正在读取用户…</p>
+          <p v-else-if="pickerError" role="alert">{{ pickerError }} <button type="button" @click="loadPickerUsers">重试</button></p>
+          <ul v-else-if="pickerUsers.length" class="user-operations-user-picker-list">
+            <li v-for="user in pickerUsers" :key="user.userId"><button type="button" :aria-pressed="filters.userId === user.userId" @click="selectUser(user)">{{ userLabel(user) }}</button></li>
+          </ul>
+          <p v-else role="status">未找到用户</p>
+        </div>
+      </div>
       <div class="field user-operations-record-date">
         <span>记录日期</span>
         <div class="user-operations-date-range">
@@ -156,6 +235,20 @@ onMounted(async () => {
 .user-operations-date-range input { flex: 1 1 0; min-width: 0; }
 .user-operations-date-sep { flex: none; color: #202020; font: 12px/17px 'Segoe UI', sans-serif; }
 .user-operations-filters .field { min-width: 0; }
+.user-operations-user-field { position: relative; }
+.user-operations-user-button-edit { display: flex; min-width: 0; }
+.user-operations-panel.access-data-panel.patient-panel .user-operations-user-button-edit input { flex: 1 1 0; min-width: 0; width: 0; }
+.user-operations-user-button-edit > button { flex: 0 0 27px; height: 25px; padding: 0; border: 1px solid #999; border-left: 0; border-radius: 0; background: #e6e6e6; color: #202020; font: bold 16px SimSun, '宋体', serif; cursor: pointer; }
+.user-operations-user-picker { position: absolute; top: 100%; left: 0; z-index: 20; width: min(360px, calc(100vw - 48px)); padding: 8px; border: 1px solid #999; background: #f0f0f0; box-shadow: 0 3px 8px #0003; color: #202020; box-sizing: border-box; font: 14px SimSun, '宋体', serif; }
+.user-operations-user-picker-actions, .user-operations-user-picker-search { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.user-operations-user-picker-actions strong { flex: 1; }
+.user-operations-user-picker-search input { flex: 1; min-width: 0; }
+.user-operations-user-picker button { padding: 3px 8px; border: 1px solid #999; border-radius: 0; background: #e6e6e6; color: #202020; font: inherit; cursor: pointer; }
+.user-operations-user-picker button:disabled { cursor: default; opacity: 0.6; }
+.user-operations-user-picker-list { max-height: 220px; margin: 0; padding: 0; overflow-y: auto; list-style: none; }
+.user-operations-user-picker-list button { width: 100%; margin-bottom: 3px; text-align: left; overflow-wrap: anywhere; }
+.user-operations-user-picker-list button[aria-pressed='true'] { border-color: #666; background: #dedede; }
+.user-operations-user-picker p { margin: 8px 0; overflow-wrap: anywhere; }
 .user-operations-results { max-width: 100%; }
 .user-operations-time { min-width: 155px; white-space: nowrap; }
 .user-operations-user-id { display: block; color: #829286; font-size: 10px; }
