@@ -35,8 +35,11 @@ node web/scripts/check-register-submit-feedback.mjs
 
 ## Git
 
-- commit：短 0036456 / 全 003645684e7035e5745bd42d14f462f138e8ffc3
-- `git push origin HEAD`：（写入后回填）
+- feat commit：短 `0036456` / 全 `003645684e7035e5745bd42d14f462f138e8ffc3`
+- tip（含本交付戳）：短 `dbdb964` / 全 `dbdb9640003fb87e504f6ac4cfbbf836abda7eb3`（本戳更新后另计）
+- 分支：`codex/register-slot-card-20261028`
+- `git push origin HEAD`：**失败** — `Failed to connect to github.com port 443`；本机 ahead origin **4**（含 P0-C×2 + P0-D1×2）；记债待网络恢复重推。gitlab 仍可能不通。
 - 未混交无关 dirty（mockRegisters 预约冲突等既有脏改未 stage）。
+- Codex 会话：`01a1906c-c6f3-7572-9f92-b7d89af3c46a`（Hi Token / gpt-6.1-sol）
 
 `DONE_P0_D1`
