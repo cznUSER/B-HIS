@@ -1,5 +1,6 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { useErrorDialog } from './feedback/useErrorDialog.js'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ApiError } from '../api/errors.js'
 import { searchRegistrationPatients } from '../api/patientApi.js'
 import { sexLabel } from '../api/patientContract.js'
@@ -63,6 +64,17 @@ function close() {
   ++requestSeq.value
   emit('close')
 }
+
+function handleKeydown(event) {
+  if (props.open && event.key === 'Escape') close()
+}
+
+onMounted(() => window.addEventListener('keydown', handleKeydown))
+onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
+
+useErrorDialog([
+  () => error.value,
+])
 </script>
 
 <template>
