@@ -399,12 +399,23 @@ function slipHeaderStatus(slip) {
   return 'DONE'
 }
 
-function guardIdempotency(state, key) {
-  if (key && state.idempotency[key]) fail(409, 'IDEMPOTENT_REJECT')
+function dispenseIdempotencyFingerprint(kind, payload) {
+  return JSON.stringify({ kind, ...payload })
 }
 
-function rememberKey(state, key, kind) {
-  if (key) state.idempotency[key] = { kind }
+function lookupDispenseIdempotency(state, key) {
+  if (!key || !state.idempotency || !state.idempotency[key]) return null
+  return state.idempotency[key]
+}
+
+function rememberDispenseIdempotency(state, key, fingerprint, result) {
+  if (!key) return
+  if (!state.idempotency) state.idempotency = {}
+  const prior = state.idempotency[key]
+  if (prior && prior.fingerprint !== fingerprint) {
+    fail(409, 'IDEMPOTENCY_KEY_CONFLICT', '重复提交的内容不一致')
+  }
+  state.idempotency[key] = { fingerprint, result }
 }
 
 export function resetMockDispenses(accessToken) {
@@ -457,8 +468,15 @@ export function mockConfirmDispense(accessToken, input) {
   const user = mockMe(accessToken)
   const state = synchronizedState(accessToken)
   const key = text(input && input.idempotencyKey)
-  guardIdempotency(state, key)
   const requested = normalizeDispenseItems(input)
+  const fingerprint = dispenseIdempotencyFingerprint('confirm', { items: requested })
+  if (key) {
+    const prior = lookupDispenseIdempotency(state, key)
+    if (prior) {
+      if (prior.fingerprint !== fingerprint) fail(409, 'IDEMPOTENCY_KEY_CONFLICT', '重复提交的内容不一致')
+      return prior.result
+    }
+  }
   if (requested.length === 0) fail(400, 'EMPTY_DISPENSE_ITEMS')
 
   const plan = []
@@ -536,15 +554,17 @@ export function mockConfirmDispense(accessToken, input) {
     slips.push(slip)
   }
   state.dispenses.unshift(...slips.slice().reverse())
-  rememberKey(state, key, 'dispense')
   mockUpdateChargeDispenseQuantities(accessToken, plan.map((step) => step.current))
   writeState(state)
   const presented = slips.map((slip) => presentDispense(state, slip))
-  return {
+  const result = {
     ...presented[0],
     dispenses: presented,
     lines: plan.map((step) => presentLine(state, step.current)),
   }
+  rememberDispenseIdempotency(state, key, fingerprint, result)
+  writeState(state)
+  return result
 }
 
 export function mockListDispenses(accessToken, input = {}) {
@@ -612,12 +632,19 @@ export function mockReturnDispense(accessToken, input) {
   const user = mockMe(accessToken)
   const state = synchronizedState(accessToken)
   const key = text(input && input.idempotencyKey)
-  guardIdempotency(state, key)
   const reason = text(input && input.reason)
-  if (!reason) fail(400, 'RETURN_REASON_REQUIRED')
   const requested = normalizeReturnItems(input)
-  if (requested.length === 0) fail(400, 'VALIDATION_ERROR', '没有可退明细（未发或已退完）')
   const dispenseId = text(input && input.dispenseId)
+  const fingerprint = dispenseIdempotencyFingerprint('return', { dispenseId, reason, items: requested })
+  if (key) {
+    const prior = lookupDispenseIdempotency(state, key)
+    if (prior) {
+      if (prior.fingerprint !== fingerprint) fail(409, 'IDEMPOTENCY_KEY_CONFLICT', '重复提交的内容不一致')
+      return prior.result
+    }
+  }
+  if (!reason) fail(400, 'RETURN_REASON_REQUIRED')
+  if (requested.length === 0) fail(400, 'VALIDATION_ERROR', '没有可退明细（未发或已退完）')
 
   const plan = []
   for (const item of requested) {
@@ -648,10 +675,9 @@ export function mockReturnDispense(accessToken, input) {
   }
   state.seq = seq
   const chargeId = plan[0].slip.chargeId
-  rememberKey(state, key, 'return')
   mockUpdateChargeDispenseQuantities(accessToken, plan.map((step) => step.charge))
   writeState(state)
-  return {
+  const result = {
     returnId: `rt-${seq}`,
     dispenseId: plan[0].slip.dispenseId,
     chargeId,
@@ -666,4 +692,7 @@ export function mockReturnDispense(accessToken, input) {
     })),
     lines: plan.map((step) => presentLine(state, step.charge)),
   }
+  rememberDispenseIdempotency(state, key, fingerprint, result)
+  writeState(state)
+  return result
 }

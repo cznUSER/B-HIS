@@ -1,4 +1,7 @@
 <script setup>
+import { useErrorDialog } from '../components/feedback/useErrorDialog.js'
+import { createSubmitFeedback } from '../components/feedback/useSubmitFeedback.js'
+import SubmitStatusBanner from '../components/feedback/SubmitStatusBanner.vue'
 // 2026-10-12 P1-H05-DISPENSE-UI 门诊发药：待发、部分发、退药。
 // 2026-10-12 VITE_USE_MOCK=false 时走 /dispenses；Mock 仍可演示。
 import { computed, onMounted, reactive, ref, watch } from 'vue'
@@ -67,8 +70,10 @@ const returnResult = ref(null)
 const returnError = ref('')
 const dispenseWrite = reactive({ fingerprint: '', key: '' })
 const returnWrite = reactive({ fingerprint: '', key: '' })
+const submitFeedback = createSubmitFeedback()
 
-const busy = computed(() => loading.value || dispensing.value || returning.value)
+const submitting = computed(() => submitFeedback.state.status === 'submitting')
+const busy = computed(() => loading.value || dispensing.value || returning.value || submitting.value)
 const searchPlaceholder = computed(() => (
   mockMode
     ? '例如王全发、GH-FULL-001、SQ-PART-001、RX-SHORT-001'
@@ -247,7 +252,7 @@ function payloadFrom(list) {
 }
 
 async function submit(list) {
-  if (dispensing.value || pendingNeedsRefresh.value) return
+  if (dispensing.value || submitting.value || pendingNeedsRefresh.value) return
   const writeContext = chargeContext.value
   const writeRoute = routeRequest
   clearBanner()
@@ -258,6 +263,7 @@ async function submit(list) {
     dispenseWrite.key = crypto.randomUUID()
   }
   dispensing.value = true
+  submitFeedback.beginAttempt('dispense')
   try {
     const result = await confirmDispense(session.accessToken, {
       items,
@@ -265,10 +271,17 @@ async function submit(list) {
     })
     const slips = Array.isArray(result.dispenses) && result.dispenses.length > 0 ? result.dispenses : [result]
     const nos = slips.map((item) => item.dispenseNo).join('、')
-    infoMessage.value = `已发药 ${nos}。库存已按行扣减。`
+    const tip = `已发药 ${nos}。库存已按行扣减。`
+    infoMessage.value = tip
+    submitFeedback.succeed({
+      dispenseId: slips[0]?.dispenseId || '',
+      dispenseNo: slips[0]?.dispenseNo || '',
+    }, tip)
     setDispense(slips[0])
     recordAction('发药已完成', nos)
     issued.value = [...slips, ...issued.value.filter((item) => !slips.some((slip) => slip.dispenseId === item.dispenseId))]
+    dispenseWrite.fingerprint = ''
+    dispenseWrite.key = ''
     if (writeContext === chargeContext.value && writeRoute === routeRequest) await refreshAfterWrite()
     if (result.refreshWarning) refreshWarning.value = result.refreshWarning
   } catch (error) {
@@ -277,7 +290,12 @@ async function submit(list) {
     errorMessage.value = slips.length ? `其余发药失败：${message}` : message
     errorCode.value = error instanceof ApiError ? error.code : ''
     if (slips.length) {
-      infoMessage.value = `部分发药成功：${slips.map((item) => item.dispenseNo).join('、')}。请核对剩余明细后继续。`
+      const tip = `部分发药成功：${slips.map((item) => item.dispenseNo).join('、')}。请核对剩余明细后继续。`
+      infoMessage.value = tip
+      submitFeedback.succeed({
+        dispenseId: slips[0]?.dispenseId || '',
+        dispenseNo: slips[0]?.dispenseNo || '',
+      }, tip)
       issued.value = [...slips, ...issued.value.filter((item) => !slips.some((slip) => slip.dispenseId === item.dispenseId))]
       if (writeContext === chargeContext.value && writeRoute === routeRequest) {
         pendingNeedsRefresh.value = true
@@ -285,7 +303,7 @@ async function submit(list) {
       }
       return
     }
-    if (slips.length) return
+    submitFeedback.fail(message, error instanceof ApiError ? error.code : '')
     if (searched.value) {
       try {
         await reloadPending()
@@ -339,7 +357,8 @@ const allDispenseTo = computed(() => ({
 }))
 
 async function openReturn(slip) {
-  if (returning.value) return
+  if (returning.value || submitting.value) return
+  errorMessage.value = ''
   returnError.value = ''
   returnResult.value = null
   returnReason.value = ''
@@ -364,12 +383,12 @@ async function openReturn(slip) {
 }
 
 function closeDrawer() {
-  if (returning.value) return
+  if (returning.value || submitting.value) return
   drawerOpen.value = false
 }
 
 async function onReturn() {
-  if (returning.value || !returnSlip.value || returnResult.value) return
+  if (returning.value || submitting.value || !returnSlip.value || returnResult.value) return
   returnError.value = ''
   const items = returnLines.value
     .filter((item) => item.selected && Number(item.returnQty) > 0)
@@ -389,6 +408,7 @@ async function onReturn() {
     returnWrite.key = crypto.randomUUID()
   }
   returning.value = true
+  submitFeedback.beginAttempt('return')
   try {
     const result = await returnDispense(session.accessToken, {
       dispenseId: returnSlip.value.dispenseId,
@@ -399,7 +419,14 @@ async function onReturn() {
     returnResult.value = result
     setDispense({ ...result, items: returnLines.value })
     recordAction('退药已完成', result.dispenseNo || result.dispenseId || '')
-    infoMessage.value = `${result.stockNote}。可继续退费。`
+    const tip = `${result.stockNote}。可继续退费。`
+    infoMessage.value = tip
+    submitFeedback.succeed({
+      dispenseId: result.dispenseId || returnSlip.value.dispenseId || '',
+      dispenseNo: result.dispenseNo || returnSlip.value.dispenseNo || '',
+    }, tip)
+    returnWrite.fingerprint = ''
+    returnWrite.key = ''
     returnSlip.value = { ...returnSlip.value, ...result }
     issued.value = issued.value.map((item) => item.dispenseId === result.dispenseId ? { ...item, ...result } : item)
     await refreshAfterWrite()
@@ -410,6 +437,7 @@ async function onReturn() {
     }
   } catch (error) {
     returnError.value = error instanceof ApiError ? error.message : '退药失败，请稍后重试'
+    submitFeedback.fail(returnError.value, error instanceof ApiError ? error.code : '')
   } finally {
     returning.value = false
   }
@@ -467,6 +495,13 @@ onMounted(async () => {
   searchInput.value?.focus()
   await loadIssued()
 })
+
+useErrorDialog([
+  () => errorMessage.value,
+  () => issuedError.value,
+  () => returnError.value,
+  () => refreshWarning.value,
+])
 </script>
 
 <template>
@@ -492,6 +527,7 @@ onMounted(async () => {
       <p class="dispense-workbar-note">{{ PHARMACY.deptName }} · 操作员 {{ operatorName }}</p>
     </div>
 
+    <SubmitStatusBanner :feedback="submitFeedback.state" />
     <p v-if="errorMessage" class="banner" role="alert" data-testid="dispense-error" :data-code="errorCode">{{ errorMessage }}</p>
     <p v-if="infoMessage" class="ok-banner" role="status" data-testid="dispense-ok">{{ infoMessage }}</p>
     <div v-if="refreshWarning" class="banner refresh-warning" role="status" data-testid="dispense-refresh-warning"><span>{{ refreshWarning }}</span><button class="text-btn" type="button" :disabled="busy || issuedLoading" @click="refreshAfterWrite">重试刷新</button></div>
@@ -537,14 +573,39 @@ onMounted(async () => {
       </form>
 
       <p v-if="loading" class="result-empty dispense-loading" role="status">正在载入待发药品…</p>
-      <BusinessEmptyState v-else-if="!searched" icon="dispense" title="请选择已收费患者或处方" description="检索后只载入已收费、尚未发完的药品。也可从今日待发开始。" eyebrow="待发工作台" data-testid="dispense-prompt">
-        <button class="button button-ghost button-compact" type="button" :disabled="busy" @click="onToday">查看今日待发</button>
+      <BusinessEmptyState
+        v-else-if="!searched"
+        variant="revisit"
+        module-label="发药"
+        queue-label="今日待发"
+        title="请选择已收费患者或处方"
+        description="检索后只载入已收费、尚未发完的药品，库存与本次发药数量会在右侧展开。"
+        empty-label="尚未检索待发队列"
+        empty-description="可以按患者、挂号、收费单或处方号检索，也可以直接查看今日待发。"
+        test-id="dispense-queue-workspace"
+      >
+        <template #actions>
+          <button class="button button-primary button-compact" type="button" :disabled="busy" @click="onToday">查看今日待发</button>
+          <RouterLink class="button button-ghost button-compact" :to="chargeTo">去收费查询</RouterLink>
+        </template>
       </BusinessEmptyState>
 
-      <BusinessEmptyState v-else-if="emptyKind === 'rejected'" icon="dispense" title="待发读取失败" :description="errorMessage" eyebrow="读取失败"><button class="button button-ghost button-compact" type="button" :disabled="busy" @click="loadMode === 'today' ? onToday() : onSearch()">重试读取</button></BusinessEmptyState>
-      <BusinessEmptyState v-else-if="rows.length === 0" icon="dispense" :title="emptyKind === 'today' ? '今日无待发' : '暂无待发药品'" :description="emptyKind === 'done' ? '已发完的药品不在待发列表，可在已发查询中办理退药。' : emptyKind === 'today' ? '今天没有已收费且未发完的药品。' : '未收费或已发完的处方不会出现在这里。'" eyebrow="待发工作台" data-testid="dispense-empty">
-        <RouterLink class="button button-ghost button-compact empty-back" :to="chargeTo">去收费查询</RouterLink>
-        <button v-if="emptyKind === 'done'" class="button button-ghost button-compact" type="button" @click="viewMode = 'issued'">查看已发记录</button>
+      <BusinessEmptyState
+        v-else-if="emptyKind === 'rejected' || rows.length === 0"
+        variant="revisit"
+        module-label="发药"
+        queue-label="今日待发"
+        :title="emptyKind === 'rejected' ? '待发读取失败' : (emptyKind === 'today' ? '今日无待发' : '暂无待发药品')"
+        :description="emptyKind === 'rejected' ? errorMessage : (emptyKind === 'done' ? '已发完的药品不在待发列表，可在已发查询中办理退药。' : emptyKind === 'today' ? '今天没有已收费且未发完的药品。' : '未收费或已发完的处方不会出现在这里。')"
+        :empty-label="emptyKind === 'rejected' ? '待发队列读取失败' : '暂无待发药品'"
+        empty-description="调整检索条件或完成收费后，符合条件的患者会进入待发队列。"
+        test-id="dispense-empty"
+      >
+        <template #actions>
+          <button v-if="emptyKind === 'rejected'" class="button button-primary button-compact" type="button" :disabled="busy" @click="loadMode === 'today' ? onToday() : onSearch()">重试读取</button>
+          <RouterLink v-else class="button button-primary button-compact" :to="chargeTo">去收费查询</RouterLink>
+          <button v-if="emptyKind === 'done'" class="button button-ghost button-compact" type="button" @click="viewMode = 'issued'">查看已发记录</button>
+        </template>
       </BusinessEmptyState>
 
       <form v-else class="patient-panel dispense-lines-panel" data-testid="dispense-lines" @submit.prevent="onDispenseSelected">
@@ -675,7 +736,21 @@ onMounted(async () => {
 
         <p v-if="issuedLoading" class="result-empty" role="status">正在读取发药记录…</p>
         <BusinessEmptyState v-else-if="issuedError" icon="dispense" title="发药记录读取失败" :description="issuedError" eyebrow="读取失败"><button class="button button-ghost button-compact" type="button" @click="loadIssued">重试查询</button></BusinessEmptyState>
-        <BusinessEmptyState v-else-if="issued.length === 0" icon="dispense" title="暂无发药记录" description="可调整患者或发药单号，或取消今日范围后重新查询。" eyebrow="已发查询" data-testid="issued-empty" />
+        <BusinessEmptyState
+          v-else-if="issued.length === 0"
+          variant="revisit"
+          module-label="退药"
+          queue-label="已发待退"
+          title="暂无发药记录"
+          description="调整患者、发药单号或日期范围后，符合条件的记录会进入左侧队列。"
+          empty-label="暂无可退药记录"
+          empty-description="查询到已发药记录后，可在右侧核对数量、原因并办理退药。"
+          primary-text="查看待发"
+          :primary-to="{ name: 'outpatient-module', params: { module: 'dispense' } }"
+          secondary-text="收费查询"
+          :secondary-to="{ name: 'outpatient-module', params: { module: 'charge' }, query: { view: 'records' } }"
+          test-id="issued-empty"
+        />
         <p v-if="issued.length && !issuedLoading && !issuedError" id="dispense-issued-scroll" class="table-scroll-hint">左右滑动可查看完整记录与退药操作</p>
         <div v-if="issued.length && !issuedLoading && !issuedError" class="line-scroll" role="region" aria-label="已发记录，可横向滚动" aria-describedby="dispense-issued-scroll" tabindex="0">
           <table class="line-table">

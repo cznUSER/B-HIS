@@ -591,6 +591,8 @@ function groupByOrder(items) {
   return [...groups.values()]
 }
 
+// Multi-order real path: caller holds base key; each group posts with `${base}-${n}` (1-based).
+// Single group reuses the caller key as-is. Harness/docs must cover both.
 function idempotencyKey(input, index, total) {
   const given = text(input && input.idempotencyKey)
   if (total === 1) return given || crypto.randomUUID()
@@ -752,7 +754,7 @@ export async function returnDispense(accessToken, input) {
     DISPENSE_ROUTES.return(dispenseId),
     accessToken,
     { reason, items },
-    text(input.idempotencyKey) || crypto.randomUUID(),
+    text(input && input.idempotencyKey) || crypto.randomUUID(),
     200,
   )
   const slip = await presentWrittenSlip(accessToken, assertDispenseDto(body), newCache())
