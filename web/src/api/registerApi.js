@@ -116,9 +116,10 @@ export function presentRegisterError(error) {
   return error
 }
 
-export async function createRegister(accessToken, input) {
+export async function createRegister(accessToken, input, idempotencyKey = crypto.randomUUID()) {
   const request = assertCreateRegisterRequest(input)
-  const idempotencyKey = crypto.randomUUID()
+  if (typeof idempotencyKey !== 'string' || !idempotencyKey.trim()) throw apiError(400, 'VALIDATION_ERROR', '挂号请求缺少幂等键')
+  idempotencyKey = idempotencyKey.trim()
   if (useMock()) {
     await delay(280)
     return mockCreateRegister(accessToken, request, idempotencyKey)

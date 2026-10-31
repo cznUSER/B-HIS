@@ -1,5 +1,7 @@
 <script setup>
 import { useErrorDialog } from '../components/feedback/useErrorDialog.js'
+import { createSubmitFeedback } from '../components/feedback/useSubmitFeedback.js'
+import SubmitStatusBanner from '../components/feedback/SubmitStatusBanner.vue'
 // 2026-10-12 P1-H05-REGISTER-UI 挂号页。患者从建档 ?patientId= 带入，只选科室和医生。
 // 2026-10-12 可联调：POST/GET /registers，字段 departmentId。
 // 2026-10-12 P1-H05b-REGISTER-CHECKIN-UI 正常号、已用号显示报到。Mock 可模拟 409。
@@ -66,6 +68,8 @@ const simulateCheckInConflict = ref(false)
 const mockMode = useMock()
 const notice = ref('')
 const noticeError = ref(false)
+const submitFeedback = createSubmitFeedback()
+let registerAttempt = null
 const registerFee = ref(0)
 const appointmentMode = ref(false)
 const appointmentStart = ref('')
@@ -118,7 +122,8 @@ const pendingDoctors = computed(() => {
   if (mockMode) return doctorsForDept(pendingDepartmentId.value)
   return liveDoctors.value.filter((item) => item.departmentId === pendingDepartmentId.value && item.status === 'ACTIVE')
 })
-const canSave = computed(() => Boolean(patient.value) && masterReady.value && !masterLoading.value && ticketsReady.value && !ticketsLoading.value && boardReady.value && !boardLoading.value && !saving.value && canConfirmSelection({ patientId: patient.value?.patientId, departmentId: departmentId.value, doctor: selectedDoctor.value, slot: selectedSlot.value, appointmentMode: appointmentMode.value }))
+const registerWriteBusy = computed(() => saving.value || Boolean(cancellingId.value) || Boolean(checkingInId.value) || Boolean(completingId.value) || Boolean(feeWorkingId.value))
+const canSave = computed(() => Boolean(patient.value) && masterReady.value && !masterLoading.value && ticketsReady.value && !ticketsLoading.value && boardReady.value && !boardLoading.value && !registerWriteBusy.value && submitFeedback.state.status !== 'submitting' && canConfirmSelection({ patientId: patient.value?.patientId, departmentId: departmentId.value, doctor: selectedDoctor.value, slot: selectedSlot.value, appointmentMode: appointmentMode.value }))
 const selectedDateTickets = computed(() => tickets.value.filter((item) => item.visitDate === visitDate.value))
 const registrationTickets = computed(() => selectedDateTickets.value.filter((item) => item.visitType !== 'APPOINTMENT'))
 const appointmentTickets = computed(() => selectedDateTickets.value.filter((item) => item.visitType === 'APPOINTMENT'))
@@ -423,31 +428,33 @@ async function ensureFeeCharge(row) {
 }
 
 async function onCreateFee(row) {
-  if (!row || mockMode || feeWorkingId.value) return
+  if (!row || registerWriteBusy.value) return
   const seq = patientLoadSeq
   feeWorkingId.value = row.registerId
+  submitFeedback.beginAttempt('fee-create')
   showNotice('', false)
   try {
     const charge = await createRegisterFeeCharge(session.accessToken, row.registerId)
     if (seq !== patientLoadSeq) return
     feeCharges.value = { ...feeCharges.value, [row.registerId]: charge }
     syncRegisterContext()
-    showNotice('挂号费收费单已生成，请确认现金收费。', false)
+    submitFeedback.succeed({ registerId: row.registerId, registerNo: row.registerNo || '' })
   } catch (error) {
     if (seq !== patientLoadSeq) return
     if (error instanceof ApiError && error.code === 'REGISTER_FEE_ALREADY_CHARGED') {
       try { await ensureFeeCharge(row) } catch { /* keep the server error below */ }
     }
-    showNotice(error instanceof ApiError ? error.message : '挂号费收费单生成失败', true)
+    submitFeedback.fail(error instanceof ApiError ? error.message : '挂号费收费单生成失败', error?.code)
   } finally {
     feeWorkingId.value = ''
   }
 }
 
 async function onPayFee(row) {
-  if (!row || mockMode || feeWorkingId.value) return
+  if (!row || registerWriteBusy.value) return
   const seq = patientLoadSeq
   feeWorkingId.value = row.registerId
+  submitFeedback.beginAttempt('fee-pay')
   showNotice('', false)
   try {
     const charge = await ensureFeeCharge(row)
@@ -459,19 +466,20 @@ async function onPayFee(row) {
     syncRegisterContext()
     recordAction('挂号费已收讫', result.charge?.squareNo || charge.chargeId || '')
     row.registerCharged = true
-    showNotice('挂号费已现金收讫。', false)
+    submitFeedback.succeed({ registerId: row.registerId, registerNo: row.registerNo || '' })
   } catch (error) {
     if (seq !== patientLoadSeq) return
-    showNotice(error instanceof ApiError ? error.message : '挂号费收费失败', true)
+    submitFeedback.fail(error instanceof ApiError ? error.message : '挂号费收费失败', error?.code)
   } finally {
     feeWorkingId.value = ''
   }
 }
 
 async function onRefundFee(row) {
-  if (!row || mockMode || feeWorkingId.value) return
+  if (!row || registerWriteBusy.value) return
   const seq = patientLoadSeq
   feeWorkingId.value = row.registerId
+  submitFeedback.beginAttempt('fee-refund')
   showNotice('', false)
   try {
     const charge = await ensureFeeCharge(row)
@@ -491,10 +499,10 @@ async function onRefundFee(row) {
       syncRegisterContext()
       row.registerCharged = false
     }
-    showNotice('挂号费已全额退费。', false)
+    submitFeedback.succeed({ registerId: row.registerId, registerNo: row.registerNo || '' })
   } catch (error) {
     if (seq !== patientLoadSeq) return
-    showNotice(error instanceof ApiError ? error.message : '挂号费退费失败', true)
+    submitFeedback.fail(error instanceof ApiError ? error.message : '挂号费退费失败', error?.code)
   } finally {
     feeWorkingId.value = ''
   }
@@ -510,29 +518,33 @@ async function onSave() {
   if (!canSave.value) return
   showNotice('', false)
   if (!departments.value.some((item) => item.departmentId === departmentId.value)) {
-    showNotice('请选择科室', true)
+    showNotice('\u8bf7\u9009\u62e9\u79d1\u5ba4', true)
     return
   }
   if (!doctorId.value || !doctors.value.some((item) => item.doctorId === doctorId.value)) {
-    showNotice('请选择医生', true)
+    showNotice('\u8bf7\u9009\u62e9\u533b\u751f', true)
     return
   }
   saving.value = true
   const currentPatientId = patient.value.patientId
   const currentSeq = patientLoadSeq
+  const request = {
+    patientId: currentPatientId,
+    departmentId: departmentId.value,
+    doctorId: doctorId.value,
+    registerSort: REGISTER_SORT.registerSort,
+    visitDate: visitDate.value,
+    visitType: appointmentMode.value ? 'APPOINTMENT' : 'WALK_IN',
+    appointmentStart: selectedSlot.value ? selectedSlot.value.start : '',
+    appointmentEnd: selectedSlot.value ? selectedSlot.value.end : '',
+    appointmentNote: appointmentMode.value ? appointmentNote.value : '',
+    registerFee: mockMode ? 0 : Math.max(0, Number(registerFee.value) || 0),
+  }
+  const fingerprint = JSON.stringify(request)
+  if (!registerAttempt || registerAttempt.fingerprint !== fingerprint) registerAttempt = { fingerprint, key: crypto.randomUUID() }
+  submitFeedback.beginAttempt('register')
   try {
-    const created = await createRegister(session.accessToken, {
-      patientId: currentPatientId,
-      departmentId: departmentId.value,
-      doctorId: doctorId.value,
-      registerSort: REGISTER_SORT.registerSort,
-      visitDate: visitDate.value,
-      visitType: appointmentMode.value ? 'APPOINTMENT' : 'WALK_IN',
-      appointmentStart: selectedSlot.value ? selectedSlot.value.start : '',
-      appointmentEnd: selectedSlot.value ? selectedSlot.value.end : '',
-      appointmentNote: appointmentMode.value ? appointmentNote.value : '',
-      registerFee: mockMode ? 0 : Math.max(0, Number(registerFee.value) || 0),
-    })
+    const created = await createRegister(session.accessToken, request, registerAttempt.key)
     if (currentSeq !== patientLoadSeq || patient.value?.patientId !== currentPatientId) return
     if (created.patientId === currentPatientId) {
       tickets.value = [created, ...tickets.value.filter((item) => item.registerId !== created.registerId)]
@@ -543,13 +555,17 @@ async function onSave() {
       todayReady.value = true
     }
     setRegister(created)
-    recordAction(appointmentMode.value ? '预约已创建' : '挂号已创建', created.registerNo || created.registerId || '')
-    showNotice(`${appointmentMode.value ? '预约已保存' : '已保存挂号，状态为正常号'}。${Number(created.registerFee) > 0 ? '挂号费尚未实收，请在记录操作中生成收费单并现金收费。' : '本次无需收费。'}`, false)
+    recordAction(appointmentMode.value ? '\u9884\u7ea6\u5df2\u521b\u5efa' : '\u6302\u53f7\u5df2\u521b\u5efa', created.registerNo || created.registerId || '')
+    registerAttempt = null
+    showNotice('', false)
+    submitFeedback.succeed(created, '\u6302\u53f7\u6210\u529f\uff0c\u6d41\u6c34\u53f7 ' + (created.registerNo || created.registerId))
     clearSlot()
     await loadSlotBoard()
   } catch (error) {
     if (currentSeq !== patientLoadSeq || patient.value?.patientId !== currentPatientId) return
-    showNotice(error instanceof ApiError ? error.message : '挂号失败，请稍后重试', true)
+    const message = error instanceof ApiError ? error.message : '\u6302\u53f7\u5931\u8d25\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5'
+    submitFeedback.fail(message, error?.code)
+    showNotice('', false)
     if (error.code === 'APPOINTMENT_CONFLICT' || error.code === 'SLOT_FULL') { clearSlot(); await loadSlotBoard() }
   } finally {
     saving.value = false
@@ -557,13 +573,14 @@ async function onSave() {
 }
 
 async function onCancel(row) {
-  if (!row || cancellingId.value || checkingInId.value) return
+  if (!row || registerWriteBusy.value) return
   if (!canCancel(row.status)) {
     showNotice(cancelRejectMessage(row.status), true)
     return
   }
   cancellingId.value = row.registerId
   const currentSeq = patientLoadSeq
+  submitFeedback.beginAttempt('cancel')
   showNotice('', false)
   try {
     const updated = await cancelRegister(session.accessToken, row.registerId)
@@ -571,24 +588,26 @@ async function onCancel(row) {
     tickets.value = tickets.value.map((item) => (item.registerId === updated.registerId ? updated : item))
     setRegister(updated)
     recordAction('挂号已退号', updated.registerNo || updated.registerId || '')
-    showNotice('已退号', false)
+    showNotice('', false)
+    submitFeedback.succeed(updated)
     await loadSlotBoard()
   } catch (error) {
     if (currentSeq !== patientLoadSeq) return
-    showNotice(error instanceof ApiError ? error.message : '退号失败，请稍后重试', true)
+    submitFeedback.fail(error instanceof ApiError ? error.message : '退号失败，请稍后重试', error?.code)
   } finally {
     cancellingId.value = ''
   }
 }
 
 async function onCheckIn(row) {
-  if (!row || checkingInId.value || completingId.value || cancellingId.value) return
+  if (!row || registerWriteBusy.value) return
   if (!canCheckIn(row.status)) {
     showNotice('当前状态不允许该操作', true)
     return
   }
   checkingInId.value = row.registerId
   const currentSeq = patientLoadSeq
+  submitFeedback.beginAttempt('check-in')
   showNotice('', false)
   try {
     const updated = await checkInRegister(session.accessToken, row.registerId, {
@@ -598,23 +617,25 @@ async function onCheckIn(row) {
     tickets.value = tickets.value.map((item) => (item.registerId === updated.registerId ? updated : item))
     setRegister(updated)
     recordAction('患者已报到', updated.registerNo || updated.registerId || '')
-    showNotice(row.visitType === 'APPOINTMENT' ? '预约已报到' : '已报到', false)
+    showNotice('', false)
+    submitFeedback.succeed(updated, (row.visitType === 'APPOINTMENT' ? '预约已报到' : '已报到') + '，流水号 ' + (updated.registerNo || updated.registerId || ''))
   } catch (error) {
     if (currentSeq !== patientLoadSeq) return
-    showNotice(error instanceof ApiError ? error.message : '报到失败，请稍后重试', true)
+    submitFeedback.fail(error instanceof ApiError ? error.message : '报到失败，请稍后重试', error?.code)
   } finally {
     checkingInId.value = ''
   }
 }
 
 async function onComplete(row) {
-  if (!row || completingId.value || checkingInId.value || cancellingId.value) return
+  if (!row || registerWriteBusy.value) return
   if (!canComplete(row.status)) {
     showNotice(completeRejectMessage(row.status), true)
     return
   }
   completingId.value = row.registerId
   const currentSeq = patientLoadSeq
+  submitFeedback.beginAttempt('complete')
   showNotice('', false)
   try {
     const updated = await completeRegister(session.accessToken, row.registerId)
@@ -622,10 +643,11 @@ async function onComplete(row) {
     tickets.value = tickets.value.map((item) => (item.registerId === updated.registerId ? updated : item))
     setRegister(updated)
     recordAction('就诊已完成', updated.registerNo || updated.registerId || '')
-    showNotice('已完成就诊', false)
+    showNotice('', false)
+    submitFeedback.succeed(updated, '已完成就诊，流水号 ' + (updated.registerNo || updated.registerId || ''))
   } catch (error) {
     if (currentSeq !== patientLoadSeq) return
-    showNotice(error instanceof ApiError ? error.message : '完成就诊失败，请稍后重试', true)
+    submitFeedback.fail(error instanceof ApiError ? error.message : '完成就诊失败，请稍后重试', error?.code)
   } finally {
     completingId.value = ''
   }
@@ -639,6 +661,7 @@ useErrorDialog([
   () => listNote.value,
   () => notFound.value ? '未找到患者，请重新选择。' : '',
   () => noticeError.value ? notice.value : '',
+  () => submitFeedback.state.status === 'error' ? submitFeedback.state.message : '',
 ])
 
 </script>
@@ -647,7 +670,7 @@ useErrorDialog([
   <section class="register-page register-slot-card-page" aria-labelledby="register-title">
     <div class="register-heading"><div><p class="crumb"><RouterLink :to="{ name: 'home' }">首页</RouterLink><span> / </span><RouterLink :to="{ name: 'workbench' }">门诊业务</RouterLink><span> / 挂号</span></p><h1 id="register-title">门诊挂号 <small>号源工作台</small></h1></div><div class="register-heading-note"><span>{{ today }} · 现场号</span><button class="text-btn" type="button" :disabled="boardLoading || saving" @click="loadSlotBoard">刷新号源</button></div></div>
     <form class="register-empty-workspace register-slot-workspace" data-testid="register-form" novalidate @submit.prevent="onSave">
-      <RegisterPatientBar :patient="patient" :loading="loading" :disabled="saving || Boolean(feeWorkingId)" @choose="patientPickerOpen = true" @read-id="readCard('身份证')" @read-medical="readCard('医保卡')" />
+      <RegisterPatientBar :patient="patient" :loading="loading" :disabled="registerWriteBusy" @choose="patientPickerOpen = true" @read-id="readCard('身份证')" @read-medical="readCard('医保卡')" />
       <div v-if="notFound || loadError" class="banner" role="alert">{{ notFound ? '未找到患者，请重新选择。' : loadError }}<button type="button" class="text-btn" @click="load">重试患者信息</button></div>
       <div class="register-flow-row" data-testid="register-layout">
         <div class="register-flow-main">
@@ -663,15 +686,15 @@ useErrorDialog([
           <label v-if="mockMode" class="register-card-note"><input v-model="simulateCheckInConflict" type="checkbox" /> 模拟报到冲突（仅 Mock）</label>
           <details class="register-today-fold" data-testid="register-today-panel" open><summary>今日工作 · {{ todayWorkRows.length }} 笔 <span>挂号操作记录</span></summary><div class="register-history-scroll"><table class="register-today-table" data-testid="register-today-table"><thead><tr><th>患者姓名</th><th>挂号费用</th><th>挂号时间</th></tr></thead><tbody><tr v-for="item in todayWorkRows" :key="item.id"><td>{{ item.patientName }}</td><td>{{ item.registerFee }}</td><td>{{ item.registeredTime }}</td></tr><tr v-if="todayLoading"><td colspan="3">正在读取今日挂号…</td></tr><tr v-else-if="todayError"><td colspan="3">{{ todayError }} <button type="button" class="text-btn" @click="loadTodayTickets(true)">重试</button></td></tr><tr v-else-if="!todayWorkRows.length"><td colspan="3">今天还没有挂号操作记录。</td></tr></tbody></table></div></details>
         </div>
-        <RegisterConfirmRail :patient="patient" :department="selectedDepartment" :doctor="selectedDoctor" :slot-label="selectedSlotLabel" v-model:fee="registerFee" v-model:payment="paymentPreference" :can-save="canSave" :saving="saving" :mock-mode="mockMode" :reason="confirmReason"><p v-if="notice" class="banner" :class="{ 'banner-ok': !noticeError }" :role="noticeError ? 'alert' : 'status'" data-testid="register-notice">{{ notice }}</p></RegisterConfirmRail>
+        <RegisterConfirmRail :patient="patient" :department="selectedDepartment" :doctor="selectedDoctor" :slot-label="selectedSlotLabel" v-model:fee="registerFee" v-model:payment="paymentPreference" :can-save="canSave" :saving="saving" :mock-mode="mockMode" :reason="confirmReason"><p v-if="notice && submitFeedback.state.status !== 'success' && submitFeedback.state.status !== 'error'" class="banner" :class="{ 'banner-ok': !noticeError }" :role="noticeError ? 'alert' : 'status'" data-testid="register-notice">{{ notice }}</p><SubmitStatusBanner :feedback="submitFeedback.state" /></RegisterConfirmRail>
       </div>
       <RegisterPatientHistory :patient="patient" :rows="historyRows" :loading="ticketsLoading" :error="listNote" :department-label="departmentLabel" :doctor-label="doctorLabel" :charges="feeCharges" @retry="refreshTickets"><template #actions="{ row }">
-                      <button v-if="!mockMode && Number(row.registerFee) > 0 && !row.registerCharged && !feeChargeFor(row)" class="button button-compact" type="button" :disabled="Boolean(feeWorkingId)" @click="onCreateFee(row)">生成收费单</button>
-                      <button v-if="!mockMode && Number(row.registerFee) > 0 && !row.registerCharged && feeChargeFor(row)" class="button button-compact" type="button" :disabled="Boolean(feeWorkingId)" @click="onPayFee(row)">{{ feeWorkingId === row.registerId ? '收费中…' : '现金收费' }}</button>
-                      <button v-if="!mockMode && Number(row.registerFee) > 0 && row.registerCharged" class="button button-ghost button-compact" type="button" :disabled="Boolean(feeWorkingId)" @click="onRefundFee(row)">{{ feeWorkingId === row.registerId ? '退费中…' : '挂号费退费' }}</button>
-                      <button v-if="canCheckIn(row.status)" class="button button-compact" type="button" :data-testid="`checkin-${row.status}`" :disabled="Boolean(checkingInId) || Boolean(cancellingId)" @click="onCheckIn(row)">{{ checkingInId === row.registerId ? '报到中…' : row.visitType === 'APPOINTMENT' ? '预约报到' : '报到' }}</button>
-                      <button v-if="canComplete(row.status)" class="button button-compact" type="button" :data-testid="`complete-${row.status}`" :disabled="Boolean(completingId) || Boolean(cancellingId) || Boolean(checkingInId)" @click="onComplete(row)">{{ completingId === row.registerId ? '完成中…' : '完成就诊' }}</button>
-                      <button class="button button-ghost button-compact" type="button" :data-testid="`cancel-${row.status}`" :disabled="!canCancel(row.status) || Boolean(cancellingId) || Boolean(checkingInId) || Boolean(completingId)" :title="canCancel(row.status) ? '退号' : cancelRejectMessage(row.status)" @click="onCancel(row)">{{ cancellingId === row.registerId ? '退号中…' : '退号' }}</button>
+                      <button v-if="!mockMode && Number(row.registerFee) > 0 && !row.registerCharged && !feeChargeFor(row)" class="button button-compact" type="button" :disabled="registerWriteBusy" @click="onCreateFee(row)">生成收费单</button>
+                      <button v-if="!mockMode && Number(row.registerFee) > 0 && !row.registerCharged && feeChargeFor(row)" class="button button-compact" type="button" :disabled="registerWriteBusy" @click="onPayFee(row)">{{ feeWorkingId === row.registerId ? '收费中…' : '现金收费' }}</button>
+                      <button v-if="!mockMode && Number(row.registerFee) > 0 && row.registerCharged" class="button button-ghost button-compact" type="button" :disabled="registerWriteBusy" @click="onRefundFee(row)">{{ feeWorkingId === row.registerId ? '退费中…' : '挂号费退费' }}</button>
+                      <button v-if="canCheckIn(row.status)" class="button button-compact" type="button" :data-testid="`checkin-${row.status}`" :disabled="registerWriteBusy" @click="onCheckIn(row)">{{ checkingInId === row.registerId ? '报到中…' : row.visitType === 'APPOINTMENT' ? '预约报到' : '报到' }}</button>
+                      <button v-if="canComplete(row.status)" class="button button-compact" type="button" :data-testid="`complete-${row.status}`" :disabled="registerWriteBusy" @click="onComplete(row)">{{ completingId === row.registerId ? '完成中…' : '完成就诊' }}</button>
+                      <button class="button button-ghost button-compact" type="button" :data-testid="`cancel-${row.status}`" :disabled="!canCancel(row.status) || registerWriteBusy" :title="canCancel(row.status) ? '退号' : cancelRejectMessage(row.status)" @click="onCancel(row)">{{ cancellingId === row.registerId ? '退号中…' : '退号' }}</button>
                       <p v-if="!canCancel(row.status)" class="ticket-reject">{{ cancelRejectMessage(row.status) }}</p>
 
       </template></RegisterPatientHistory>
