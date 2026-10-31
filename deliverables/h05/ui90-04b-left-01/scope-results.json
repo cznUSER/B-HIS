@@ -1,0 +1,16 @@
+{
+  "task": "UI90-04B-LEFT-01",
+  "capturedAfterImplementationBeforeCommit": true,
+  "unrelatedBefore": {
+    "statusSha256": "e54905463bce2ae6e0dff3787d6f155a27df324e956f8734be8abbdbe0c2979c",
+    "diffSha256": "496fb59345a628e2a2f9ddbad096d4fb6ed306eb8981401bef73ba09cbef7f75",
+    "statusCount": 522
+  },
+  "unrelatedAfter": {
+    "statusSha256": "e54905463bce2ae6e0dff3787d6f155a27df324e956f8734be8abbdbe0c2979c",
+    "diffSha256": "496fb59345a628e2a2f9ddbad096d4fb6ed306eb8981401bef73ba09cbef7f75",
+    "statusCount": 522
+  },
+  "unchanged": true,
+  "scope": "status and tracked binary diff outside explicit allowlist; not a byte inventory of untracked directories"
+}

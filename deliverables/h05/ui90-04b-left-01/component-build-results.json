@@ -1,0 +1,11 @@
+{
+  "task": "UI90-04B-LEFT-01",
+  "mode": "isolated actual Vue component production build, not full application or host",
+  "outDir": "C:\\Users\\SYG\\AppData\\Local\\Temp\\uol-left01-component-build-62JVhl",
+  "pass": true,
+  "outputs": [
+    "assets/geometry-fixture-BjipO8La.js",
+    "assets/geometry-fixture-BR10kZwt.css",
+    "deliverables/h05/ui90-04b-left-01/geometry-fixture.html"
+  ]
+}

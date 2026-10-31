@@ -147,11 +147,11 @@ onMounted(async () => {
     </MasterPanelHeader>
 
     <form id="user-log-search" class="master-filters user-operations-filters" @submit.prevent="search">
-      <p class="user-operations-filters-legend">检索条件</p>
-      <label class="field"><span>模块名称</span><select v-model="filters.moduleId"><option value="">全部模块</option><option v-for="item in modules" :key="item.id" :value="String(item.id)">{{ item.name }}（{{ item.id }}）</option></select></label>
+      <p class="user-operations-filters-legend uol-abs-legend">检索条件</p>
+      <label class="field"><span class="uol-abs-label-module">模块名称</span><select v-model="filters.moduleId" class="uol-abs-ctrl-module"><option value="">全部模块</option><option v-for="item in modules" :key="item.id" :value="String(item.id)">{{ item.name }}（{{ item.id }}）</option></select></label>
       <div class="field user-operations-user-field">
-        <span id="user-operations-user-label">用户</span>
-        <div class="user-operations-user-button-edit">
+        <span id="user-operations-user-label" class="uol-abs-label-user">用户</span>
+        <div class="user-operations-user-button-edit uol-abs-ctrl-user">
           <input :value="selectedUserLabel || filters.userId" type="text" readonly placeholder="点击省略号选择用户" aria-labelledby="user-operations-user-label" />
           <button ref="pickerButton" type="button" aria-label="选择用户" aria-haspopup="dialog" :aria-expanded="pickerOpen" :aria-controls="pickerOpen ? 'user-operations-user-picker' : undefined" @click="pickerOpen ? closeUserPicker() : openUserPicker()">…</button>
         </div>
@@ -174,11 +174,11 @@ onMounted(async () => {
         </div>
       </div>
       <div class="field user-operations-record-date">
-        <span>记录日期</span>
+        <span class="uol-abs-label-begin">记录日期</span>
         <div class="user-operations-date-range">
-          <input v-model="filters.begin" type="date" aria-label="记录日期起" />
-          <span class="user-operations-date-sep" aria-hidden="true">——</span>
-          <input v-model="filters.end" type="date" aria-label="记录日期止" />
+          <input v-model="filters.begin" class="uol-abs-ctrl-begin" type="date" aria-label="记录日期起" />
+          <span class="user-operations-date-sep uol-abs-label-sep" aria-hidden="true">——</span>
+          <input v-model="filters.end" class="uol-abs-ctrl-end" type="date" aria-label="记录日期止" />
         </div>
       </div>
     </form>
@@ -219,6 +219,17 @@ onMounted(async () => {
 .user-operations-panel.access-data-panel.patient-panel :deep(.master-panel-symbol) { width: 28px; height: 28px; }
 .user-operations-panel.access-data-panel.patient-panel :deep(h2) { font: 16px SimSun, '宋体', serif; }
 .user-operations-panel.access-data-panel.patient-panel .user-operations-filters {
+  --uol-left-label-module: 108px;
+  --uol-left-ctrl-module: 183px;
+  --uol-left-label-user: 385px;
+  --uol-left-ctrl-user: 431px;
+  --uol-left-label-begin: 108px;
+  --uol-left-ctrl-begin: 183px;
+  --uol-left-label-sep: 385px;
+  --uol-left-ctrl-end: 431px;
+  --uol-top-r1: 6px;
+  --uol-top-r2: 37px;
+  position: relative;
   --uol-filters-h: 81px;
   --uol-ctrl-w: 196px;
   --uol-label-module-w: 62px;
@@ -281,6 +292,26 @@ onMounted(async () => {
 .user-operations-user-id { display: block; color: #829286; font-size: 10px; }
 .user-operations-panel.access-data-panel.patient-panel .mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 10px; overflow-wrap: anywhere; }
 .user-operations-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0 2px; color: #829286; font-size: 11px; }
+@media (min-width: 861px) {
+  .user-operations-panel.access-data-panel.patient-panel .user-operations-filters { display: block; height: var(--uol-filters-h); }
+  .user-operations-panel.access-data-panel.patient-panel .user-operations-filters > .field, .user-operations-date-range { display: contents; }
+  .user-operations-user-field { position: static; }
+  .user-operations-filters .uol-abs-label-module, .user-operations-filters .uol-abs-ctrl-module,
+  .user-operations-filters .uol-abs-label-user, .user-operations-filters .uol-abs-ctrl-user,
+  .user-operations-filters .uol-abs-label-begin, .user-operations-filters .uol-abs-ctrl-begin,
+  .user-operations-filters .uol-abs-label-sep, .user-operations-filters .uol-abs-ctrl-end,
+  .user-operations-filters .uol-abs-legend { position: absolute; }
+  .uol-abs-label-module { left: var(--uol-left-label-module); top: var(--uol-top-r1); }
+  .uol-abs-ctrl-module { left: var(--uol-left-ctrl-module); top: var(--uol-top-r1); }
+  .uol-abs-label-user { left: var(--uol-left-label-user); top: var(--uol-top-r1); }
+  .uol-abs-ctrl-user { left: var(--uol-left-ctrl-user); top: var(--uol-top-r1); }
+  .uol-abs-label-begin { left: var(--uol-left-label-begin); top: var(--uol-top-r2); }
+  .uol-abs-ctrl-begin { left: var(--uol-left-ctrl-begin); top: var(--uol-top-r2); }
+  .uol-abs-label-sep { left: var(--uol-left-label-sep); top: var(--uol-top-r2); }
+  .uol-abs-ctrl-end { left: var(--uol-left-ctrl-end); top: var(--uol-top-r2); }
+  .uol-abs-legend { left: 3px; top: 13px; }
+  .user-operations-user-picker { left: var(--uol-left-ctrl-user); top: calc(var(--uol-top-r1) + 25px); }
+}
 @media (max-width: 860px) {
   .user-operations-panel.access-data-panel.patient-panel .user-operations-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto; padding-top: 6px; padding-bottom: 10px; }
   .user-operations-panel.access-data-panel.patient-panel .user-operations-filters > .field { flex-direction: column; align-items: stretch; gap: 5px; }

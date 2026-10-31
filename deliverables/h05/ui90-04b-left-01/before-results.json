@@ -1,0 +1,842 @@
+{
+  "task": "UI90-04B-LEFT-01",
+  "tipBase": "159a3096caf2fd96ddbdef57ca1a39f023433252",
+  "phase": "before",
+  "mode": "isolated actual Vue component with existing global CSS; geometry uses empty synthetic API responses; not live host or SCORE",
+  "sourceSha256": "05186b8acb2f2b70233b9773ef8c5938f688c9736a6a8916143f6a4a87f656c1",
+  "scriptAndTemplateUnchanged": true,
+  "measurements": [
+    {
+      "viewport": 1440,
+      "filtersHeight": 80.99999237060547,
+      "controls": [
+        {
+          "selector": ".user-operations-filters select",
+          "x": 99,
+          "y": 84.39527130126953,
+          "width": 196,
+          "height": 25
+        },
+        {
+          "selector": ".user-operations-user-button-edit",
+          "x": 351,
+          "y": 84.39527130126953,
+          "width": 196,
+          "height": 25
+        },
+        {
+          "selector": "input[aria-label=记录日期起]",
+          "x": 99,
+          "y": 112.39527130126953,
+          "width": 196,
+          "height": 24.99999237060547
+        },
+        {
+          "selector": "input[aria-label=记录日期止]",
+          "x": 351,
+          "y": 112.39527130126953,
+          "width": 196,
+          "height": 24.99999237060547
+        }
+      ],
+      "twoRows": true,
+      "overflow": false,
+      "filtersOverflow": false,
+      "tokens": {
+        "filtersHeight": "81px",
+        "controlWidth": "196px"
+      },
+      "panelPosition": "static",
+      "row1": "",
+      "row2": "",
+      "targets": [
+        {
+          "name": "label-module",
+          "left": 12,
+          "top": 23,
+          "expectedLeft": 108,
+          "expectedTop": 6,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "ctrl-module",
+          "left": 82,
+          "top": 23,
+          "expectedLeft": 183,
+          "expectedTop": 6,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "label-user",
+          "left": 290,
+          "top": 23,
+          "expectedLeft": 385,
+          "expectedTop": 6,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "ctrl-user",
+          "left": 334,
+          "top": 23,
+          "expectedLeft": 431,
+          "expectedTop": 6,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "label-begin",
+          "left": 12,
+          "top": 51,
+          "expectedLeft": 108,
+          "expectedTop": 37,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "ctrl-begin",
+          "left": 82,
+          "top": 51,
+          "expectedLeft": 183,
+          "expectedTop": 37,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "label-sep",
+          "left": 294,
+          "top": 55,
+          "expectedLeft": 385,
+          "expectedTop": 37,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "ctrl-end",
+          "left": 334,
+          "top": 51,
+          "expectedLeft": 431,
+          "expectedTop": 37,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "legend",
+          "left": 12,
+          "top": 3,
+          "expectedLeft": 3,
+          "expectedTop": 13,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        }
+      ],
+      "absolutePass": false,
+      "flowPass": true
+    },
+    {
+      "viewport": 1024,
+      "filtersHeight": 81.00001525878906,
+      "controls": [
+        {
+          "selector": ".user-operations-filters select",
+          "x": 99,
+          "y": 81.4613265991211,
+          "width": 196,
+          "height": 25
+        },
+        {
+          "selector": ".user-operations-user-button-edit",
+          "x": 351,
+          "y": 81.4613265991211,
+          "width": 196,
+          "height": 25
+        },
+        {
+          "selector": "input[aria-label=记录日期起]",
+          "x": 99,
+          "y": 109.4613265991211,
+          "width": 196,
+          "height": 25.00000762939453
+        },
+        {
+          "selector": "input[aria-label=记录日期止]",
+          "x": 351,
+          "y": 109.4613265991211,
+          "width": 196,
+          "height": 25.00000762939453
+        }
+      ],
+      "twoRows": true,
+      "overflow": false,
+      "filtersOverflow": false,
+      "tokens": {
+        "filtersHeight": "81px",
+        "controlWidth": "196px"
+      },
+      "panelPosition": "static",
+      "row1": "",
+      "row2": "",
+      "targets": [
+        {
+          "name": "label-module",
+          "left": 12,
+          "top": 22.999996185302734,
+          "expectedLeft": 108,
+          "expectedTop": 6,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "ctrl-module",
+          "left": 82,
+          "top": 22.999996185302734,
+          "expectedLeft": 183,
+          "expectedTop": 6,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "label-user",
+          "left": 290,
+          "top": 22.999996185302734,
+          "expectedLeft": 385,
+          "expectedTop": 6,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "ctrl-user",
+          "left": 334,
+          "top": 22.999996185302734,
+          "expectedLeft": 431,
+          "expectedTop": 6,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "label-begin",
+          "left": 12,
+          "top": 50.999996185302734,
+          "expectedLeft": 108,
+          "expectedTop": 37,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "ctrl-begin",
+          "left": 82,
+          "top": 50.999996185302734,
+          "expectedLeft": 183,
+          "expectedTop": 37,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "label-sep",
+          "left": 294,
+          "top": 54.999996185302734,
+          "expectedLeft": 385,
+          "expectedTop": 37,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "ctrl-end",
+          "left": 334,
+          "top": 50.999996185302734,
+          "expectedLeft": 431,
+          "expectedTop": 37,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "legend",
+          "left": 12,
+          "top": 3,
+          "expectedLeft": 3,
+          "expectedTop": 13,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        }
+      ],
+      "absolutePass": false,
+      "flowPass": true
+    },
+    {
+      "viewport": 861,
+      "filtersHeight": 80.99998474121094,
+      "controls": [
+        {
+          "selector": ".user-operations-filters select",
+          "x": 99,
+          "y": 81.46195220947266,
+          "width": 196,
+          "height": 25
+        },
+        {
+          "selector": ".user-operations-user-button-edit",
+          "x": 351,
+          "y": 81.46195220947266,
+          "width": 196,
+          "height": 25
+        },
+        {
+          "selector": "input[aria-label=记录日期起]",
+          "x": 99,
+          "y": 109.46195220947266,
+          "width": 196,
+          "height": 24.99999237060547
+        },
+        {
+          "selector": "input[aria-label=记录日期止]",
+          "x": 351,
+          "y": 109.46195220947266,
+          "width": 196,
+          "height": 24.99999237060547
+        }
+      ],
+      "twoRows": true,
+      "overflow": false,
+      "filtersOverflow": false,
+      "tokens": {
+        "filtersHeight": "81px",
+        "controlWidth": "196px"
+      },
+      "panelPosition": "static",
+      "row1": "",
+      "row2": "",
+      "targets": [
+        {
+          "name": "label-module",
+          "left": 12,
+          "top": 23,
+          "expectedLeft": 108,
+          "expectedTop": 6,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "ctrl-module",
+          "left": 82,
+          "top": 23,
+          "expectedLeft": 183,
+          "expectedTop": 6,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "label-user",
+          "left": 290,
+          "top": 23,
+          "expectedLeft": 385,
+          "expectedTop": 6,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "ctrl-user",
+          "left": 334,
+          "top": 23,
+          "expectedLeft": 431,
+          "expectedTop": 6,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "label-begin",
+          "left": 12,
+          "top": 51,
+          "expectedLeft": 108,
+          "expectedTop": 37,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "ctrl-begin",
+          "left": 82,
+          "top": 51,
+          "expectedLeft": 183,
+          "expectedTop": 37,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "label-sep",
+          "left": 294,
+          "top": 55,
+          "expectedLeft": 385,
+          "expectedTop": 37,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "ctrl-end",
+          "left": 334,
+          "top": 51,
+          "expectedLeft": 431,
+          "expectedTop": 37,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "legend",
+          "left": 12,
+          "top": 3,
+          "expectedLeft": 3,
+          "expectedTop": 13,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        }
+      ],
+      "absolutePass": false,
+      "flowPass": true
+    },
+    {
+      "viewport": 860,
+      "filtersHeight": 150,
+      "controls": [
+        {
+          "selector": ".user-operations-filters select",
+          "x": 29,
+          "y": 115.6148681640625,
+          "width": 395,
+          "height": 25
+        },
+        {
+          "selector": ".user-operations-user-button-edit",
+          "x": 436,
+          "y": 115.6148681640625,
+          "width": 395,
+          "height": 25
+        },
+        {
+          "selector": "input[aria-label=记录日期起]",
+          "x": 29,
+          "y": 173.6148681640625,
+          "width": 381,
+          "height": 25
+        },
+        {
+          "selector": "input[aria-label=记录日期止]",
+          "x": 450,
+          "y": 173.6148681640625,
+          "width": 381,
+          "height": 25
+        }
+      ],
+      "twoRows": true,
+      "overflow": false,
+      "filtersOverflow": false,
+      "tokens": {
+        "filtersHeight": "81px",
+        "controlWidth": "196px"
+      },
+      "panelPosition": "static",
+      "row1": "",
+      "row2": "",
+      "targets": [
+        {
+          "name": "label-module",
+          "left": 12,
+          "top": 26,
+          "expectedLeft": 108,
+          "expectedTop": 6,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "ctrl-module",
+          "left": 12,
+          "top": 56,
+          "expectedLeft": 183,
+          "expectedTop": 6,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "label-user",
+          "left": 419,
+          "top": 26,
+          "expectedLeft": 385,
+          "expectedTop": 6,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "ctrl-user",
+          "left": 419,
+          "top": 56,
+          "expectedLeft": 431,
+          "expectedTop": 6,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "label-begin",
+          "left": 12,
+          "top": 84,
+          "expectedLeft": 108,
+          "expectedTop": 37,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "ctrl-begin",
+          "left": 12,
+          "top": 114,
+          "expectedLeft": 183,
+          "expectedTop": 37,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "label-sep",
+          "left": 401,
+          "top": 118,
+          "expectedLeft": 385,
+          "expectedTop": 37,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "ctrl-end",
+          "left": 433,
+          "top": 114,
+          "expectedLeft": 431,
+          "expectedTop": 37,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "legend",
+          "left": 12,
+          "top": 6,
+          "expectedLeft": 3,
+          "expectedTop": 13,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        }
+      ],
+      "absolutePass": false,
+      "flowPass": true
+    },
+    {
+      "viewport": 520,
+      "filtersHeight": 208,
+      "controls": [
+        {
+          "selector": ".user-operations-filters select",
+          "x": 29,
+          "y": 149.61605834960938,
+          "width": 462,
+          "height": 25
+        },
+        {
+          "selector": ".user-operations-user-button-edit",
+          "x": 29,
+          "y": 207.61605834960938,
+          "width": 462,
+          "height": 25
+        },
+        {
+          "selector": "input[aria-label=记录日期起]",
+          "x": 29,
+          "y": 265.6160583496094,
+          "width": 211,
+          "height": 25
+        },
+        {
+          "selector": "input[aria-label=记录日期止]",
+          "x": 280,
+          "y": 265.6160583496094,
+          "width": 211,
+          "height": 25
+        }
+      ],
+      "twoRows": false,
+      "overflow": false,
+      "filtersOverflow": false,
+      "tokens": {
+        "filtersHeight": "81px",
+        "controlWidth": "196px"
+      },
+      "panelPosition": "static",
+      "row1": "",
+      "row2": "",
+      "targets": [
+        {
+          "name": "label-module",
+          "left": 12,
+          "top": 26,
+          "expectedLeft": 108,
+          "expectedTop": 6,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "ctrl-module",
+          "left": 12,
+          "top": 55.99999237060547,
+          "expectedLeft": 183,
+          "expectedTop": 6,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "label-user",
+          "left": 12,
+          "top": 83.99999237060547,
+          "expectedLeft": 385,
+          "expectedTop": 6,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "ctrl-user",
+          "left": 12,
+          "top": 113.99999237060547,
+          "expectedLeft": 431,
+          "expectedTop": 6,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "label-begin",
+          "left": 12,
+          "top": 141.99999237060547,
+          "expectedLeft": 108,
+          "expectedTop": 37,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "ctrl-begin",
+          "left": 12,
+          "top": 171.99999237060547,
+          "expectedLeft": 183,
+          "expectedTop": 37,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "label-sep",
+          "left": 231,
+          "top": 175.99999237060547,
+          "expectedLeft": 385,
+          "expectedTop": 37,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "ctrl-end",
+          "left": 263,
+          "top": 171.99999237060547,
+          "expectedLeft": 431,
+          "expectedTop": 37,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "legend",
+          "left": 12,
+          "top": 6,
+          "expectedLeft": 3,
+          "expectedTop": 13,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        }
+      ],
+      "absolutePass": false,
+      "flowPass": true
+    },
+    {
+      "viewport": 390,
+      "filtersHeight": 208,
+      "controls": [
+        {
+          "selector": ".user-operations-filters select",
+          "x": 29,
+          "y": 183.46148681640625,
+          "width": 332,
+          "height": 25
+        },
+        {
+          "selector": ".user-operations-user-button-edit",
+          "x": 29,
+          "y": 241.46148681640625,
+          "width": 332,
+          "height": 25
+        },
+        {
+          "selector": "input[aria-label=记录日期起]",
+          "x": 29,
+          "y": 299.46148681640625,
+          "width": 146,
+          "height": 25
+        },
+        {
+          "selector": "input[aria-label=记录日期止]",
+          "x": 215,
+          "y": 299.46148681640625,
+          "width": 146,
+          "height": 25
+        }
+      ],
+      "twoRows": false,
+      "overflow": false,
+      "filtersOverflow": false,
+      "tokens": {
+        "filtersHeight": "81px",
+        "controlWidth": "196px"
+      },
+      "panelPosition": "static",
+      "row1": "",
+      "row2": "",
+      "targets": [
+        {
+          "name": "label-module",
+          "left": 12,
+          "top": 26,
+          "expectedLeft": 108,
+          "expectedTop": 6,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "ctrl-module",
+          "left": 12,
+          "top": 56,
+          "expectedLeft": 183,
+          "expectedTop": 6,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "label-user",
+          "left": 12,
+          "top": 84,
+          "expectedLeft": 385,
+          "expectedTop": 6,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "ctrl-user",
+          "left": 12,
+          "top": 114,
+          "expectedLeft": 431,
+          "expectedTop": 6,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "label-begin",
+          "left": 12,
+          "top": 142.00001525878906,
+          "expectedLeft": 108,
+          "expectedTop": 37,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "ctrl-begin",
+          "left": 12,
+          "top": 172.00001525878906,
+          "expectedLeft": 183,
+          "expectedTop": 37,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "label-sep",
+          "left": 166,
+          "top": 176.00001525878906,
+          "expectedLeft": 385,
+          "expectedTop": 37,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "ctrl-end",
+          "left": 198,
+          "top": 172.00001525878906,
+          "expectedLeft": 431,
+          "expectedTop": 37,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        },
+        {
+          "name": "legend",
+          "left": 12,
+          "top": 6,
+          "expectedLeft": 3,
+          "expectedTop": 13,
+          "position": "static",
+          "offsetParentIsFilters": false,
+          "token": ""
+        }
+      ],
+      "absolutePass": false,
+      "flowPass": true
+    }
+  ],
+  "desktopPass": false,
+  "responsivePass": true,
+  "behaviorPass": null,
+  "errors": []
+}
