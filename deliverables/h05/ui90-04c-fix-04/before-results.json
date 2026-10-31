@@ -1,0 +1,217 @@
+{
+  "task": "UI90-04C-FIX-04",
+  "tipBase": "9443941",
+  "phase": "before",
+  "mode": "isolated actual Vue component with existing global CSS; empty synthetic API responses; not live host or SCORE",
+  "sourceSha256": "b863fbd41f03685695d86b8f4c64c385668c5cf48330d50ff87b052739999991",
+  "measurements": [
+    {
+      "viewport": 1440,
+      "filtersHeight": 99,
+      "controls": [
+        {
+          "selector": ".user-operations-filters select",
+          "x": 29,
+          "y": 124.02415466308594,
+          "width": 455.328125,
+          "height": 25
+        },
+        {
+          "selector": ".user-operations-user-button-edit",
+          "x": 492.328125,
+          "y": 124.02415466308594,
+          "width": 455.328125,
+          "height": 25
+        },
+        {
+          "selector": "input[aria-label=记录日期起]",
+          "x": 955.65625,
+          "y": 124.02415466308594,
+          "width": 209.671875,
+          "height": 25
+        },
+        {
+          "selector": "input[aria-label=记录日期止]",
+          "x": 1201.328125,
+          "y": 124.02415466308594,
+          "width": 209.671875,
+          "height": 25
+        }
+      ],
+      "twoRows": false,
+      "overflow": false,
+      "filtersOverflow": false,
+      "tokens": {
+        "filtersHeight": "",
+        "controlWidth": ""
+      }
+    },
+    {
+      "viewport": 1024,
+      "filtersHeight": 99,
+      "controls": [
+        {
+          "selector": ".user-operations-filters select",
+          "x": 29,
+          "y": 122.61959075927734,
+          "width": 316.65625,
+          "height": 24.99999237060547
+        },
+        {
+          "selector": ".user-operations-user-button-edit",
+          "x": 353.65625,
+          "y": 122.61959075927734,
+          "width": 316.671875,
+          "height": 24.99999237060547
+        },
+        {
+          "selector": "input[aria-label=记录日期起]",
+          "x": 678.328125,
+          "y": 122.61959075927734,
+          "width": 140.328125,
+          "height": 24.99999237060547
+        },
+        {
+          "selector": "input[aria-label=记录日期止]",
+          "x": 854.65625,
+          "y": 122.61959075927734,
+          "width": 140.328125,
+          "height": 24.99999237060547
+        }
+      ],
+      "twoRows": false,
+      "overflow": false,
+      "filtersOverflow": false,
+      "tokens": {
+        "filtersHeight": "",
+        "controlWidth": ""
+      }
+    },
+    {
+      "viewport": 860,
+      "filtersHeight": 162,
+      "controls": [
+        {
+          "selector": ".user-operations-filters select",
+          "x": 29,
+          "y": 122.62000274658203,
+          "width": 397,
+          "height": 25.00000762939453
+        },
+        {
+          "selector": ".user-operations-user-button-edit",
+          "x": 434,
+          "y": 122.62000274658203,
+          "width": 397,
+          "height": 25.00000762939453
+        },
+        {
+          "selector": "input[aria-label=记录日期起]",
+          "x": 29,
+          "y": 185.62001037597656,
+          "width": 180.5,
+          "height": 25
+        },
+        {
+          "selector": "input[aria-label=记录日期止]",
+          "x": 245.5,
+          "y": 185.62001037597656,
+          "width": 180.5,
+          "height": 25
+        }
+      ],
+      "twoRows": true,
+      "overflow": false,
+      "filtersOverflow": false,
+      "tokens": {
+        "filtersHeight": "",
+        "controlWidth": ""
+      }
+    },
+    {
+      "viewport": 520,
+      "filtersHeight": 225,
+      "controls": [
+        {
+          "selector": ".user-operations-filters select",
+          "x": 29,
+          "y": 156.61517333984375,
+          "width": 462,
+          "height": 25
+        },
+        {
+          "selector": ".user-operations-user-button-edit",
+          "x": 29,
+          "y": 219.61517333984375,
+          "width": 462,
+          "height": 25
+        },
+        {
+          "selector": "input[aria-label=记录日期起]",
+          "x": 29,
+          "y": 282.61517333984375,
+          "width": 213,
+          "height": 25
+        },
+        {
+          "selector": "input[aria-label=记录日期止]",
+          "x": 278,
+          "y": 282.61517333984375,
+          "width": 213,
+          "height": 25
+        }
+      ],
+      "twoRows": false,
+      "overflow": false,
+      "filtersOverflow": false,
+      "tokens": {
+        "filtersHeight": "",
+        "controlWidth": ""
+      }
+    },
+    {
+      "viewport": 390,
+      "filtersHeight": 225.00001525878906,
+      "controls": [
+        {
+          "selector": ".user-operations-filters select",
+          "x": 29,
+          "y": 191.6210174560547,
+          "width": 332,
+          "height": 25
+        },
+        {
+          "selector": ".user-operations-user-button-edit",
+          "x": 29,
+          "y": 254.6210174560547,
+          "width": 332,
+          "height": 25.000015258789062
+        },
+        {
+          "selector": "input[aria-label=记录日期起]",
+          "x": 29,
+          "y": 317.62103271484375,
+          "width": 148,
+          "height": 25
+        },
+        {
+          "selector": "input[aria-label=记录日期止]",
+          "x": 213,
+          "y": 317.62103271484375,
+          "width": 148,
+          "height": 25
+        }
+      ],
+      "twoRows": false,
+      "overflow": false,
+      "filtersOverflow": false,
+      "tokens": {
+        "filtersHeight": "",
+        "controlWidth": ""
+      }
+    }
+  ],
+  "desktopPass": false,
+  "responsivePass": true,
+  "errors": []
+}

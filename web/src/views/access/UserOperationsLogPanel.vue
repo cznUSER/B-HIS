@@ -218,7 +218,34 @@ onMounted(async () => {
 .user-operations-panel.access-data-panel.patient-panel :deep(.master-panel-copy p) { display: none; }
 .user-operations-panel.access-data-panel.patient-panel :deep(.master-panel-symbol) { width: 28px; height: 28px; }
 .user-operations-panel.access-data-panel.patient-panel :deep(h2) { font: 16px SimSun, '宋体', serif; }
-.user-operations-panel.access-data-panel.patient-panel .user-operations-filters { display: grid; grid-template-columns: repeat(3, minmax(130px, 1fr)); align-items: end; gap: 8px; min-height: 81px; padding: 6px 12px 10px; margin: 0; border: 0; border-bottom: 1px solid #999; border-radius: 0; background: #f0f0f0; box-sizing: border-box; }
+.user-operations-panel.access-data-panel.patient-panel .user-operations-filters {
+  --uol-filters-h: 81px;
+  --uol-ctrl-w: 196px;
+  --uol-label-module-w: 62px;
+  --uol-label-user-w: 36px;
+  --uol-field-gap: 8px;
+  --uol-group-gap: 12px;
+  --uol-row-gap: 3px;
+  --uol-filters-padding-x: 12px;
+  display: grid;
+  grid-template-columns: calc(var(--uol-label-module-w) + var(--uol-field-gap) + var(--uol-ctrl-w)) calc(var(--uol-label-user-w) + var(--uol-field-gap) + var(--uol-ctrl-w));
+  grid-template-rows: 17px 25px 25px;
+  align-items: center;
+  align-content: start;
+  gap: var(--uol-row-gap) var(--uol-group-gap);
+  min-height: var(--uol-filters-h);
+  padding: 3px var(--uol-filters-padding-x) 4px;
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid #999;
+  border-radius: 0;
+  background: #f0f0f0;
+  box-sizing: border-box;
+}
+.user-operations-panel.access-data-panel.patient-panel .user-operations-filters > .field { flex-direction: row; align-items: center; gap: var(--uol-field-gap); margin: 0; }
+.user-operations-panel.access-data-panel.patient-panel .user-operations-filters > .field > span { flex: 0 0 var(--uol-label-module-w); box-sizing: border-box; white-space: nowrap; }
+.user-operations-panel.access-data-panel.patient-panel .user-operations-filters > .user-operations-user-field > span { flex-basis: var(--uol-label-user-w); }
+.user-operations-panel.access-data-panel.patient-panel .user-operations-filters > .field > select, .user-operations-user-button-edit, .user-operations-date-range input { flex: 0 0 var(--uol-ctrl-w); width: var(--uol-ctrl-w); box-sizing: border-box; }
 .user-operations-panel.access-data-panel.patient-panel .field { display: flex; flex-direction: column; gap: 5px; }
 .user-operations-panel.access-data-panel.patient-panel .field > span { align-self: flex-start; padding: 3px 5px; border: 1px solid #bfbfbf; border-radius: 5px; background: #dedede; font: 12px/17px 'Segoe UI', sans-serif; }
 .user-operations-panel.access-data-panel.patient-panel .field input, .user-operations-panel.access-data-panel.patient-panel .field select { min-height: 25px; height: 25px; padding: 2px 5px; border: 1px solid #999; border-radius: 0; background: white; color: #202020; font: 16px SimSun, '宋体', serif; }
@@ -229,11 +256,11 @@ onMounted(async () => {
 .user-operations-panel.access-data-panel.patient-panel .register-table td { padding: 4px 8px; border: 1px solid #d4d4d4; color: #202020; }
 .user-operations-panel.access-data-panel.patient-panel .register-table tbody tr:nth-child(even) { background: #f4f4f4; }
 .user-operations-panel.access-data-panel.patient-panel .result-empty, .user-operations-panel.access-data-panel.patient-panel .shell-status { min-height: 160px; padding: 20px; background: white; }
-.user-operations-filters-legend { grid-column: 1 / -1; margin: 0; padding: 0 0 2px; color: #202020; font: 12px/17px 'Segoe UI', sans-serif; }
-.user-operations-record-date { min-width: 0; }
-.user-operations-date-range { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.user-operations-date-range input { flex: 1 1 0; min-width: 0; }
-.user-operations-date-sep { flex: none; color: #202020; font: 12px/17px 'Segoe UI', sans-serif; }
+.user-operations-filters-legend { grid-column: 1 / -1; margin: 0; padding: 0; color: #202020; font: 12px/17px 'Segoe UI', sans-serif; }
+.user-operations-record-date { grid-column: 1 / -1; min-width: 0; }
+.user-operations-date-range { display: grid; grid-template-columns: var(--uol-ctrl-w) calc(var(--uol-group-gap) + var(--uol-label-user-w) + var(--uol-field-gap)) var(--uol-ctrl-w); align-items: center; min-width: 0; }
+.user-operations-date-range input { min-width: 0; }
+.user-operations-date-sep { justify-self: center; color: #202020; font: 12px/17px 'Segoe UI', sans-serif; }
 .user-operations-filters .field { min-width: 0; }
 .user-operations-user-field { position: relative; }
 .user-operations-user-button-edit { display: flex; min-width: 0; }
@@ -255,8 +282,11 @@ onMounted(async () => {
 .user-operations-panel.access-data-panel.patient-panel .mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 10px; overflow-wrap: anywhere; }
 .user-operations-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0 2px; color: #829286; font-size: 11px; }
 @media (max-width: 860px) {
-  .user-operations-panel.access-data-panel.patient-panel .user-operations-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .user-operations-filters > button { width: 100%; }
+  .user-operations-panel.access-data-panel.patient-panel .user-operations-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto; padding-top: 6px; padding-bottom: 10px; }
+  .user-operations-panel.access-data-panel.patient-panel .user-operations-filters > .field { flex-direction: column; align-items: stretch; gap: 5px; }
+  .user-operations-panel.access-data-panel.patient-panel .user-operations-filters > .field > span { flex: none; }
+  .user-operations-panel.access-data-panel.patient-panel .user-operations-filters > .field > select, .user-operations-user-button-edit, .user-operations-date-range input { flex: 1 1 auto; width: 100%; }
+  .user-operations-date-range { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: var(--uol-field-gap); }
 }
 @media (max-width: 520px) {
   .user-operations-panel.access-data-panel.patient-panel :deep(.master-panel-header) { height: auto; min-height: 45px; }

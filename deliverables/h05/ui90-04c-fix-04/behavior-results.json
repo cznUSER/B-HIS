@@ -1,0 +1,77 @@
+{
+  "mode": "synthetic GET-only responses, no live host or login",
+  "readonly": true,
+  "ellipsisSelect": true,
+  "clear": true,
+  "selectedQuery": {
+    "moduleId": "9",
+    "userId": "uol-fixture",
+    "begin": "2026-10-01",
+    "end": "2026-11-01",
+    "limit": "50"
+  },
+  "clearedQuery": {
+    "moduleId": "9",
+    "begin": "2026-10-01",
+    "end": "2026-11-01",
+    "limit": "50"
+  },
+  "pickerQuery": "fixture",
+  "requests": [
+    {
+      "method": "GET",
+      "pathname": "/api/v1/access/modules",
+      "query": {}
+    },
+    {
+      "method": "GET",
+      "pathname": "/api/v1/audit/user-operations",
+      "query": {
+        "limit": "50"
+      }
+    },
+    {
+      "method": "GET",
+      "pathname": "/api/v1/users",
+      "query": {}
+    },
+    {
+      "method": "GET",
+      "pathname": "/api/v1/audit/user-operations",
+      "query": {
+        "moduleId": "9",
+        "userId": "uol-fixture",
+        "begin": "2026-10-01",
+        "end": "2026-11-01",
+        "limit": "50"
+      }
+    },
+    {
+      "method": "GET",
+      "pathname": "/api/v1/users",
+      "query": {}
+    },
+    {
+      "method": "GET",
+      "pathname": "/api/v1/audit/user-operations",
+      "query": {
+        "moduleId": "9",
+        "begin": "2026-10-01",
+        "end": "2026-11-01",
+        "limit": "50"
+      }
+    },
+    {
+      "method": "GET",
+      "pathname": "/api/v1/users",
+      "query": {}
+    },
+    {
+      "method": "GET",
+      "pathname": "/api/v1/users",
+      "query": {
+        "q": "fixture"
+      }
+    }
+  ]
+}
