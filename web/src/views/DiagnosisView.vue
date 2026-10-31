@@ -14,6 +14,11 @@ import {
   isDirty as snapshotIsDirty,
   resumeSaveHint,
 } from '../workbench/diagnosisDirtyGuard.js'
+import {
+  COMMON_DIAGNOSES,
+  appendDiagnosisName,
+  assessmentIncludesName,
+} from '../workbench/commonDiagnoses.js'
 import { ApiError } from '../api/errors.js'
 import { useMock } from '../api/config.js'
 import { amendDiagnose, commitDiagnose, abateDiagnose, listDiagnoses, saveDiagnose } from '../api/diagnosisApi.js'
@@ -129,6 +134,15 @@ function parseStructured(raw) {
   }
   if (!matched && text.trim()) next.assessment = text.trim()
   Object.assign(structured, next)
+}
+
+function applyCommonDiagnosis(name) {
+  if (editorLocked.value || busy.value) return
+  structured.assessment = appendDiagnosisName(structured.assessment, name)
+}
+
+function isCommonDiagnosisSelected(name) {
+  return assessmentIncludesName(structured.assessment, name)
 }
 
 function applyTemplate() {
@@ -520,7 +534,35 @@ useErrorDialog([
           <p class="diagnosis-structured-note">结构化栏目、所用模板和版本会随诊断记录保存；已提交版本保持不可变，修订会生成新草稿并保留前序记录和原因。</p>
           <div class="diagnosis-template-bar"><label><span>记录模板</span><select v-model="selectedTemplate" :disabled="editorLocked || busy" @change="applyTemplate"><option value="">选择模板快速起草</option><option v-for="template in EMR_TEMPLATES" :key="template.value" :value="template.value">{{ template.label }}</option></select></label><label v-if="amendSourceId" class="diagnosis-reason-field"><span>修订原因 *</span><input v-model="revisionReason" maxlength="256" :disabled="busy" placeholder="说明为什么需要修订" /></label><span>模板只填充草稿，不会绕过保存、提交和权限校验。</span><span v-if="signedAt" class="diagnosis-signed">已签名 · {{ signedAt }}<template v-if="signedBy"> · {{ signedBy }}</template></span></div>
           <div class="diagnosis-structured-grid">
-            <label v-for="field in STRUCTURED_FIELDS" :key="field.key" class="diagnosis-content-field" :class="{ 'diagnosis-content-field-wide': ['presentHistory', 'examination', 'plan'].includes(field.key) }"><span>{{ field.label }}</span><textarea v-model="structured[field.key]" :readonly="editorLocked || busy" maxlength="320" rows="3" :placeholder="field.placeholder" /></label>
+            <div
+              v-for="field in STRUCTURED_FIELDS"
+              :key="field.key"
+              class="diagnosis-content-field"
+              :class="{ 'diagnosis-content-field-wide': ['presentHistory', 'examination', 'plan'].includes(field.key) }"
+            >
+              <label class="diagnosis-content-field-label">
+                <span>{{ field.label }}</span>
+                <textarea v-model="structured[field.key]" :readonly="editorLocked || busy" maxlength="320" rows="3" :placeholder="field.placeholder" />
+              </label>
+              <div
+                v-if="field.key === 'assessment'"
+                class="diagnosis-common-diagnoses"
+                data-testid="diagnosis-common-chips"
+                aria-label="常用诊断"
+              >
+                <span class="diagnosis-common-label">常用诊断</span>
+                <button
+                  v-for="name in COMMON_DIAGNOSES"
+                  :key="name"
+                  type="button"
+                  class="diagnosis-common-chip"
+                  data-testid="diagnosis-common-chip"
+                  :disabled="editorLocked || busy || isCommonDiagnosisSelected(name)"
+                  :title="isCommonDiagnosisSelected(name) ? '已在初步诊断中' : ('填入 ' + name)"
+                  @click="applyCommonDiagnosis(name)"
+                >+ {{ name }}</button>
+              </div>
+            </div>
           </div>
           <div class="diagnosis-editor-foot"><span :class="{ 'diagnosis-length-error': contentTooLong }">{{ serializedContent.length }}/2000 · 已填写 {{ completion }}/{{ STRUCTURED_FIELDS.length }} 项</span><span v-if="editorLocked">已提交或已作废的诊断不能直接修改，可从已提交版本发起修订</span><span v-else-if="amendSourceId">修订草稿将保存为 v{{ (diagnoses.length || 0) + 1 }}</span></div>
           <div class="diagnosis-actions"><button v-if="canAmend" class="button button-ghost" type="button" :disabled="busy" @click="beginAmend">修订此版本</button><button v-if="!diagnoseId" class="button button-primary" type="button" :disabled="!canSave" @click="onSave">{{ saving ? '保存中…' : (amendSourceId ? '保存修订' : '保存诊断') }}</button><button v-if="canCommit" class="button button-primary" type="button" :disabled="busy" @click="onCommit">{{ committing ? '提交中…' : '提交' }}</button><button v-if="canAbate" class="button button-ghost danger" type="button" :disabled="busy" @click="onAbate">{{ abating ? '作废中…' : '作废' }}</button></div>
@@ -571,6 +613,11 @@ useErrorDialog([
 .diagnosis-structured-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .diagnosis-content-field-wide { grid-column: 1 / -1; }
 .diagnosis-content-field { display: flex; flex-direction: column; gap: 8px; color: #667f72; font-size: 11px; }
+.diagnosis-content-field-label { display: flex; flex-direction: column; gap: 8px; }
+.diagnosis-common-diagnoses { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 2px; }
+.diagnosis-common-label { color: #84a18f; font-size: 10px; letter-spacing: .04em; }
+.diagnosis-common-chip { border: 0; padding: 2px 0; color: #1e6e5d; background: transparent; font: inherit; font-size: 11px; cursor: pointer; }
+.diagnosis-common-chip:disabled { color: #a0b0ab; cursor: default; }
 .diagnosis-content-field textarea { width: 100%; min-height: 76px; resize: vertical; padding: 10px 11px; border: 1px solid #cfe2d5; border-radius: 10px; color: #314e41; background: #fcfefd; font: inherit; line-height: 1.65; }
 .diagnosis-content-field textarea:focus { outline: 2px solid #a9d8bc; outline-offset: 1px; }
 .diagnosis-content-field textarea[readonly] { color: #768a7e; background: #f5f8f5; }
