@@ -1,9 +1,10 @@
-<script setup>
+﻿<script setup>
 // 2026-10-12 P1-H05-HOME 门诊一期工作台
 // 2026-10-12 P1-H05-HOME-DASH 六卡改为 /app/outpatient 总览，不再是登录默认页
 import { computed, ref } from 'vue'
 import { session } from '../auth/session.js'
 import ModuleIcon from '../components/ModuleIcon.vue'
+import OutpatientQueue from '../components/outpatient/OutpatientQueue.vue'
 import BusinessPageHeader from '../components/BusinessPageHeader.vue'
 import { decorateModules } from '../workbench/catalog.js'
 
@@ -52,6 +53,8 @@ function dismissTip() {
     </div>
 
     <BusinessPageHeader title-id="outpatient-title" title="门诊业务" eyebrow="诊疗流程 · 全程衔接" icon="register" description="每个环节各司其职，让患者信息与诊疗业务有序流转。" />
+
+    <OutpatientQueue />
 
     <div class="overview-flow">
       <div><span class="overview-section-tag">WORKFLOW</span><h2>门诊工作流程</h2><span class="overview-access"><strong>{{ availableCount }}</strong> 个可用工作区</span></div>
@@ -121,3 +124,4 @@ function dismissTip() {
 @media (max-width: 760px) { .shell-main .workbench .module-grid { grid-template-columns: 1fr; gap: 14px; } .shell-main .workbench .module-card { min-height: 254px; padding: 22px; } .overview-flow .flow { line-height: 1.8; } }
 @media (prefers-reduced-motion: reduce) { .shell-main .workbench .module-card { animation: none; } }
 </style>
+
