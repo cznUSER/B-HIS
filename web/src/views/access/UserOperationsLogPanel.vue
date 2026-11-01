@@ -213,7 +213,7 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.user-operations-panel.access-data-panel.patient-panel.access-data-panel { gap: 0; padding: 0; border: 1px solid #999; border-radius: 0; background: #f0f0f0; color: #202020; font: 16px SimSun, '宋体', serif; }
+.user-operations-panel.access-data-panel.patient-panel.access-data-panel { --uol-shell-w: 1008px; gap: 0; padding: 0; border: 1px solid #999; border-radius: 0; background: #f0f0f0; color: #202020; font: 16px SimSun, '宋体', serif; box-sizing: border-box; }
 .user-operations-panel.access-data-panel.patient-panel :deep(.master-panel-header) {
   --uol-hdr-left-return: 15px;
   --uol-hdr-left-title: 110px;
@@ -312,6 +312,22 @@ onMounted(async () => {
 .user-operations-panel.access-data-panel.patient-panel .mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 10px; overflow-wrap: anywhere; }
 .user-operations-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0 2px; color: #829286; font-size: 11px; }
 @media (min-width: 861px) {
+  .user-operations-panel.access-data-panel.patient-panel {
+    width: var(--uol-shell-w);
+    max-width: 100%;
+  }
+  .user-operations-panel.access-data-panel.patient-panel .user-operations-results,
+  .user-operations-panel.access-data-panel.patient-panel .result-empty,
+  .user-operations-panel.access-data-panel.patient-panel .shell-status {
+    position: relative;
+    left: 0;
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+    margin: 0;
+  }
+}
+@media (min-width: 861px) {
   .user-operations-panel.access-data-panel.patient-panel :deep(.master-panel-header) { display: block; padding-left: 0; padding-right: 0; }
   .user-operations-panel.access-data-panel.patient-panel :deep(.master-panel-symbol),
   .user-operations-panel.access-data-panel.patient-panel :deep(.master-count) { display: none; }
@@ -366,6 +382,12 @@ onMounted(async () => {
   .uol-abs-ctrl-end { left: var(--uol-left-ctrl-end); top: var(--uol-top-r2); }
   .uol-abs-legend { left: 3px; top: 13px; }
   .user-operations-user-picker { left: var(--uol-left-ctrl-user); top: calc(var(--uol-top-r1) + 25px); }
+}
+@media (max-width: 860px) {
+  .user-operations-panel.access-data-panel.patient-panel {
+    width: auto;
+    max-width: 100%;
+  }
 }
 @media (max-width: 860px) {
   .user-operations-panel.access-data-panel.patient-panel :deep(.master-panel-header) { display: flex; padding: 4px 12px; }
