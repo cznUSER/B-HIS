@@ -208,6 +208,164 @@
 .shell-main .order-page .clinical-order-history .order-list-item { position: relative; gap: 9px; padding: 13px; text-align: left; background: #fff; }.shell-main .order-page .clinical-order-history .order-list-item.is-active { box-shadow: inset 3px 0 0 #65ae8b; background: #f1f8f3; border-color: #badbc8; }.shell-main .order-page .clinical-order-history .order-list-item .clinical-history-no { color: #5c7c66; font-size: 11px; font-weight: 600; overflow-wrap: anywhere; }.clinical-history-bottom { display: flex; align-items: center; justify-content: space-between; gap: 8px; }.shell-main .order-page .clinical-order-history .clinical-history-bottom strong { color: #497b5a; font-size: 16px; font-weight: 600; }.clinical-history-bottom small { color: #8ea694; font-size: 10px; }.clinical-history-charge { color: #9caf9f; font-size: 10px; }
 .shell-main .order-page .clinical-order-empty .order-picker { width: 100%; margin-top: 13px; padding: 15px; border: 1px solid #dfece3; border-radius: 10px; background: #f4faf5; }.shell-main .order-page .clinical-order-empty .order-picker .button { align-self: flex-start; height: 35px; padding-inline: 14px; font-size: 11px; }
 
+
+
+/* UI90-04F-FIX-02: lines/history/actionbar chrome UI-only (DFM lines~263 + history~268); conserve FIX-01 1036/105; keep line-table min-width:1070; no save/commit/abate change; no 90% sign-off. */
+.shell-main .order-page,
+.order-page {
+  --order-lines-h: 263px;
+  --order-history-w: 268px;
+}
+.shell-main .order-page .order-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(0, var(--order-history-w));
+  gap: 22px;
+  align-items: start;
+}
+.shell-main .order-page .line-scroll.clinical-table-scroll,
+.shell-main .order-page .clinical-table-scroll.line-scroll {
+  min-height: var(--order-lines-h);
+  max-height: none;
+  border: 1px solid #d9e8de;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fbfdf0, #fff);
+  box-shadow: inset 0 1px 0 #ffffffa8;
+}
+.shell-main .order-page .line-table {
+  min-width: 1070px;
+  width: max(100%, 1070px);
+}
+.shell-main .order-page .line-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 11px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #4f6d5b;
+  background: #f3faf5;
+  border-bottom: 1px solid #d7e7dc;
+  white-space: nowrap;
+}
+.shell-main .order-page .line-table td {
+  padding: 10px;
+  font-size: 12px;
+  vertical-align: middle;
+}
+.shell-main .order-page .line-table tbody tr {
+  height: 42px;
+}
+.shell-main .order-page .line-table .col-item {
+  min-width: 180px;
+}
+.shell-main .order-page .clinical-order-history {
+  position: sticky;
+  top: 96px;
+  width: 100%;
+  max-width: var(--order-history-w);
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 18px 16px;
+  gap: 16px;
+  border: 1px solid #d7e6dc;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #fff, #f7fbf8);
+  box-shadow: 0 10px 24px #234c3010;
+  overflow: hidden;
+}
+.shell-main .order-page .clinical-order-history .panel-head h2 {
+  font-size: 14px;
+}
+.shell-main .order-page .clinical-order-history .business-empty-state {
+  min-height: 168px;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 8px;
+  border: 0;
+  background: transparent;
+  text-align: center;
+}
+.shell-main .order-page .clinical-order-history .order-list-item {
+  position: relative;
+  gap: 9px;
+  padding: 12px 13px;
+  text-align: left;
+  background: #fff;
+  border-radius: 11px;
+}
+.shell-main .order-page .clinical-order-history .order-list-item.is-active {
+  box-shadow: inset 3px 0 0 #65ae8b;
+  background: #f1f8f3;
+  border-color: #badbc8;
+}
+.shell-main .order-page .clinical-order-actionbar {
+  position: sticky;
+  bottom: 12px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 4px -4px 0;
+  padding: 14px 16px;
+  border: 1px solid #d7e7dd;
+  border-radius: 13px;
+  background: rgba(247, 252, 248, .96);
+  box-shadow: 0 8px 20px #224c3012;
+  backdrop-filter: blur(12px);
+}
+.shell-main .order-page .clinical-order-actionbar .order-total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 5px 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #8c9f90;
+  font-size: 11px;
+}
+.shell-main .order-page .clinical-order-actionbar .order-total strong {
+  color: #2b8060;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -.03em;
+}
+.shell-main .order-page .clinical-order-actionbar .panel-actions {
+  gap: 7px;
+}
+.shell-main .order-page .clinical-order-actionbar .button {
+  height: 35px;
+  padding-inline: 13px;
+  font-size: 11px;
+}
+@media (max-width: 1280px) {
+  .shell-main .order-page .order-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .shell-main .order-page .clinical-order-history {
+    position: static;
+    max-width: none;
+  }
+}
+@media (max-width: 760px) {
+  .shell-main .order-page .line-scroll.clinical-table-scroll,
+  .shell-main .order-page .clinical-table-scroll.line-scroll {
+    min-height: 200px;
+  }
+  .shell-main .order-page .clinical-order-actionbar {
+    bottom: 6px;
+    padding: 13px;
+  }
+  .shell-main .order-page .clinical-order-actionbar .panel-actions {
+    width: 100%;
+  }
+  .shell-main .order-page .clinical-order-actionbar .panel-actions .button {
+    flex: 1 1 85px;
+  }
+}
+
 /* 2026-10-14 P1-H05-WEB-USABILITY: readable retries and keyboard-reachable tables. */
 .shell-main :is(.register-page, .order-page) .clinical-read-error { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .shell-main :is(.register-page, .order-page) .clinical-read-error p { flex: 1 1 170px; margin: 0; overflow-wrap: anywhere; }

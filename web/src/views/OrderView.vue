@@ -771,7 +771,7 @@ watch(() => queryRegisterId(), (id) => {
         <div v-else-if="masterError" class="banner clinical-read-error" role="alert" data-testid="order-master-error"><p>{{ masterError }}。读取成功后才能暂存或提交。</p><button class="button button-ghost button-compact" type="button" @click="loadMaster">重新读取开单数据</button></div>
         <p v-else-if="!orderDoctors.length" class="field-hint" role="status">暂无启用医生，请先维护基础数据。</p>
 
-        <fieldset class="order-fields" :disabled="locked || busy || !canWrite">
+        <fieldset class="order-fields" data-testid="order-fields" :disabled="locked || busy || !canWrite">
           <div class="clinical-section-heading"><span class="clinical-section-number">01</span><div><h3>医生与诊断</h3><p>诊断建议填写，不强制</p></div><span class="clinical-recipe-tag">普通处方</span></div>
           <div class="field-grid">
             <label class="field">
@@ -808,7 +808,7 @@ watch(() => queryRegisterId(), (id) => {
           </div>
 
           <div class="clinical-section-heading clinical-line-heading"><span class="clinical-section-number">02</span><div><h3>处方明细</h3><p>选择药品或治疗项目，填写数量与用法</p></div><span class="clinical-count">{{ selectedLineCount }} 项</span></div>
-          <div class="line-scroll clinical-table-scroll" tabindex="0" role="region" aria-label="处方明细，可左右滚动">
+          <div class="line-scroll clinical-table-scroll" data-testid="order-line-scroll" tabindex="0" role="region" aria-label="处方明细，可左右滚动">
             <table class="line-table">
               <caption class="sr-only">处方明细</caption>
               <thead>
@@ -949,7 +949,7 @@ watch(() => queryRegisterId(), (id) => {
           @close="onPrintClose"
         />
 
-        <div class="clinical-order-actionbar">
+        <div class="clinical-order-actionbar" data-testid="clinical-order-actionbar">
           <p class="order-total" data-testid="order-total"><span>处方合计</span><span><strong>{{ money(totalFee) }}</strong> 元</span><span class="charge-chip" :data-charge="chargeText">{{ chargeText }}</span></p>
           <div class="panel-actions">
           <button v-if="!locked" class="button button-ghost button-compact" type="button" data-testid="order-save" :disabled="busy || !canWrite" @click="onSave">
@@ -969,7 +969,7 @@ watch(() => queryRegisterId(), (id) => {
         </div>
       </form>
 
-      <aside class="patient-panel order-side clinical-order-history">
+      <aside class="patient-panel order-side clinical-order-history" data-testid="clinical-order-history">
         <div class="panel-head">
           <div><span class="clinical-kicker">处方历史</span><h2>本挂号处方</h2></div><span class="clinical-count">{{ orders.length }}</span>
         </div>

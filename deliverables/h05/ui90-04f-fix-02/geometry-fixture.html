@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>UI90-04F-FIX-02 order lines/history/actionbar chrome probe</title>
+<style>
+html,body{margin:0;padding:12px;background:#f3f6f4;font-family:system-ui,sans-serif;color:#203528}
+.shell-main{max-width:1200px;margin:0 auto;padding:16px;background:#eef2ef}
+.button,.text-btn{display:inline-flex;align-items:center;justify-content:center;border:1px solid #8fb9a2;background:#3c8f6c;color:#fff;border-radius:10px;padding:0 14px;height:32px;cursor:pointer;font:inherit}
+.text-btn{background:transparent;color:#3c6f5a;border-color:transparent}
+.button[disabled]{opacity:.55;cursor:not-allowed}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field > span{font-size:12px;font-weight:600;color:#516860}
+.field input,.field select{height:34px;padding:0 10px;border:1px solid #c9d9cf;border-radius:8px;font:inherit}
+.patient-panel{display:flex;flex-direction:column;border:1px solid #d8e6dc;border-radius:12px;background:#fff;overflow:hidden}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.panel-head h2{margin:0;font-size:16px}
+.field-grid{display:grid;gap:12px}
+.order-layout{display:grid}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.clinical-kicker{display:block;margin-bottom:5px;color:#8aa098;font-size:10px;font-weight:650;letter-spacing:.09em}
+.clinical-badge{display:inline-flex;align-items:center;padding:5px 8px;border-radius:6px;color:#579276;background:#edf6f0;font-size:10px;font-weight:600}
+.clinical-profile-avatar{display:grid;place-items:center;border:1px solid #d2e6d9;color:#4c947a;background:linear-gradient(145deg,#e5f2e9,#f5faf6);font-weight:500}
+.clinical-encounter-card{padding:16px;border:1px solid #dcebe1;border-radius:12px;background:linear-gradient(110deg,#eef7f1,#fafdfa)}
+.clinical-encounter-name{display:flex;align-items:center;gap:11px}
+.clinical-encounter-name > div{display:flex;flex-direction:column;gap:2px}
+.clinical-encounter-name strong{color:#315b46;font-size:16px;font-weight:600}
+.clinical-encounter-name > div span{color:#8aa291;font-size:10px}
+.clinical-encounter-name .clinical-badge{margin-left:auto}
+.clinical-encounter-name .clinical-profile-avatar{width:40px;height:40px;border-radius:11px;font-size:16px}
+.clinical-encounter-meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:15px 0 0;padding-top:14px;border-top:1px solid #e0ebe2}
+.clinical-encounter-meta div{min-width:0}
+.clinical-encounter-meta dt{color:#91a694;font-size:10px}
+.clinical-encounter-meta dd{margin:4px 0 0;color:#5d7c65;font-size:11px;line-height:1.5}
+.order-fields{display:flex;flex-direction:column}
+.clinical-section-heading{display:flex;align-items:center;gap:9px}
+.clinical-section-heading h3{margin:0;color:#4c6b57;font-size:12px;font-weight:600}
+.clinical-section-heading p{margin:2px 0 0;color:#95a599;font-size:10px}
+.clinical-section-number{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid #d9e8dd;border-radius:7px;color:#689480;background:#f0f7f2;font-size:10px;font-weight:600}
+.clinical-recipe-tag{margin-left:auto;color:#9daf9f;font-size:10px}
+.line-scroll{min-width:0;max-width:100%;overflow-x:auto}
+.line-table{width:100%;border-collapse:collapse}
+.line-table th,.line-table td{border-bottom:1px solid #e5eee7;padding:10px;text-align:left}
+.clinical-order-history{border:1px solid #d8e6dc;border-radius:12px;background:#fff}
+.clinical-count{display:inline-flex;align-items:center;padding:4px 9px;border:1px solid #deebe4;border-radius:7px;color:#66877a;background:#f4f9f6;font-size:10px;font-weight:600}
+.panel-actions{display:flex;flex-wrap:wrap;gap:8px}
+.fixture-banner{margin:0 0 12px;padding:10px 12px;border:1px dashed #9bbfaa;border-radius:10px;background:#f7fbf8;color:#4d6d5b;font-size:12px}
+.order-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.order-list-item{display:flex;flex-direction:column;width:100%;border:1px solid #d8e6dc;border-radius:11px;padding:12px;background:#fff;font:inherit;cursor:default}
+</style>
+<link rel="stylesheet" href="./_scoped.css" />
+</head>
+<body>
+<div class="shell-main">
+  <p class="fixture-banner" data-testid="fixture-ui-only-banner">UI-only · 非活体隔离 fixture · 几何≠已真开单 · 未执行 save/commit/abate 写 · 不签 90% · 非 SCORE / PRELIVE</p>
+  <section class="order-page" data-testid="order-page" aria-labelledby="order-title">
+    <h1 id="order-title" class="sr-only">门诊开单</h1>
+    <div class="order-layout" data-testid="order-form">
+      <form class="patient-panel clinical-order-editor" data-testid="clinical-order-editor" onsubmit="return false">
+        <div class="order-top-chrome" data-testid="order-top-chrome">
+          <div class="panel-head">
+            <div><span class="clinical-kicker">处方工作区</span><h2>门诊处方</h2></div>
+            <button class="text-btn" type="button">更换挂号</button>
+          </div>
+          <section class="clinical-encounter-card" aria-label="本次就诊资料">
+            <div class="clinical-encounter-name">
+              <span class="clinical-profile-avatar" aria-hidden="true">张</span>
+              <div><strong>张三</strong><span>P20260001</span></div>
+              <span class="clinical-badge">本次就诊</span>
+            </div>
+            <dl class="clinical-encounter-meta">
+              <div><dt>挂号单号</dt><dd>R20261101001</dd></div>
+              <div><dt>就诊日</dt><dd>2026-11-01</dd></div>
+              <div><dt>挂号科室</dt><dd>内科</dd></div>
+              <div><dt>挂号医生</dt><dd>李医生</dd></div>
+            </dl>
+          </section>
+        </div>
+        <fieldset class="order-fields" data-testid="order-fields">
+          <div class="clinical-section-heading"><span class="clinical-section-number">01</span><div><h3>医生与诊断</h3><p>诊断建议填写，不强制</p></div><span class="clinical-recipe-tag">普通处方</span></div>
+          <div class="field-grid">
+            <label class="field"><span>开单医生</span><input value="李医生" readonly /></label>
+            <label class="field"><span>诊断</span><input value="上呼吸道感染" readonly /></label>
+          </div>
+          <div class="clinical-section-heading clinical-line-heading"><span class="clinical-section-number">02</span><div><h3>处方明细</h3><p>UI-only chrome fixture（非活体）</p></div><span class="clinical-count">3 项</span></div>
+          <div class="line-scroll clinical-table-scroll" data-testid="order-line-scroll" tabindex="0" role="region" aria-label="处方明细，可左右滚动">
+            <table class="line-table" data-testid="order-line-table">
+              <thead>
+                <tr>
+                  <th>行号</th><th>项目</th><th>规格</th><th>数量</th><th>单位</th><th>单价</th><th>金额</th><th>用法</th><th>频次</th><th>剂量</th><th>剂量单位</th><th><span class="sr-only">操作</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>1</td><td class="col-item">阿莫西林胶囊</td><td>0.25g*24</td><td>2</td><td>盒</td><td>12.50</td><td>25.00</td><td>口服</td><td>tid</td><td>0.5</td><td>g</td><td>删除</td></tr>
+                <tr><td>2</td><td class="col-item">布洛芬缓释胶囊</td><td>0.3g*20</td><td>1</td><td>盒</td><td>18.00</td><td>18.00</td><td>口服</td><td>bid</td><td>0.3</td><td>g</td><td>删除</td></tr>
+                <tr><td>3</td><td class="col-item">氯化钠注射液</td><td>100ml</td><td>1</td><td>袋</td><td>3.20</td><td>3.20</td><td>静滴</td><td>qd</td><td>100</td><td>ml</td><td>删除</td></tr>
+                <tr><td>4</td><td class="col-item">维生素C片</td><td>0.1g*100</td><td>1</td><td>瓶</td><td>6.00</td><td>6.00</td><td>口服</td><td>tid</td><td>0.1</td><td>g</td><td>删除</td></tr>
+                <tr><td>5</td><td class="col-item">复方甘草片</td><td>100片</td><td>1</td><td>瓶</td><td>8.50</td><td>8.50</td><td>口服</td><td>tid</td><td>2</td><td>片</td><td>删除</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </fieldset>
+        <div class="clinical-order-actionbar" data-testid="clinical-order-actionbar">
+          <p class="order-total" data-testid="order-total"><span>处方合计</span><span><strong>60.70</strong> 元</span><span class="charge-chip">未收费</span></p>
+          <div class="panel-actions">
+            <button class="button button-ghost" type="button" disabled>暂存</button>
+            <button class="button" type="button" disabled>提交</button>
+            <button class="button button-ghost" type="button" disabled>作废</button>
+          </div>
+        </div>
+      </form>
+      <aside class="patient-panel order-side clinical-order-history" data-testid="clinical-order-history">
+        <div class="panel-head"><div><span class="clinical-kicker">处方历史</span><h2>本挂号处方</h2></div><span class="clinical-count">2</span></div>
+        <ul class="order-list">
+          <li><button class="order-list-item is-active" type="button"><span class="clinical-history-no">O20261101001</span><span class="clinical-history-bottom"><span>已提交</span><strong><small>￥</small> 60.70</strong></span><span class="clinical-history-charge">未收费</span></button></li>
+          <li><button class="order-list-item" type="button"><span class="clinical-history-no">O20261101000</span><span class="clinical-history-bottom"><span>暂存</span><strong><small>￥</small> 12.50</strong></span><span class="clinical-history-charge">未收费</span></button></li>
+        </ul>
+      </aside>
+    </div>
+  </section>
+</div>
+</body>
+</html>
