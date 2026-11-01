@@ -1,0 +1,2368 @@
+{
+  "task": "UI90-04B-LEFT-03b",
+  "tipBase": "e4af54e19b6f302eaba01fd4d03172a5885c41e7",
+  "phase": "after",
+  "mode": "isolated Vue component; synthetic API with one row; DFM shellH 458 / resultsH 332; LEFT-01/02/03/04 regression; not live host or SCORE; no 90% sign-off",
+  "measureEdge": "panel/results getBoundingClientRect().height = border-box; panelH 458±4; resultsH 332±4; LEFT-01/02/03/04 conserved; page overflow forbidden; results may scroll x/y",
+  "sourceSha256": "ce43f07cc63903e4223f2b05bf48ebf703a098a5627fc70f172022686987c006",
+  "measurements": [
+    {
+      "viewport": 1440,
+      "shell": {
+        "token": "1008px",
+        "colTokens": {
+          "module": "102px",
+          "type": "76px",
+          "time": "123px",
+          "user": "67px",
+          "dept": "67px",
+          "content": "324px",
+          "ip": "87px",
+          "mac": "85px",
+          "version": "75px"
+        },
+        "panelWidth": 1008,
+        "panelClientWidth": 1006,
+        "panelHeight": 458,
+        "panelClientHeight": 456,
+        "panelBoxSizing": "border-box",
+        "shellHToken": "458px",
+        "resultsHToken": "332px",
+        "resultsSelector": "result-wrap user-operations-results",
+        "resultsWidth": 1006,
+        "resultsHeight": 332,
+        "resultsLeft": 1,
+        "resultsOverflowX": "auto",
+        "resultsOverflowY": "auto",
+        "resultsScrollable": true,
+        "resultsScrollableY": false,
+        "headerWidth": 1006,
+        "filtersWidth": 1006,
+        "stackHeight": 126,
+        "stackWithResults": 458,
+        "headerHeight": 45,
+        "filtersHeight": 81
+      },
+      "header": {
+        "width": 1006,
+        "height": 45,
+        "position": "relative",
+        "tokens": {
+          "leftReturn": "15px",
+          "leftTitle": "110px",
+          "leftSearch": "813px",
+          "leftExport": "909px",
+          "rightSearch": "105px",
+          "rightExport": "9px"
+        },
+        "return": {
+          "left": 15,
+          "top": 8.999999642372131,
+          "right": 924.71875,
+          "width": 66.28125,
+          "height": 30,
+          "position": "absolute"
+        },
+        "title": {
+          "left": 110,
+          "top": 1.9999998807907104,
+          "right": 768,
+          "width": 128,
+          "height": 25,
+          "position": "absolute"
+        },
+        "search": {
+          "left": 813.296875,
+          "top": 7.0000001192092896,
+          "right": 105,
+          "width": 87.703125,
+          "height": 30,
+          "position": "absolute"
+        },
+        "export": {
+          "left": 909.296875,
+          "top": 7.0000001192092896,
+          "right": 9,
+          "width": 87.703125,
+          "height": 30,
+          "position": "absolute"
+        }
+      },
+      "filters": {
+        "height": 81,
+        "position": "relative",
+        "tokens": {
+          "filtersHeight": "81px",
+          "controlWidth": "196px",
+          "row1": "6px",
+          "row2": "37px"
+        },
+        "targets": [
+          {
+            "name": "label-module",
+            "left": 108,
+            "top": 6,
+            "expectedLeft": 108,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 60
+          },
+          {
+            "name": "ctrl-module",
+            "left": 183,
+            "top": 6,
+            "expectedLeft": 183,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 196
+          },
+          {
+            "name": "label-user",
+            "left": 385,
+            "top": 6,
+            "expectedLeft": 385,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 36
+          },
+          {
+            "name": "ctrl-user",
+            "left": 431,
+            "top": 6,
+            "expectedLeft": 431,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 196
+          },
+          {
+            "name": "label-begin",
+            "left": 108,
+            "top": 37.000003814697266,
+            "expectedLeft": 108,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 60
+          },
+          {
+            "name": "ctrl-begin",
+            "left": 183,
+            "top": 37.000003814697266,
+            "expectedLeft": 183,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 196
+          },
+          {
+            "name": "label-sep",
+            "left": 385,
+            "top": 37.000003814697266,
+            "expectedLeft": 385,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 24
+          },
+          {
+            "name": "ctrl-end",
+            "left": 431,
+            "top": 37.000003814697266,
+            "expectedLeft": 431,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 196
+          }
+        ],
+        "controls": [
+          {
+            "selector": ".user-operations-filters select",
+            "width": 196,
+            "height": 25.000003814697266
+          },
+          {
+            "selector": ".user-operations-user-button-edit",
+            "width": 196,
+            "height": 25.000003814697266
+          },
+          {
+            "selector": "input[aria-label='记录日期起']",
+            "width": 196,
+            "height": 25
+          },
+          {
+            "selector": "input[aria-label='记录日期止']",
+            "width": 196,
+            "height": 25
+          }
+        ]
+      },
+      "columns": [
+        {
+          "name": "module",
+          "expected": 102,
+          "thWidth": 102,
+          "tdWidth": 102,
+          "thText": "模块名称",
+          "present": true
+        },
+        {
+          "name": "type",
+          "expected": 76,
+          "thWidth": 76,
+          "tdWidth": 76,
+          "thText": "日志类型",
+          "present": true
+        },
+        {
+          "name": "time",
+          "expected": 123,
+          "thWidth": 123,
+          "tdWidth": 123,
+          "thText": "记录时间",
+          "present": true
+        },
+        {
+          "name": "user",
+          "expected": 67,
+          "thWidth": 67,
+          "tdWidth": 67,
+          "thText": "用户名称",
+          "present": true
+        },
+        {
+          "name": "dept",
+          "expected": 67,
+          "thWidth": 67,
+          "tdWidth": 67,
+          "thText": "登陆科室",
+          "present": true
+        },
+        {
+          "name": "content",
+          "expected": 324,
+          "thWidth": 324,
+          "tdWidth": 324,
+          "thText": "日志内容",
+          "present": true
+        },
+        {
+          "name": "ip",
+          "expected": 87,
+          "thWidth": 87,
+          "tdWidth": 87,
+          "thText": "IP地址",
+          "present": true
+        },
+        {
+          "name": "mac",
+          "expected": 85,
+          "thWidth": 85,
+          "tdWidth": 85,
+          "thText": "MAC地址",
+          "present": true
+        },
+        {
+          "name": "version",
+          "expected": 75,
+          "thWidth": 75,
+          "tdWidth": 75,
+          "thText": "程序版本号",
+          "present": true
+        }
+      ],
+      "extensionColumns": [
+        {
+          "name": "outcome",
+          "thPresent": true,
+          "tdPresent": true,
+          "thText": "结果",
+          "thWidth": 79.65625
+        },
+        {
+          "name": "request",
+          "thPresent": true,
+          "tdPresent": true,
+          "thText": "请求编号",
+          "thWidth": 79.65625
+        },
+        {
+          "name": "error",
+          "thPresent": true,
+          "tdPresent": true,
+          "thText": "错误代码",
+          "thWidth": 79.6875
+        }
+      ],
+      "tablePresent": true,
+      "overflow": false,
+      "heightPass": true,
+      "shellPass": true,
+      "headerPass": true,
+      "headerFlowPass": true,
+      "left01Pass": true,
+      "colsPass": true
+    },
+    {
+      "viewport": 1280,
+      "shell": {
+        "token": "1008px",
+        "colTokens": {
+          "module": "102px",
+          "type": "76px",
+          "time": "123px",
+          "user": "67px",
+          "dept": "67px",
+          "content": "324px",
+          "ip": "87px",
+          "mac": "85px",
+          "version": "75px"
+        },
+        "panelWidth": 1008,
+        "panelClientWidth": 1006,
+        "panelHeight": 458,
+        "panelClientHeight": 456,
+        "panelBoxSizing": "border-box",
+        "shellHToken": "458px",
+        "resultsHToken": "332px",
+        "resultsSelector": "result-wrap user-operations-results",
+        "resultsWidth": 1006,
+        "resultsHeight": 332,
+        "resultsLeft": 1,
+        "resultsOverflowX": "auto",
+        "resultsOverflowY": "auto",
+        "resultsScrollable": true,
+        "resultsScrollableY": false,
+        "headerWidth": 1006,
+        "filtersWidth": 1006,
+        "stackHeight": 126,
+        "stackWithResults": 458,
+        "headerHeight": 45,
+        "filtersHeight": 81
+      },
+      "header": {
+        "width": 1006,
+        "height": 45,
+        "position": "relative",
+        "tokens": {
+          "leftReturn": "15px",
+          "leftTitle": "110px",
+          "leftSearch": "813px",
+          "leftExport": "909px",
+          "rightSearch": "105px",
+          "rightExport": "9px"
+        },
+        "return": {
+          "left": 15,
+          "top": 9.000000238418579,
+          "right": 924.71875,
+          "width": 66.28125,
+          "height": 30,
+          "position": "absolute"
+        },
+        "title": {
+          "left": 110,
+          "top": 2,
+          "right": 768,
+          "width": 128,
+          "height": 25,
+          "position": "absolute"
+        },
+        "search": {
+          "left": 813.296875,
+          "top": 7.000000238418579,
+          "right": 105,
+          "width": 87.703125,
+          "height": 30,
+          "position": "absolute"
+        },
+        "export": {
+          "left": 909.296875,
+          "top": 7.000000238418579,
+          "right": 9,
+          "width": 87.703125,
+          "height": 30,
+          "position": "absolute"
+        }
+      },
+      "filters": {
+        "height": 81,
+        "position": "relative",
+        "tokens": {
+          "filtersHeight": "81px",
+          "controlWidth": "196px",
+          "row1": "6px",
+          "row2": "37px"
+        },
+        "targets": [
+          {
+            "name": "label-module",
+            "left": 108,
+            "top": 6,
+            "expectedLeft": 108,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 60
+          },
+          {
+            "name": "ctrl-module",
+            "left": 183,
+            "top": 6,
+            "expectedLeft": 183,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 196
+          },
+          {
+            "name": "label-user",
+            "left": 385,
+            "top": 6,
+            "expectedLeft": 385,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 36
+          },
+          {
+            "name": "ctrl-user",
+            "left": 431,
+            "top": 6,
+            "expectedLeft": 431,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 196
+          },
+          {
+            "name": "label-begin",
+            "left": 108,
+            "top": 37.000003814697266,
+            "expectedLeft": 108,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 60
+          },
+          {
+            "name": "ctrl-begin",
+            "left": 183,
+            "top": 37.000003814697266,
+            "expectedLeft": 183,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 196
+          },
+          {
+            "name": "label-sep",
+            "left": 385,
+            "top": 37.000003814697266,
+            "expectedLeft": 385,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 24
+          },
+          {
+            "name": "ctrl-end",
+            "left": 431,
+            "top": 37.000003814697266,
+            "expectedLeft": 431,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 196
+          }
+        ],
+        "controls": [
+          {
+            "selector": ".user-operations-filters select",
+            "width": 196,
+            "height": 25.000003814697266
+          },
+          {
+            "selector": ".user-operations-user-button-edit",
+            "width": 196,
+            "height": 25.000003814697266
+          },
+          {
+            "selector": "input[aria-label='记录日期起']",
+            "width": 196,
+            "height": 25
+          },
+          {
+            "selector": "input[aria-label='记录日期止']",
+            "width": 196,
+            "height": 25
+          }
+        ]
+      },
+      "columns": [
+        {
+          "name": "module",
+          "expected": 102,
+          "thWidth": 102,
+          "tdWidth": 102,
+          "thText": "模块名称",
+          "present": true
+        },
+        {
+          "name": "type",
+          "expected": 76,
+          "thWidth": 76,
+          "tdWidth": 76,
+          "thText": "日志类型",
+          "present": true
+        },
+        {
+          "name": "time",
+          "expected": 123,
+          "thWidth": 123,
+          "tdWidth": 123,
+          "thText": "记录时间",
+          "present": true
+        },
+        {
+          "name": "user",
+          "expected": 67,
+          "thWidth": 67,
+          "tdWidth": 67,
+          "thText": "用户名称",
+          "present": true
+        },
+        {
+          "name": "dept",
+          "expected": 67,
+          "thWidth": 67,
+          "tdWidth": 67,
+          "thText": "登陆科室",
+          "present": true
+        },
+        {
+          "name": "content",
+          "expected": 324,
+          "thWidth": 324,
+          "tdWidth": 324,
+          "thText": "日志内容",
+          "present": true
+        },
+        {
+          "name": "ip",
+          "expected": 87,
+          "thWidth": 87,
+          "tdWidth": 87,
+          "thText": "IP地址",
+          "present": true
+        },
+        {
+          "name": "mac",
+          "expected": 85,
+          "thWidth": 85,
+          "tdWidth": 85,
+          "thText": "MAC地址",
+          "present": true
+        },
+        {
+          "name": "version",
+          "expected": 75,
+          "thWidth": 75,
+          "tdWidth": 75,
+          "thText": "程序版本号",
+          "present": true
+        }
+      ],
+      "extensionColumns": [
+        {
+          "name": "outcome",
+          "thPresent": true,
+          "tdPresent": true,
+          "thText": "结果",
+          "thWidth": 79.65625
+        },
+        {
+          "name": "request",
+          "thPresent": true,
+          "tdPresent": true,
+          "thText": "请求编号",
+          "thWidth": 79.65625
+        },
+        {
+          "name": "error",
+          "thPresent": true,
+          "tdPresent": true,
+          "thText": "错误代码",
+          "thWidth": 79.6875
+        }
+      ],
+      "tablePresent": true,
+      "overflow": false,
+      "heightPass": true,
+      "shellPass": true,
+      "headerPass": true,
+      "headerFlowPass": true,
+      "left01Pass": true,
+      "colsPass": true
+    },
+    {
+      "viewport": 1024,
+      "shell": {
+        "token": "1008px",
+        "colTokens": {
+          "module": "102px",
+          "type": "76px",
+          "time": "123px",
+          "user": "67px",
+          "dept": "67px",
+          "content": "324px",
+          "ip": "87px",
+          "mac": "85px",
+          "version": "75px"
+        },
+        "panelWidth": 1008,
+        "panelClientWidth": 1006,
+        "panelHeight": 458,
+        "panelClientHeight": 456,
+        "panelBoxSizing": "border-box",
+        "shellHToken": "458px",
+        "resultsHToken": "332px",
+        "resultsSelector": "result-wrap user-operations-results",
+        "resultsWidth": 1006,
+        "resultsHeight": 332,
+        "resultsLeft": 1,
+        "resultsOverflowX": "auto",
+        "resultsOverflowY": "auto",
+        "resultsScrollable": true,
+        "resultsScrollableY": false,
+        "headerWidth": 1006,
+        "filtersWidth": 1006,
+        "stackHeight": 126,
+        "stackWithResults": 458,
+        "headerHeight": 45,
+        "filtersHeight": 81
+      },
+      "header": {
+        "width": 1006,
+        "height": 45,
+        "position": "relative",
+        "tokens": {
+          "leftReturn": "15px",
+          "leftTitle": "110px",
+          "leftSearch": "813px",
+          "leftExport": "909px",
+          "rightSearch": "105px",
+          "rightExport": "9px"
+        },
+        "return": {
+          "left": 15,
+          "top": 9.00000011920929,
+          "right": 924.71875,
+          "width": 66.28125,
+          "height": 30,
+          "position": "absolute"
+        },
+        "title": {
+          "left": 110,
+          "top": 2,
+          "right": 768,
+          "width": 128,
+          "height": 25,
+          "position": "absolute"
+        },
+        "search": {
+          "left": 813.296875,
+          "top": 7.0000001192092896,
+          "right": 105,
+          "width": 87.703125,
+          "height": 30,
+          "position": "absolute"
+        },
+        "export": {
+          "left": 909.296875,
+          "top": 7.0000001192092896,
+          "right": 9,
+          "width": 87.703125,
+          "height": 30,
+          "position": "absolute"
+        }
+      },
+      "filters": {
+        "height": 81,
+        "position": "relative",
+        "tokens": {
+          "filtersHeight": "81px",
+          "controlWidth": "196px",
+          "row1": "6px",
+          "row2": "37px"
+        },
+        "targets": [
+          {
+            "name": "label-module",
+            "left": 108,
+            "top": 6,
+            "expectedLeft": 108,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 60
+          },
+          {
+            "name": "ctrl-module",
+            "left": 183,
+            "top": 6,
+            "expectedLeft": 183,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 196
+          },
+          {
+            "name": "label-user",
+            "left": 385,
+            "top": 6,
+            "expectedLeft": 385,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 36
+          },
+          {
+            "name": "ctrl-user",
+            "left": 431,
+            "top": 6,
+            "expectedLeft": 431,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 196
+          },
+          {
+            "name": "label-begin",
+            "left": 108,
+            "top": 37,
+            "expectedLeft": 108,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 60
+          },
+          {
+            "name": "ctrl-begin",
+            "left": 183,
+            "top": 37,
+            "expectedLeft": 183,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 196
+          },
+          {
+            "name": "label-sep",
+            "left": 385,
+            "top": 37,
+            "expectedLeft": 385,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 24
+          },
+          {
+            "name": "ctrl-end",
+            "left": 431,
+            "top": 37,
+            "expectedLeft": 431,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 196
+          }
+        ],
+        "controls": [
+          {
+            "selector": ".user-operations-filters select",
+            "width": 196,
+            "height": 25
+          },
+          {
+            "selector": ".user-operations-user-button-edit",
+            "width": 196,
+            "height": 25
+          },
+          {
+            "selector": "input[aria-label='记录日期起']",
+            "width": 196,
+            "height": 25
+          },
+          {
+            "selector": "input[aria-label='记录日期止']",
+            "width": 196,
+            "height": 25
+          }
+        ]
+      },
+      "columns": [
+        {
+          "name": "module",
+          "expected": 102,
+          "thWidth": 102,
+          "tdWidth": 102,
+          "thText": "模块名称",
+          "present": true
+        },
+        {
+          "name": "type",
+          "expected": 76,
+          "thWidth": 76,
+          "tdWidth": 76,
+          "thText": "日志类型",
+          "present": true
+        },
+        {
+          "name": "time",
+          "expected": 123,
+          "thWidth": 123,
+          "tdWidth": 123,
+          "thText": "记录时间",
+          "present": true
+        },
+        {
+          "name": "user",
+          "expected": 67,
+          "thWidth": 67,
+          "tdWidth": 67,
+          "thText": "用户名称",
+          "present": true
+        },
+        {
+          "name": "dept",
+          "expected": 67,
+          "thWidth": 67,
+          "tdWidth": 67,
+          "thText": "登陆科室",
+          "present": true
+        },
+        {
+          "name": "content",
+          "expected": 324,
+          "thWidth": 324,
+          "tdWidth": 324,
+          "thText": "日志内容",
+          "present": true
+        },
+        {
+          "name": "ip",
+          "expected": 87,
+          "thWidth": 87,
+          "tdWidth": 87,
+          "thText": "IP地址",
+          "present": true
+        },
+        {
+          "name": "mac",
+          "expected": 85,
+          "thWidth": 85,
+          "tdWidth": 85,
+          "thText": "MAC地址",
+          "present": true
+        },
+        {
+          "name": "version",
+          "expected": 75,
+          "thWidth": 75,
+          "tdWidth": 75,
+          "thText": "程序版本号",
+          "present": true
+        }
+      ],
+      "extensionColumns": [
+        {
+          "name": "outcome",
+          "thPresent": true,
+          "tdPresent": true,
+          "thText": "结果",
+          "thWidth": 79.65625
+        },
+        {
+          "name": "request",
+          "thPresent": true,
+          "tdPresent": true,
+          "thText": "请求编号",
+          "thWidth": 79.65625
+        },
+        {
+          "name": "error",
+          "thPresent": true,
+          "tdPresent": true,
+          "thText": "错误代码",
+          "thWidth": 79.6875
+        }
+      ],
+      "tablePresent": true,
+      "overflow": false,
+      "heightPass": true,
+      "shellPass": true,
+      "headerPass": true,
+      "headerFlowPass": true,
+      "left01Pass": true,
+      "colsPass": true
+    },
+    {
+      "viewport": 1008,
+      "shell": {
+        "token": "1008px",
+        "colTokens": {
+          "module": "102px",
+          "type": "76px",
+          "time": "123px",
+          "user": "67px",
+          "dept": "67px",
+          "content": "324px",
+          "ip": "87px",
+          "mac": "85px",
+          "version": "75px"
+        },
+        "panelWidth": 1008,
+        "panelClientWidth": 1006,
+        "panelHeight": 458,
+        "panelClientHeight": 456,
+        "panelBoxSizing": "border-box",
+        "shellHToken": "458px",
+        "resultsHToken": "332px",
+        "resultsSelector": "result-wrap user-operations-results",
+        "resultsWidth": 1006,
+        "resultsHeight": 332,
+        "resultsLeft": 1,
+        "resultsOverflowX": "auto",
+        "resultsOverflowY": "auto",
+        "resultsScrollable": true,
+        "resultsScrollableY": false,
+        "headerWidth": 1006,
+        "filtersWidth": 1006,
+        "stackHeight": 126,
+        "stackWithResults": 458,
+        "headerHeight": 45,
+        "filtersHeight": 81
+      },
+      "header": {
+        "width": 1006,
+        "height": 45,
+        "position": "relative",
+        "tokens": {
+          "leftReturn": "15px",
+          "leftTitle": "110px",
+          "leftSearch": "813px",
+          "leftExport": "909px",
+          "rightSearch": "105px",
+          "rightExport": "9px"
+        },
+        "return": {
+          "left": 15,
+          "top": 9.000000238418579,
+          "right": 924.71875,
+          "width": 66.28125,
+          "height": 30,
+          "position": "absolute"
+        },
+        "title": {
+          "left": 110,
+          "top": 2,
+          "right": 768,
+          "width": 128,
+          "height": 25,
+          "position": "absolute"
+        },
+        "search": {
+          "left": 813.296875,
+          "top": 7.000000238418579,
+          "right": 105,
+          "width": 87.703125,
+          "height": 30,
+          "position": "absolute"
+        },
+        "export": {
+          "left": 909.296875,
+          "top": 7.000000238418579,
+          "right": 9,
+          "width": 87.703125,
+          "height": 30,
+          "position": "absolute"
+        }
+      },
+      "filters": {
+        "height": 81,
+        "position": "relative",
+        "tokens": {
+          "filtersHeight": "81px",
+          "controlWidth": "196px",
+          "row1": "6px",
+          "row2": "37px"
+        },
+        "targets": [
+          {
+            "name": "label-module",
+            "left": 108,
+            "top": 6,
+            "expectedLeft": 108,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 60
+          },
+          {
+            "name": "ctrl-module",
+            "left": 183,
+            "top": 6,
+            "expectedLeft": 183,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 196
+          },
+          {
+            "name": "label-user",
+            "left": 385,
+            "top": 6,
+            "expectedLeft": 385,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 36
+          },
+          {
+            "name": "ctrl-user",
+            "left": 431,
+            "top": 6,
+            "expectedLeft": 431,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 196
+          },
+          {
+            "name": "label-begin",
+            "left": 108,
+            "top": 37,
+            "expectedLeft": 108,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 60
+          },
+          {
+            "name": "ctrl-begin",
+            "left": 183,
+            "top": 37,
+            "expectedLeft": 183,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 196
+          },
+          {
+            "name": "label-sep",
+            "left": 385,
+            "top": 37,
+            "expectedLeft": 385,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 24
+          },
+          {
+            "name": "ctrl-end",
+            "left": 431,
+            "top": 37,
+            "expectedLeft": 431,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 196
+          }
+        ],
+        "controls": [
+          {
+            "selector": ".user-operations-filters select",
+            "width": 196,
+            "height": 25
+          },
+          {
+            "selector": ".user-operations-user-button-edit",
+            "width": 196,
+            "height": 25
+          },
+          {
+            "selector": "input[aria-label='记录日期起']",
+            "width": 196,
+            "height": 25
+          },
+          {
+            "selector": "input[aria-label='记录日期止']",
+            "width": 196,
+            "height": 25
+          }
+        ]
+      },
+      "columns": [
+        {
+          "name": "module",
+          "expected": 102,
+          "thWidth": 102,
+          "tdWidth": 102,
+          "thText": "模块名称",
+          "present": true
+        },
+        {
+          "name": "type",
+          "expected": 76,
+          "thWidth": 76,
+          "tdWidth": 76,
+          "thText": "日志类型",
+          "present": true
+        },
+        {
+          "name": "time",
+          "expected": 123,
+          "thWidth": 123,
+          "tdWidth": 123,
+          "thText": "记录时间",
+          "present": true
+        },
+        {
+          "name": "user",
+          "expected": 67,
+          "thWidth": 67,
+          "tdWidth": 67,
+          "thText": "用户名称",
+          "present": true
+        },
+        {
+          "name": "dept",
+          "expected": 67,
+          "thWidth": 67,
+          "tdWidth": 67,
+          "thText": "登陆科室",
+          "present": true
+        },
+        {
+          "name": "content",
+          "expected": 324,
+          "thWidth": 324,
+          "tdWidth": 324,
+          "thText": "日志内容",
+          "present": true
+        },
+        {
+          "name": "ip",
+          "expected": 87,
+          "thWidth": 87,
+          "tdWidth": 87,
+          "thText": "IP地址",
+          "present": true
+        },
+        {
+          "name": "mac",
+          "expected": 85,
+          "thWidth": 85,
+          "tdWidth": 85,
+          "thText": "MAC地址",
+          "present": true
+        },
+        {
+          "name": "version",
+          "expected": 75,
+          "thWidth": 75,
+          "tdWidth": 75,
+          "thText": "程序版本号",
+          "present": true
+        }
+      ],
+      "extensionColumns": [
+        {
+          "name": "outcome",
+          "thPresent": true,
+          "tdPresent": true,
+          "thText": "结果",
+          "thWidth": 79.65625
+        },
+        {
+          "name": "request",
+          "thPresent": true,
+          "tdPresent": true,
+          "thText": "请求编号",
+          "thWidth": 79.65625
+        },
+        {
+          "name": "error",
+          "thPresent": true,
+          "tdPresent": true,
+          "thText": "错误代码",
+          "thWidth": 79.6875
+        }
+      ],
+      "tablePresent": true,
+      "overflow": false,
+      "heightPass": true,
+      "shellPass": true,
+      "headerPass": true,
+      "headerFlowPass": true,
+      "left01Pass": true,
+      "colsPass": true
+    },
+    {
+      "viewport": 861,
+      "shell": {
+        "token": "1008px",
+        "colTokens": {
+          "module": "102px",
+          "type": "76px",
+          "time": "123px",
+          "user": "67px",
+          "dept": "67px",
+          "content": "324px",
+          "ip": "87px",
+          "mac": "85px",
+          "version": "75px"
+        },
+        "panelWidth": 861,
+        "panelClientWidth": 859,
+        "panelHeight": 458,
+        "panelClientHeight": 456,
+        "panelBoxSizing": "border-box",
+        "shellHToken": "458px",
+        "resultsHToken": "332px",
+        "resultsSelector": "result-wrap user-operations-results",
+        "resultsWidth": 859,
+        "resultsHeight": 332,
+        "resultsLeft": 1,
+        "resultsOverflowX": "auto",
+        "resultsOverflowY": "auto",
+        "resultsScrollable": true,
+        "resultsScrollableY": false,
+        "headerWidth": 859,
+        "filtersWidth": 859,
+        "stackHeight": 126,
+        "stackWithResults": 458,
+        "headerHeight": 45,
+        "filtersHeight": 81
+      },
+      "header": {
+        "width": 859,
+        "height": 45,
+        "position": "relative",
+        "tokens": {
+          "leftReturn": "15px",
+          "leftTitle": "110px",
+          "leftSearch": "813px",
+          "leftExport": "909px",
+          "rightSearch": "105px",
+          "rightExport": "9px"
+        },
+        "return": {
+          "left": 15,
+          "top": 9.000000238418579,
+          "right": 777.71875,
+          "width": 66.28125,
+          "height": 29.999998092651367,
+          "position": "absolute"
+        },
+        "title": {
+          "left": 110,
+          "top": 2,
+          "right": 621,
+          "width": 128,
+          "height": 25,
+          "position": "absolute"
+        },
+        "search": {
+          "left": 666.296875,
+          "top": 7.000000238418579,
+          "right": 105,
+          "width": 87.703125,
+          "height": 29.999998092651367,
+          "position": "absolute"
+        },
+        "export": {
+          "left": 762.296875,
+          "top": 7.000000238418579,
+          "right": 9,
+          "width": 87.703125,
+          "height": 29.999998092651367,
+          "position": "absolute"
+        }
+      },
+      "filters": {
+        "height": 81,
+        "position": "relative",
+        "tokens": {
+          "filtersHeight": "81px",
+          "controlWidth": "196px",
+          "row1": "6px",
+          "row2": "37px"
+        },
+        "targets": [
+          {
+            "name": "label-module",
+            "left": 108,
+            "top": 6,
+            "expectedLeft": 108,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 60
+          },
+          {
+            "name": "ctrl-module",
+            "left": 183,
+            "top": 6,
+            "expectedLeft": 183,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 196
+          },
+          {
+            "name": "label-user",
+            "left": 385,
+            "top": 6,
+            "expectedLeft": 385,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 36
+          },
+          {
+            "name": "ctrl-user",
+            "left": 431,
+            "top": 6,
+            "expectedLeft": 431,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 196
+          },
+          {
+            "name": "label-begin",
+            "left": 108,
+            "top": 37,
+            "expectedLeft": 108,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 60
+          },
+          {
+            "name": "ctrl-begin",
+            "left": 183,
+            "top": 37,
+            "expectedLeft": 183,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 196
+          },
+          {
+            "name": "label-sep",
+            "left": 385,
+            "top": 37,
+            "expectedLeft": 385,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 24
+          },
+          {
+            "name": "ctrl-end",
+            "left": 431,
+            "top": 37,
+            "expectedLeft": 431,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 196
+          }
+        ],
+        "controls": [
+          {
+            "selector": ".user-operations-filters select",
+            "width": 196,
+            "height": 25
+          },
+          {
+            "selector": ".user-operations-user-button-edit",
+            "width": 196,
+            "height": 25
+          },
+          {
+            "selector": "input[aria-label='记录日期起']",
+            "width": 196,
+            "height": 25
+          },
+          {
+            "selector": "input[aria-label='记录日期止']",
+            "width": 196,
+            "height": 25
+          }
+        ]
+      },
+      "columns": [
+        {
+          "name": "module",
+          "expected": 102,
+          "thWidth": 102,
+          "tdWidth": 102,
+          "thText": "模块名称",
+          "present": true
+        },
+        {
+          "name": "type",
+          "expected": 76,
+          "thWidth": 76,
+          "tdWidth": 76,
+          "thText": "日志类型",
+          "present": true
+        },
+        {
+          "name": "time",
+          "expected": 123,
+          "thWidth": 123,
+          "tdWidth": 123,
+          "thText": "记录时间",
+          "present": true
+        },
+        {
+          "name": "user",
+          "expected": 67,
+          "thWidth": 67,
+          "tdWidth": 67,
+          "thText": "用户名称",
+          "present": true
+        },
+        {
+          "name": "dept",
+          "expected": 67,
+          "thWidth": 67,
+          "tdWidth": 67,
+          "thText": "登陆科室",
+          "present": true
+        },
+        {
+          "name": "content",
+          "expected": 324,
+          "thWidth": 324,
+          "tdWidth": 324,
+          "thText": "日志内容",
+          "present": true
+        },
+        {
+          "name": "ip",
+          "expected": 87,
+          "thWidth": 87,
+          "tdWidth": 87,
+          "thText": "IP地址",
+          "present": true
+        },
+        {
+          "name": "mac",
+          "expected": 85,
+          "thWidth": 85,
+          "tdWidth": 85,
+          "thText": "MAC地址",
+          "present": true
+        },
+        {
+          "name": "version",
+          "expected": 75,
+          "thWidth": 75,
+          "tdWidth": 75,
+          "thText": "程序版本号",
+          "present": true
+        }
+      ],
+      "extensionColumns": [
+        {
+          "name": "outcome",
+          "thPresent": true,
+          "tdPresent": true,
+          "thText": "结果",
+          "thWidth": 79.65625
+        },
+        {
+          "name": "request",
+          "thPresent": true,
+          "tdPresent": true,
+          "thText": "请求编号",
+          "thWidth": 79.65625
+        },
+        {
+          "name": "error",
+          "thPresent": true,
+          "tdPresent": true,
+          "thText": "错误代码",
+          "thWidth": 79.6875
+        }
+      ],
+      "tablePresent": true,
+      "overflow": false,
+      "heightPass": true,
+      "shellPass": true,
+      "headerPass": true,
+      "headerFlowPass": true,
+      "left01Pass": true,
+      "colsPass": true
+    },
+    {
+      "viewport": 860,
+      "shell": {
+        "token": "1008px",
+        "colTokens": {
+          "module": "102px",
+          "type": "76px",
+          "time": "123px",
+          "user": "67px",
+          "dept": "67px",
+          "content": "324px",
+          "ip": "87px",
+          "mac": "85px",
+          "version": "75px"
+        },
+        "panelWidth": 860,
+        "panelClientWidth": 858,
+        "panelHeight": 334,
+        "panelClientHeight": 332,
+        "panelBoxSizing": "border-box",
+        "shellHToken": "458px",
+        "resultsHToken": "332px",
+        "resultsSelector": "result-wrap user-operations-results",
+        "resultsWidth": 858,
+        "resultsHeight": 137,
+        "resultsLeft": 1,
+        "resultsOverflowX": "auto",
+        "resultsOverflowY": "auto",
+        "resultsScrollable": true,
+        "resultsScrollableY": false,
+        "headerWidth": 858,
+        "filtersWidth": 858,
+        "stackHeight": 195,
+        "stackWithResults": 332,
+        "headerHeight": 45,
+        "filtersHeight": 150
+      },
+      "header": {
+        "width": 858,
+        "height": 45,
+        "position": "relative",
+        "tokens": {
+          "leftReturn": "15px",
+          "leftTitle": "110px",
+          "leftSearch": "813px",
+          "leftExport": "909px",
+          "rightSearch": "105px",
+          "rightExport": "9px"
+        },
+        "return": {
+          "left": 588.3125,
+          "top": 6.999999761581421,
+          "right": 203.40625,
+          "width": 66.28125,
+          "height": 30,
+          "position": "static"
+        },
+        "title": {
+          "left": 54,
+          "top": 12.999999761581421,
+          "right": 345.078125,
+          "width": 458.921875,
+          "height": 18,
+          "position": "static"
+        },
+        "search": {
+          "left": 662.59375,
+          "top": 6.999999761581421,
+          "right": 107.703125,
+          "width": 87.703125,
+          "height": 30,
+          "position": "static"
+        },
+        "export": {
+          "left": 758.296875,
+          "top": 6.999999761581421,
+          "right": 12,
+          "width": 87.703125,
+          "height": 30,
+          "position": "static"
+        }
+      },
+      "filters": {
+        "height": 150,
+        "position": "relative",
+        "tokens": {
+          "filtersHeight": "81px",
+          "controlWidth": "196px",
+          "row1": "6px",
+          "row2": "37px"
+        },
+        "targets": [
+          {
+            "name": "label-module",
+            "left": 12,
+            "top": 26,
+            "expectedLeft": 108,
+            "expectedTop": 6,
+            "position": "static",
+            "width": 60
+          },
+          {
+            "name": "ctrl-module",
+            "left": 12,
+            "top": 56,
+            "expectedLeft": 183,
+            "expectedTop": 6,
+            "position": "static",
+            "width": 411
+          },
+          {
+            "name": "label-user",
+            "left": 435,
+            "top": 26,
+            "expectedLeft": 385,
+            "expectedTop": 6,
+            "position": "static",
+            "width": 36
+          },
+          {
+            "name": "ctrl-user",
+            "left": 435,
+            "top": 56,
+            "expectedLeft": 431,
+            "expectedTop": 6,
+            "position": "static",
+            "width": 411
+          },
+          {
+            "name": "label-begin",
+            "left": 12,
+            "top": 84,
+            "expectedLeft": 108,
+            "expectedTop": 37,
+            "position": "static",
+            "width": 60
+          },
+          {
+            "name": "ctrl-begin",
+            "left": 12,
+            "top": 114.00000762939453,
+            "expectedLeft": 183,
+            "expectedTop": 37,
+            "position": "static",
+            "width": 397
+          },
+          {
+            "name": "label-sep",
+            "left": 417,
+            "top": 118.00000762939453,
+            "expectedLeft": 385,
+            "expectedTop": 37,
+            "position": "static",
+            "width": 24
+          },
+          {
+            "name": "ctrl-end",
+            "left": 449,
+            "top": 114.00000762939453,
+            "expectedLeft": 431,
+            "expectedTop": 37,
+            "position": "static",
+            "width": 397
+          }
+        ],
+        "controls": [
+          {
+            "selector": ".user-operations-filters select",
+            "width": 411,
+            "height": 25
+          },
+          {
+            "selector": ".user-operations-user-button-edit",
+            "width": 411,
+            "height": 25
+          },
+          {
+            "selector": "input[aria-label='记录日期起']",
+            "width": 397,
+            "height": 25
+          },
+          {
+            "selector": "input[aria-label='记录日期止']",
+            "width": 397,
+            "height": 25
+          }
+        ]
+      },
+      "columns": [
+        {
+          "name": "module",
+          "expected": 102,
+          "thWidth": 81,
+          "tdWidth": 81,
+          "thText": "模块名称",
+          "present": true
+        },
+        {
+          "name": "type",
+          "expected": 76,
+          "thWidth": 61,
+          "tdWidth": 61,
+          "thText": "日志类型",
+          "present": true
+        },
+        {
+          "name": "time",
+          "expected": 123,
+          "thWidth": 161,
+          "tdWidth": 161,
+          "thText": "记录时间",
+          "present": true
+        },
+        {
+          "name": "user",
+          "expected": 67,
+          "thWidth": 81,
+          "tdWidth": 81,
+          "thText": "用户名称",
+          "present": true
+        },
+        {
+          "name": "dept",
+          "expected": 67,
+          "thWidth": 65,
+          "tdWidth": 65,
+          "thText": "登陆科室",
+          "present": true
+        },
+        {
+          "name": "content",
+          "expected": 324,
+          "thWidth": 537,
+          "tdWidth": 537,
+          "thText": "日志内容",
+          "present": true
+        },
+        {
+          "name": "ip",
+          "expected": 87,
+          "thWidth": 85.984375,
+          "tdWidth": 85.984375,
+          "thText": "IP地址",
+          "present": true
+        },
+        {
+          "name": "mac",
+          "expected": 85,
+          "thWidth": 114.71875,
+          "tdWidth": 114.71875,
+          "thText": "MAC地址",
+          "present": true
+        },
+        {
+          "name": "version",
+          "expected": 75,
+          "thWidth": 72,
+          "tdWidth": 72,
+          "thText": "程序版本号",
+          "present": true
+        }
+      ],
+      "extensionColumns": [
+        {
+          "name": "outcome",
+          "thPresent": true,
+          "tdPresent": true,
+          "thText": "结果",
+          "thWidth": 77
+        },
+        {
+          "name": "request",
+          "thPresent": true,
+          "tdPresent": true,
+          "thText": "请求编号",
+          "thWidth": 103.234375
+        },
+        {
+          "name": "error",
+          "thPresent": true,
+          "tdPresent": true,
+          "thText": "错误代码",
+          "thWidth": 72
+        }
+      ],
+      "tablePresent": true,
+      "overflow": false,
+      "heightPass": true,
+      "shellPass": true,
+      "headerPass": true,
+      "headerFlowPass": true,
+      "left01Pass": true,
+      "colsPass": true
+    },
+    {
+      "viewport": 520,
+      "shell": {
+        "token": "1008px",
+        "colTokens": {
+          "module": "102px",
+          "type": "76px",
+          "time": "123px",
+          "user": "67px",
+          "dept": "67px",
+          "content": "324px",
+          "ip": "87px",
+          "mac": "85px",
+          "version": "75px"
+        },
+        "panelWidth": 520,
+        "panelClientWidth": 518,
+        "panelHeight": 451,
+        "panelClientHeight": 449,
+        "panelBoxSizing": "border-box",
+        "shellHToken": "458px",
+        "resultsHToken": "332px",
+        "resultsSelector": "result-wrap user-operations-results",
+        "resultsWidth": 518,
+        "resultsHeight": 162,
+        "resultsLeft": 1,
+        "resultsOverflowX": "auto",
+        "resultsOverflowY": "auto",
+        "resultsScrollable": true,
+        "resultsScrollableY": false,
+        "headerWidth": 518,
+        "filtersWidth": 518,
+        "stackHeight": 287,
+        "stackWithResults": 449,
+        "headerHeight": 79,
+        "filtersHeight": 208
+      },
+      "header": {
+        "width": 518,
+        "height": 79,
+        "position": "relative",
+        "tokens": {
+          "leftReturn": "15px",
+          "leftTitle": "110px",
+          "leftSearch": "813px",
+          "leftExport": "909px",
+          "rightSearch": "105px",
+          "rightExport": "9px"
+        },
+        "return": {
+          "left": 248.3125,
+          "top": 44.000001430511475,
+          "right": 203.40625,
+          "width": 66.28125,
+          "height": 29.999996185302734,
+          "position": "static"
+        },
+        "title": {
+          "left": 52,
+          "top": 8.999999523162842,
+          "right": 12,
+          "width": 454,
+          "height": 18,
+          "position": "static"
+        },
+        "search": {
+          "left": 322.59375,
+          "top": 44.000001430511475,
+          "right": 107.703125,
+          "width": 87.703125,
+          "height": 29.999996185302734,
+          "position": "static"
+        },
+        "export": {
+          "left": 418.296875,
+          "top": 44.000001430511475,
+          "right": 12,
+          "width": 87.703125,
+          "height": 29.999996185302734,
+          "position": "static"
+        }
+      },
+      "filters": {
+        "height": 208,
+        "position": "relative",
+        "tokens": {
+          "filtersHeight": "81px",
+          "controlWidth": "196px",
+          "row1": "6px",
+          "row2": "37px"
+        },
+        "targets": [
+          {
+            "name": "label-module",
+            "left": 12,
+            "top": 26,
+            "expectedLeft": 108,
+            "expectedTop": 6,
+            "position": "static",
+            "width": 60
+          },
+          {
+            "name": "ctrl-module",
+            "left": 12,
+            "top": 56.00000762939453,
+            "expectedLeft": 183,
+            "expectedTop": 6,
+            "position": "static",
+            "width": 494
+          },
+          {
+            "name": "label-user",
+            "left": 12,
+            "top": 84.00000762939453,
+            "expectedLeft": 385,
+            "expectedTop": 6,
+            "position": "static",
+            "width": 36
+          },
+          {
+            "name": "ctrl-user",
+            "left": 12,
+            "top": 114.00000762939453,
+            "expectedLeft": 431,
+            "expectedTop": 6,
+            "position": "static",
+            "width": 494
+          },
+          {
+            "name": "label-begin",
+            "left": 12,
+            "top": 142.00000762939453,
+            "expectedLeft": 108,
+            "expectedTop": 37,
+            "position": "static",
+            "width": 60
+          },
+          {
+            "name": "ctrl-begin",
+            "left": 12,
+            "top": 172.00000762939453,
+            "expectedLeft": 183,
+            "expectedTop": 37,
+            "position": "static",
+            "width": 227
+          },
+          {
+            "name": "label-sep",
+            "left": 247,
+            "top": 176.00000762939453,
+            "expectedLeft": 385,
+            "expectedTop": 37,
+            "position": "static",
+            "width": 24
+          },
+          {
+            "name": "ctrl-end",
+            "left": 279,
+            "top": 172.00000762939453,
+            "expectedLeft": 431,
+            "expectedTop": 37,
+            "position": "static",
+            "width": 227
+          }
+        ],
+        "controls": [
+          {
+            "selector": ".user-operations-filters select",
+            "width": 494,
+            "height": 25
+          },
+          {
+            "selector": ".user-operations-user-button-edit",
+            "width": 494,
+            "height": 25
+          },
+          {
+            "selector": "input[aria-label='记录日期起']",
+            "width": 227,
+            "height": 25
+          },
+          {
+            "selector": "input[aria-label='记录日期止']",
+            "width": 227,
+            "height": 25
+          }
+        ]
+      },
+      "columns": [
+        {
+          "name": "module",
+          "expected": 102,
+          "thWidth": 81,
+          "tdWidth": 81,
+          "thText": "模块名称",
+          "present": true
+        },
+        {
+          "name": "type",
+          "expected": 76,
+          "thWidth": 61,
+          "tdWidth": 61,
+          "thText": "日志类型",
+          "present": true
+        },
+        {
+          "name": "time",
+          "expected": 123,
+          "thWidth": 161,
+          "tdWidth": 161,
+          "thText": "记录时间",
+          "present": true
+        },
+        {
+          "name": "user",
+          "expected": 67,
+          "thWidth": 81,
+          "tdWidth": 81,
+          "thText": "用户名称",
+          "present": true
+        },
+        {
+          "name": "dept",
+          "expected": 67,
+          "thWidth": 65,
+          "tdWidth": 65,
+          "thText": "登陆科室",
+          "present": true
+        },
+        {
+          "name": "content",
+          "expected": 324,
+          "thWidth": 537,
+          "tdWidth": 537,
+          "thText": "日志内容",
+          "present": true
+        },
+        {
+          "name": "ip",
+          "expected": 87,
+          "thWidth": 85.984375,
+          "tdWidth": 85.984375,
+          "thText": "IP地址",
+          "present": true
+        },
+        {
+          "name": "mac",
+          "expected": 85,
+          "thWidth": 114.71875,
+          "tdWidth": 114.71875,
+          "thText": "MAC地址",
+          "present": true
+        },
+        {
+          "name": "version",
+          "expected": 75,
+          "thWidth": 72,
+          "tdWidth": 72,
+          "thText": "程序版本号",
+          "present": true
+        }
+      ],
+      "extensionColumns": [
+        {
+          "name": "outcome",
+          "thPresent": true,
+          "tdPresent": true,
+          "thText": "结果",
+          "thWidth": 77
+        },
+        {
+          "name": "request",
+          "thPresent": true,
+          "tdPresent": true,
+          "thText": "请求编号",
+          "thWidth": 103.234375
+        },
+        {
+          "name": "error",
+          "thPresent": true,
+          "tdPresent": true,
+          "thText": "错误代码",
+          "thWidth": 72
+        }
+      ],
+      "tablePresent": true,
+      "overflow": false,
+      "heightPass": true,
+      "shellPass": true,
+      "headerPass": true,
+      "headerFlowPass": true,
+      "left01Pass": true,
+      "colsPass": true
+    },
+    {
+      "viewport": 390,
+      "shell": {
+        "token": "1008px",
+        "colTokens": {
+          "module": "102px",
+          "type": "76px",
+          "time": "123px",
+          "user": "67px",
+          "dept": "67px",
+          "content": "324px",
+          "ip": "87px",
+          "mac": "85px",
+          "version": "75px"
+        },
+        "panelWidth": 390,
+        "panelClientWidth": 388,
+        "panelHeight": 451,
+        "panelClientHeight": 449,
+        "panelBoxSizing": "border-box",
+        "shellHToken": "458px",
+        "resultsHToken": "332px",
+        "resultsSelector": "result-wrap user-operations-results",
+        "resultsWidth": 388,
+        "resultsHeight": 162,
+        "resultsLeft": 1,
+        "resultsOverflowX": "auto",
+        "resultsOverflowY": "auto",
+        "resultsScrollable": true,
+        "resultsScrollableY": false,
+        "headerWidth": 388,
+        "filtersWidth": 388,
+        "stackHeight": 287,
+        "stackWithResults": 449,
+        "headerHeight": 79,
+        "filtersHeight": 208
+      },
+      "header": {
+        "width": 388,
+        "height": 79,
+        "position": "relative",
+        "tokens": {
+          "leftReturn": "15px",
+          "leftTitle": "110px",
+          "leftSearch": "813px",
+          "leftExport": "909px",
+          "rightSearch": "105px",
+          "rightExport": "9px"
+        },
+        "return": {
+          "left": 118.3125,
+          "top": 43.999998569488525,
+          "right": 203.40625,
+          "width": 66.28125,
+          "height": 30,
+          "position": "static"
+        },
+        "title": {
+          "left": 52,
+          "top": 9,
+          "right": 12,
+          "width": 324,
+          "height": 18,
+          "position": "static"
+        },
+        "search": {
+          "left": 192.59375,
+          "top": 43.999998569488525,
+          "right": 107.703125,
+          "width": 87.703125,
+          "height": 30,
+          "position": "static"
+        },
+        "export": {
+          "left": 288.296875,
+          "top": 43.999998569488525,
+          "right": 12,
+          "width": 87.703125,
+          "height": 30,
+          "position": "static"
+        }
+      },
+      "filters": {
+        "height": 208,
+        "position": "relative",
+        "tokens": {
+          "filtersHeight": "81px",
+          "controlWidth": "196px",
+          "row1": "6px",
+          "row2": "37px"
+        },
+        "targets": [
+          {
+            "name": "label-module",
+            "left": 12,
+            "top": 26,
+            "expectedLeft": 108,
+            "expectedTop": 6,
+            "position": "static",
+            "width": 60
+          },
+          {
+            "name": "ctrl-module",
+            "left": 12,
+            "top": 56.00000762939453,
+            "expectedLeft": 183,
+            "expectedTop": 6,
+            "position": "static",
+            "width": 364
+          },
+          {
+            "name": "label-user",
+            "left": 12,
+            "top": 84.00000762939453,
+            "expectedLeft": 385,
+            "expectedTop": 6,
+            "position": "static",
+            "width": 36
+          },
+          {
+            "name": "ctrl-user",
+            "left": 12,
+            "top": 114.00000762939453,
+            "expectedLeft": 431,
+            "expectedTop": 6,
+            "position": "static",
+            "width": 364
+          },
+          {
+            "name": "label-begin",
+            "left": 12,
+            "top": 142.00000762939453,
+            "expectedLeft": 108,
+            "expectedTop": 37,
+            "position": "static",
+            "width": 60
+          },
+          {
+            "name": "ctrl-begin",
+            "left": 12,
+            "top": 172.00000762939453,
+            "expectedLeft": 183,
+            "expectedTop": 37,
+            "position": "static",
+            "width": 162
+          },
+          {
+            "name": "label-sep",
+            "left": 182,
+            "top": 176.00000762939453,
+            "expectedLeft": 385,
+            "expectedTop": 37,
+            "position": "static",
+            "width": 24
+          },
+          {
+            "name": "ctrl-end",
+            "left": 214,
+            "top": 172.00000762939453,
+            "expectedLeft": 431,
+            "expectedTop": 37,
+            "position": "static",
+            "width": 162
+          }
+        ],
+        "controls": [
+          {
+            "selector": ".user-operations-filters select",
+            "width": 364,
+            "height": 25
+          },
+          {
+            "selector": ".user-operations-user-button-edit",
+            "width": 364,
+            "height": 25
+          },
+          {
+            "selector": "input[aria-label='记录日期起']",
+            "width": 162,
+            "height": 24.999984741210938
+          },
+          {
+            "selector": "input[aria-label='记录日期止']",
+            "width": 162,
+            "height": 24.999984741210938
+          }
+        ]
+      },
+      "columns": [
+        {
+          "name": "module",
+          "expected": 102,
+          "thWidth": 81,
+          "tdWidth": 81,
+          "thText": "模块名称",
+          "present": true
+        },
+        {
+          "name": "type",
+          "expected": 76,
+          "thWidth": 61,
+          "tdWidth": 61,
+          "thText": "日志类型",
+          "present": true
+        },
+        {
+          "name": "time",
+          "expected": 123,
+          "thWidth": 161,
+          "tdWidth": 161,
+          "thText": "记录时间",
+          "present": true
+        },
+        {
+          "name": "user",
+          "expected": 67,
+          "thWidth": 81,
+          "tdWidth": 81,
+          "thText": "用户名称",
+          "present": true
+        },
+        {
+          "name": "dept",
+          "expected": 67,
+          "thWidth": 65,
+          "tdWidth": 65,
+          "thText": "登陆科室",
+          "present": true
+        },
+        {
+          "name": "content",
+          "expected": 324,
+          "thWidth": 537,
+          "tdWidth": 537,
+          "thText": "日志内容",
+          "present": true
+        },
+        {
+          "name": "ip",
+          "expected": 87,
+          "thWidth": 85.984375,
+          "tdWidth": 85.984375,
+          "thText": "IP地址",
+          "present": true
+        },
+        {
+          "name": "mac",
+          "expected": 85,
+          "thWidth": 114.71875,
+          "tdWidth": 114.71875,
+          "thText": "MAC地址",
+          "present": true
+        },
+        {
+          "name": "version",
+          "expected": 75,
+          "thWidth": 72,
+          "tdWidth": 72,
+          "thText": "程序版本号",
+          "present": true
+        }
+      ],
+      "extensionColumns": [
+        {
+          "name": "outcome",
+          "thPresent": true,
+          "tdPresent": true,
+          "thText": "结果",
+          "thWidth": 77
+        },
+        {
+          "name": "request",
+          "thPresent": true,
+          "tdPresent": true,
+          "thText": "请求编号",
+          "thWidth": 103.234375
+        },
+        {
+          "name": "error",
+          "thPresent": true,
+          "tdPresent": true,
+          "thText": "错误代码",
+          "thWidth": 72
+        }
+      ],
+      "tablePresent": true,
+      "overflow": false,
+      "heightPass": true,
+      "shellPass": true,
+      "headerPass": true,
+      "headerFlowPass": true,
+      "left01Pass": true,
+      "colsPass": true
+    }
+  ],
+  "desktopPass": true,
+  "shellPass": true,
+  "heightPass": true,
+  "colsPass": true,
+  "responsivePass": true,
+  "errors": []
+}

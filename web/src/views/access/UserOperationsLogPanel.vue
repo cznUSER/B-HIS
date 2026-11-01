@@ -242,6 +242,8 @@ onMounted(async () => {
 <style scoped>
 .user-operations-panel.access-data-panel.patient-panel.access-data-panel {
   --uol-shell-w: 1008px;
+  --uol-shell-h: 458px;
+  --uol-results-h: 332px;
   --uol-col-w-module: 102px;
   --uol-col-w-type: 76px;
   --uol-col-w-time: 123px;
@@ -384,7 +386,11 @@ onMounted(async () => {
 @media (min-width: 861px) {
   .user-operations-panel.access-data-panel.patient-panel {
     width: var(--uol-shell-w);
+    height: var(--uol-shell-h);
     max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
   .user-operations-panel.access-data-panel.patient-panel .user-operations-results,
   .user-operations-panel.access-data-panel.patient-panel .result-empty,
@@ -395,6 +401,11 @@ onMounted(async () => {
     max-width: none;
     box-sizing: border-box;
     margin: 0;
+    height: var(--uol-results-h);
+    max-height: var(--uol-results-h);
+    flex: 0 0 var(--uol-results-h);
+    overflow: auto;
+    min-height: 0;
   }
   .user-operations-panel.access-data-panel.patient-panel .user-operations-time {
     min-width: 0;
@@ -460,7 +471,19 @@ onMounted(async () => {
 @media (max-width: 860px) {
   .user-operations-panel.access-data-panel.patient-panel {
     width: auto;
+    height: auto;
     max-width: 100%;
+    display: block;
+    overflow: visible;
+  }
+  .user-operations-panel.access-data-panel.patient-panel .user-operations-results,
+  .user-operations-panel.access-data-panel.patient-panel .result-empty,
+  .user-operations-panel.access-data-panel.patient-panel .shell-status {
+    height: auto;
+    max-height: none;
+    flex: none;
+    overflow-x: auto;
+    overflow-y: visible;
   }
   .user-operations-panel.access-data-panel.patient-panel .user-operations-table {
     table-layout: auto;
