@@ -1,5 +1,4 @@
 <script setup>
-import { useErrorDialog } from '../components/feedback/useErrorDialog.js'
 import { createSubmitFeedback } from '../components/feedback/useSubmitFeedback.js'
 import SubmitStatusBanner from '../components/feedback/SubmitStatusBanner.vue'
 // 2026-10-12 P1-H05-REGISTER-UI 挂号页。患者从建档 ?patientId= 带入，只选科室和医生。
@@ -653,16 +652,6 @@ async function onComplete(row) {
   }
 }
 
-useErrorDialog([
-  () => loadError.value,
-  () => masterError.value,
-  () => boardError.value,
-  () => todayError.value,
-  () => listNote.value,
-  () => notFound.value ? '未找到患者，请重新选择。' : '',
-  () => noticeError.value ? notice.value : '',
-  () => submitFeedback.state.status === 'error' ? submitFeedback.state.message : '',
-])
 
 </script>
 

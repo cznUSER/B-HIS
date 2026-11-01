@@ -1,5 +1,4 @@
 <script setup>
-import { useErrorDialog } from './feedback/useErrorDialog.js'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ApiError } from '../api/errors.js'
 import { searchRegistrationPatients } from '../api/patientApi.js'
@@ -72,9 +71,6 @@ function handleKeydown(event) {
 onMounted(() => window.addEventListener('keydown', handleKeydown))
 onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
 
-useErrorDialog([
-  () => error.value,
-])
 </script>
 
 <template>

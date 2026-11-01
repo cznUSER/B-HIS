@@ -1,5 +1,4 @@
 <script setup>
-import { useErrorDialog } from '../components/feedback/useErrorDialog.js'
 import { createSubmitFeedback } from '../components/feedback/useSubmitFeedback.js'
 import SubmitStatusBanner from '../components/feedback/SubmitStatusBanner.vue'
 // 2026-10-12 P1-H05-CHARGE-UI 门诊收费：待收、现金、查询、退费。侧栏仍由 AppShell 提供。
@@ -376,14 +375,6 @@ onMounted(async () => {
   }
 })
 
-useErrorDialog([
-  () => errorMessage.value,
-  () => subjectsError.value,
-  () => pendingError.value,
-  () => listError.value,
-  () => refundError.value,
-  () => refreshWarning.value,
-])
 </script>
 
 <template>
