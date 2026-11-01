@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>UI90-04H-FIX-01 isolated register chrome</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;padding:12px;background:#f3f6f5;color:#23424a;font-family:system-ui,sans-serif}h1,h2,p{margin:0}
+.fixture-notice{max-width:1200px;margin:0 auto 12px;font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+.shell-main{max-width:1200px;margin:auto;padding:16px;background:#eef3f1}
+button:disabled{cursor:not-allowed;opacity:.62}
+.text-btn{border:0;background:transparent;color:#006d75;font:inherit;font-size:11px;padding:0}
+</style><link rel="stylesheet" href="./_scoped.css" /></head><body>
+<p class="fixture-notice">UI90-04H-FIX-01 · UI-only · 非活体 · 壳≠主CORE已锁 · 壳≠FIX-02已验 · 不触发挂号/收费/报到写 · 非正式 SCORE · 未混 PRELIVE · 不签 90%</p>
+<main class="shell-main">
+<section class="register-page register-slot-card-page" data-testid="register-page" aria-labelledby="register-title">
+  <div class="register-top-chrome" data-testid="register-top-chrome">
+    <div class="register-heading">
+      <div>
+        <p class="crumb">首页 / 门诊业务 / 挂号</p>
+        <h1 id="register-title">门诊挂号 <small>号源工作台</small></h1>
+      </div>
+      <div class="register-heading-note"><span>2026-11-01 · 现场号</span><button class="text-btn" type="button" disabled>刷新号源</button></div>
+    </div>
+  </div>
+  <form class="register-empty-workspace register-slot-workspace" data-testid="register-form" onsubmit="return false">
+    <div class="register-patient-bar" aria-hidden="true">
+      <div class="register-patient-identity"><div class="register-patient-avatar">示</div><div><strong>示意患者</strong><span>静态 · 不读库</span></div></div>
+      <dl class="register-patient-fields"><div><dt>性别</dt><dd>未填</dd></div><div><dt>年龄</dt><dd>--</dd></div><div><dt>费别</dt><dd>自费</dd></div><div><dt>手机</dt><dd>--</dd></div></dl>
+      <div class="register-patient-actions"><button type="button" disabled>选择患者</button></div>
+    </div>
+    <div class="register-flow-row" data-testid="register-layout">
+      <div class="register-flow-main">
+        <div class="register-card-panels" data-testid="register-card-panels">
+          <section class="register-flow-panel" data-testid="register-department-panel"><header><h2>开放科室</h2><span>当日放号余量</span></header><div class="register-dept-grid"><button class="register-dept-card selected" type="button" disabled><strong>内科</strong><span>示意</span><b>12</b></button><button class="register-dept-card" type="button" disabled><strong>外科</strong><span>示意</span><b>8</b></button></div></section>
+          <section class="register-flow-panel" data-testid="register-doctor-panel"><header><h2>出诊医生</h2><span>内科</span></header><div class="register-doctor-list"><button class="register-doctor-card selected" type="button" disabled><span class="register-doctor-avatar">医</span><div class="register-doctor-body"><strong>示意医生</strong><span>静态号源</span><div class="register-doctor-bottom"><b>￥15</b></div></div></button></div></section>
+          <section class="register-flow-panel" data-testid="register-slot-panel"><header><h2>号源时段</h2><span>上午 / 下午</span></header><div class="register-slot-groups"><div class="register-slot-period"><h4>上午 <small>示意</small></h4><div class="register-slot-grid"><button class="register-slot-cell selected" type="button" disabled><strong>09:00</strong><span>余 3</span></button><button class="register-slot-cell" type="button" disabled><strong>09:30</strong><span>余 2</span></button></div></div></div></section>
+        </div>
+        <details class="register-today-fold" data-testid="register-today-panel" open><summary>今日工作 · 0 笔 <span>挂号操作记录</span></summary><div class="register-history-scroll"><table class="register-today-table"><thead><tr><th>患者姓名</th><th>挂号费用</th><th>挂号时间</th></tr></thead><tbody><tr><td colspan="3">今天还没有挂号操作记录。</td></tr></tbody></table></div></details>
+      </div>
+      <aside class="register-confirm-rail" data-testid="register-confirm-rail">
+        <header><h2>确认挂号</h2><p>UI-only 外框示意，不提交</p></header>
+        <div class="register-confirm-body"><p class="register-card-note">静态摘要。壳≠主CORE已锁；不触发真挂号写。</p></div>
+        <footer><button class="register-confirm-button" type="button" disabled>确认挂号（禁用）</button><p>隔离 fixture · 非活体</p></footer>
+      </aside>
+    </div>
+  </form>
+</section>
+</main>
+</body></html>

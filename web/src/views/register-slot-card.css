@@ -44,3 +44,14 @@
 .register-slot-card-page .register-confirm-rail>footer .register-fee-big{align-items:center}
 @media(min-width:1001px){.register-slot-card-page .register-confirm-rail{max-height:470px}}
 .register-slot-card-page .register-heading-note{display:flex;align-items:center;gap:10px;white-space:nowrap}
+/* UI90-04H-FIX-01: register shell ~980 + heading/panels outer chrome (UI-only; C-class CORE still missing; no 90% sign-off) */
+.register-slot-card-page,.shell-main .register-page.register-slot-card-page{--register-shell-w:980px;--register-top-h:56px;width:100%;max-width:var(--register-shell-w);margin-inline:auto;box-sizing:border-box;min-width:0}
+.register-slot-card-page .register-top-chrome{min-width:0}
+.register-slot-card-page .register-heading{min-height:var(--register-top-h);padding:6px 2px 8px;margin-bottom:12px;border-bottom:1px solid var(--register-line)}
+.register-slot-card-page .register-flow-row{gap:14px;padding:2px 0 0}
+.register-slot-card-page .register-card-panels{gap:12px;padding:2px;border:1px solid var(--register-line);border-radius:10px;background:#f7fbfa}
+.register-slot-card-page .register-flow-panel{border-radius:9px;box-shadow:0 1px 0 #16474d08}
+.register-slot-card-page .register-flow-panel>header{min-height:44px;padding:12px 14px}
+@media(max-width:1280px){.register-slot-card-page,.shell-main .register-page.register-slot-card-page{max-width:100%}.register-slot-card-page .register-heading{min-height:0}}
+@media(max-width:1000px){.register-slot-card-page .register-card-panels{padding:0;border:0;background:transparent;border-radius:0}}
+/* End UI90-04H-FIX-01 */

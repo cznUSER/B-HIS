@@ -656,8 +656,8 @@ async function onComplete(row) {
 </script>
 
 <template>
-  <section class="register-page register-slot-card-page" aria-labelledby="register-title">
-    <div class="register-heading"><div><p class="crumb"><RouterLink :to="{ name: 'home' }">首页</RouterLink><span> / </span><RouterLink :to="{ name: 'workbench' }">门诊业务</RouterLink><span> / 挂号</span></p><h1 id="register-title">门诊挂号 <small>号源工作台</small></h1></div><div class="register-heading-note"><span>{{ today }} · 现场号</span><button class="text-btn" type="button" :disabled="boardLoading || saving" @click="loadSlotBoard">刷新号源</button></div></div>
+  <section class="register-page register-slot-card-page" data-testid="register-page" aria-labelledby="register-title">
+    <div class="register-top-chrome" data-testid="register-top-chrome"><div class="register-heading"><div><p class="crumb"><RouterLink :to="{ name: 'home' }">首页</RouterLink><span> / </span><RouterLink :to="{ name: 'workbench' }">门诊业务</RouterLink><span> / 挂号</span></p><h1 id="register-title">门诊挂号 <small>号源工作台</small></h1></div><div class="register-heading-note"><span>{{ today }} · 现场号</span><button class="text-btn" type="button" :disabled="boardLoading || saving" @click="loadSlotBoard">刷新号源</button></div></div></div>
     <form class="register-empty-workspace register-slot-workspace" data-testid="register-form" novalidate @submit.prevent="onSave">
       <RegisterPatientBar :patient="patient" :loading="loading" :disabled="registerWriteBusy" @choose="patientPickerOpen = true" @read-id="readCard('身份证')" @read-medical="readCard('医保卡')" />
       <div v-if="notFound || loadError" class="banner" role="alert">{{ notFound ? '未找到患者，请重新选择。' : loadError }}<button type="button" class="text-btn" @click="load">重试患者信息</button></div>

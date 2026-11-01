@@ -1,0 +1,124 @@
+{
+  "slice": "UI90-04H-FIX-01",
+  "tipBaseline": "1a70c90",
+  "fullTipBaseline": "1a70c909f54e9674f78de618341bb6c733424bc8",
+  "note": "UI-only; isolated non-live fixture; no live API; no register writes; C-class main CORE still missing; not SCORE/PRELIVE; no 90% sign-off; shell does not verify FIX-02/list Morph/BTN-WIRE.",
+  "styleSha256": "6fd925dcee9340ff3f1a458df488eeaa871f1fedee6fd474c23975e02768bb87",
+  "invariants": {
+    "scriptByteIdentical": true,
+    "existingCssUnchanged": true,
+    "registerOnlySelectors": true,
+    "rootTestId": true,
+    "topChromeTestId": true,
+    "preservedTestIds": true,
+    "scopedShellWidth": true,
+    "noClinicalDesignTouch": true
+  },
+  "pageerrors": [],
+  "blockedExternalRequests": [],
+  "results": [
+    {
+      "viewport": 1440,
+      "pageW": 980,
+      "pageMaxWidth": "980px",
+      "tokenShell": "980px",
+      "topChrome": true,
+      "topH": 58,
+      "heading": true,
+      "layout": true,
+      "panels": true,
+      "dept": true,
+      "today": true,
+      "panelsBox": {
+        "x": 230,
+        "y": 229.1875,
+        "width": 702,
+        "height": 164
+      },
+      "overflow": false,
+      "contained": true,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "safeFixture": true,
+      "checks": {
+        "pagePass": true,
+        "tokenPass": true,
+        "topPass": true,
+        "panelsPass": true,
+        "overflowPass": true,
+        "safeFixturePass": true
+      },
+      "pass": true,
+      "screenshot": "after-1440.png"
+    },
+    {
+      "viewport": 1024,
+      "pageW": 944,
+      "pageMaxWidth": "100%",
+      "tokenShell": "980px",
+      "topChrome": true,
+      "topH": 58,
+      "heading": true,
+      "layout": true,
+      "panels": true,
+      "dept": true,
+      "today": true,
+      "panelsBox": {
+        "x": 40,
+        "y": 252.1875,
+        "width": 694,
+        "height": 245
+      },
+      "overflow": false,
+      "contained": true,
+      "scrollWidth": 1024,
+      "innerWidth": 1024,
+      "safeFixture": true,
+      "checks": {
+        "pagePass": true,
+        "tokenPass": true,
+        "topPass": true,
+        "panelsPass": true,
+        "overflowPass": true,
+        "safeFixturePass": true
+      },
+      "pass": true,
+      "screenshot": "after-1024.png"
+    },
+    {
+      "viewport": 390,
+      "pageW": 310,
+      "pageMaxWidth": "100%",
+      "tokenShell": "980px",
+      "topChrome": true,
+      "topH": 83,
+      "heading": true,
+      "layout": true,
+      "panels": true,
+      "dept": true,
+      "today": true,
+      "panelsBox": {
+        "x": 40,
+        "y": 409.5625,
+        "width": 310,
+        "height": 461
+      },
+      "overflow": false,
+      "contained": true,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "safeFixture": true,
+      "checks": {
+        "pagePass": true,
+        "tokenPass": true,
+        "topPass": true,
+        "panelsPass": true,
+        "overflowPass": true,
+        "safeFixturePass": true
+      },
+      "pass": true,
+      "screenshot": "after-390.png"
+    }
+  ],
+  "allPass": true
+}
