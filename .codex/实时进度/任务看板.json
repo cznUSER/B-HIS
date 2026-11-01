@@ -1,19 +1,19 @@
 {
-  "updatedAt": "2026-11-01 07:59 Asia/Shanghai",
-  "sourceUpdated": "2026-11-01 07:59 Asia/Shanghai",
+  "updatedAt": "2026-11-01 08:11 Asia/Shanghai",
+  "sourceUpdated": "2026-11-01 08:11 Asia/Shanghai",
   "current": {
-    "task": "idle",
-    "status": "idle",
-    "startedAt": "",
-    "duration": "",
-    "eta": "",
-    "blocker": "UI90-04B-LEFT-01 已关；等 Jarvis/H14 代决下一刀；不签 90%；未 SCORE；禁 DIAG-AUTOSAVE/ICD/Dict/强制编码/022/force/reset"
+    "task": "UI90-04B-LEFT-02 · UserOperationsLogPanel pnlHeader 相对 Left（H05）",
+    "status": "in_progress",
+    "startedAt": "2026-11-01 08:11 Asia/Shanghai",
+    "duration": "2.5～3.7h",
+    "eta": "—",
+    "blocker": "tipBaseline e673055；origin 0/0；pnlHeader 返回/标题/检索/导出相对 Left（DFM 15/110/813/909 或 right 105/9 等价）；45/30 守恒；LEFT-01 filters 108/183/385/431+196/81 守恒；禁全局改 MasterPanelHeader；禁整页壳 absolute；禁表列 Width；禁新 search API；明确不签 90%；不做 SCORE；禁 DIAG-AUTOSAVE/ICD/Dict/强制编码/022；满 3.7h 无 md/相对测表→停；壳/表列后置 LEFT-03/04"
   },
   "counts": {
-    "total": 93,
+    "total": 94,
     "done": 77,
-    "pending": 16,
-    "percent": 83
+    "pending": 17,
+    "percent": 82
   },
   "tasks": [
     {
@@ -480,6 +480,11 @@
       "status": "done",
       "summary": "UI90-04B-LEFT-01 用户操作日志页条件区命名绝对 Left 薄首片（模块/用户/日期起止+标签相对 filters；H05；不签 90%）",
       "timing": "完成：2026-11-01 07:59 Asia/Shanghai；H05 实现 tip **de00f3e**（全 de00f3e0a7a5de084ef49318eb3bb87b09ab5cca）；交付=deliverables/h05/ui90-04b-left-01-2026-11-01.md + deliverables/h05/ui90-04b-left-01/；H06 抽验 tip **61b28b4**（全 61b28b480437546d6db6583e8751796e94642d2f）建议通过；spotcheck=deliverables/h06/ui90-04b-left-01-spotcheck-2026-11-01.md；相对 .user-operations-filters Left/Top 与 DFM 108/183/385/431、Top 6/37 精确一致；主控宽 196、filters 高 81 守恒（1440/1024/861）；FIX-03 未回归；仅条件区内命名 absolute；无全页/header absolute、无表列 Width、无 Go/022/ICD/Dict/新 search API；**明确不签 90%**；未 SCORE；tipBaseline 159a309；开工 tip 2fb9c4a；关片前已普通 push 抽验 tip；origin 关片前 0/0；禁 force/reset"
+    },
+    {
+      "status": "in_progress",
+      "summary": "UI90-04B-LEFT-02 用户操作日志页 header 返回/检索/导出相对 Left 薄首片（pnlHeader；H05；不签 90%）",
+      "timing": "开工：2026-11-01 08:11 Asia/Shanghai；H05；H14卡 deliverables/h14/ui90-04b-left-02-start-card-2026-11-01.md；tipBaseline **e673055**（全 e6730551f8d04fd2cafd54b29019940237ea4375）；估时 2.5～3.7h；边界=pnlHeader 内返回/标题/检索/导出相对 Left（DFM 15/110/813/909 或 right 105/9 等价）；header 高 45±2；按钮高 30±2；LEFT-01 filters 回归过；禁全局改 MasterPanelHeader；禁整页壳 absolute；禁表列 Width；禁新 search API；禁签 90%；禁 SCORE；禁 DIAG-AUTOSAVE；禁官方 ICD/Dict/强制编码/022；壳1008/表列Width→后置 LEFT-03/04；origin **ahead/behind 0/0**；clone 否；满 3.7h 无 md/相对测表→停；≥4h 软拆 LEFT-02/03/04"
     }
   ],
   "notes": [
