@@ -168,7 +168,8 @@ async function onCreate() {
 </script>
 
 <template>
-  <section class="patient-page" aria-labelledby="patient-title">
+  <section class="patient-page" data-testid="patient-page" aria-labelledby="patient-title">
+    <div class="patient-top-chrome" data-testid="patient-top-chrome">
     <p class="crumb">
       <RouterLink :to="{ name: 'home' }">首页</RouterLink>
       <span aria-hidden="true"> / </span>
@@ -178,6 +179,7 @@ async function onCreate() {
     </p>
 
     <BusinessPageHeader title-id="patient-title" title="患者建档" eyebrow="PATIENT ARCHIVE" icon="patient" description="完善患者资料，创建准确的患者档案。" />
+    </div>
 
     <div class="patient-layout patient-create-layout">
       <aside class="patient-panel clinical-patient-summary" data-testid="patient-summary" aria-labelledby="patient-summary-title">
@@ -433,7 +435,7 @@ async function onCreate() {
 <style scoped>
 .patient-page .patient-layout.patient-create-layout {
   grid-template-columns: minmax(250px, .38fr) minmax(0, 1fr);
-  max-width: 1180px;
+  max-width: var(--patient-shell-w, 868px);
   align-items: start;
   gap: 22px;
 }

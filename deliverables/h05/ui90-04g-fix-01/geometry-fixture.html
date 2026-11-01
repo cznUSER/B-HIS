@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>UI90-04G-FIX-01 isolated patient chrome</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;padding:12px;background:#f3f6f4;color:#294e3e;font-family:system-ui,sans-serif}h1,h2,p{margin:0}
+.fixture-notice{max-width:1200px;margin:0 auto 12px;font-size:12px;line-height:1.6;overflow-wrap:anywhere}.shell-main{max-width:1200px;margin:auto;padding:16px;background:#eef2ef}
+.patient-page{display:flex;flex-direction:column;gap:12px}.patient-layout{display:grid}.patient-panel{display:flex;flex-direction:column;min-width:0;border:1px solid #d8e6dc;border-radius:12px;background:#fff}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px}.panel-head h2{font-size:16px}.field-grid{display:grid}.field{display:flex;flex-direction:column;min-width:0;gap:6px}.field>span{font-size:12px;font-weight:600}
+.field input,.field select{width:100%;min-width:0;height:34px;padding:0 10px;border:1px solid #c9d9cf;border-radius:8px;background:#fff;font:inherit;font-size:12px}.button{display:inline-flex;align-items:center;justify-content:center;padding:0 14px;border:1px solid #8fb9a2;border-radius:8px;background:#3c8f6c;color:#fff;font:inherit;font-size:12px}
+.clinical-profile-avatar{display:grid;place-items:center;flex:none;width:38px;height:38px;border-radius:10px;background:#e5f2e9}.crumb{margin-bottom:16px;color:#71877a;font-size:12px}.business-page-header{min-width:0}.business-page-header h1{font-size:20px;line-height:1.3}.business-page-header p{margin-top:4px;color:#71877a;font-size:12px}.patient-head-actions{min-width:0}
+button:disabled{cursor:not-allowed;opacity:.62}
+@media(max-width:760px){.panel-head{flex-wrap:wrap}.patient-head-actions{width:100%}}
+</style><link rel="stylesheet" href="./_scoped.css" /></head><body>
+<p class="fixture-notice">UI90-04G-FIX-01 · UI-only · 非活体 · 不触发患者写入 · ??? / ??????? · 隔离示意，非正式 SCORE，未混 PRELIVE，不签 90%。</p>
+<main class="shell-main"><section class="patient-page" data-testid="patient-page" aria-labelledby="patient-title">
+<div class="patient-top-chrome" data-testid="patient-top-chrome"><p class="crumb">首页 / 档案管理 / 患者建档</p><header class="business-page-header"><h1 id="patient-title">患者建档（????）</h1><p>仅用于观察页面外观的静态标题。</p></header></div>
+<div class="patient-layout patient-create-layout">
+<aside class="patient-panel clinical-patient-summary" data-testid="patient-summary" aria-labelledby="patient-summary-title">
+<div class="patient-summary-head"><div class="patient-summary-identity"><span class="clinical-profile-avatar" aria-hidden="true">待</span><div><h2 id="patient-summary-title">待创建患者</h2><p>保存后自动生成患者号</p></div></div><span class="clinical-badge">待保存</span></div>
+<dl class="patient-summary-grid"><div><dt>性别</dt><dd>未填写</dd></div><div><dt>出生日期</dt><dd>未填写</dd></div><div><dt>费别</dt><dd>未填写</dd></div><div><dt>证件号码</dt><dd>未填写</dd></div><div><dt>手机号</dt><dd>未填写</dd></div></dl>
+<div class="patient-summary-progress-head"><span>必填资料</span><strong>0 / 4</strong></div><div class="patient-summary-progress"><span style="width:0"></span></div><div class="patient-summary-state"><span class="patient-summary-state-dot" aria-hidden="true"></span><div><strong>等待完善资料</strong><p>静态示意，不创建、不读取患者。</p></div></div>
+</aside>
+<form class="patient-panel clinical-create-panel" data-testid="patient-form" onsubmit="return false">
+<div class="panel-head"><div><span class="clinical-kicker">新建档案</span><h2>新建档案</h2></div><div class="patient-head-actions"><div class="patient-mode-switch" role="group" aria-label="建档模式" data-testid="patient-mode-switch"><button class="patient-mode-button active" type="button" disabled>简易建档</button><button class="patient-mode-button" type="button" disabled>详细建档</button></div><span class="clinical-count">必填 0 / 4</span></div></div>
+<div class="clinical-progress"><span style="width:0"></span></div>
+<fieldset class="clinical-section"><legend><span class="clinical-section-number">01</span> 身份资料 <small>用于识别患者与就诊费别</small></legend><div class="field-grid"><label class="field"><span>姓名 *</span><input disabled /></label><label class="field"><span>性别 *</span><select disabled><option>请选择</option></select></label><label class="field"><span>出生日期 *</span><input placeholder="年 / 月 / 日" disabled /></label><label class="field"><span>费别 *</span><select disabled><option>请选择</option></select></label><label class="field"><span>证件类型</span><select disabled><option>身份证</option></select></label><label class="field"><span>证件号码</span><input disabled /></label></div></fieldset>
+<fieldset class="clinical-section"><legend><span class="clinical-section-number">02</span> 联系资料 <small>用于就诊联系</small></legend><div class="field-grid"><label class="field"><span>手机号</span><input disabled /></label><label class="field"><span>联系地址</span><input disabled /></label></div></fieldset>
+<footer class="clinical-form-footer"><p>UI-only：不连接 live API，不触发患者写入。</p><button class="button" type="button" disabled>创建档案</button></footer>
+</form></div></section></main></body></html>

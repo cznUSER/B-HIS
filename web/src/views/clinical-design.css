@@ -406,3 +406,79 @@
   .shell-main .patient-page .ok-banner { display: flex; }.shell-main .patient-page .ok-banner > .button { margin-top: 8px; }
   .shell-main .register-page .clinical-ticket-panel .business-empty-state { align-items: flex-start; }
 }
+/* UI90-04G-FIX-01: patient create chrome converges on DFM PatientFrm without changing shared order/register rules. */
+.shell-main .patient-page,
+.patient-page {
+  --patient-shell-w: 868px;
+  width: 100%;
+  max-width: var(--patient-shell-w);
+  margin-inline: auto;
+  box-sizing: border-box;
+  min-width: 0;
+}
+.shell-main .patient-page .patient-top-chrome,
+.patient-page .patient-top-chrome {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px 14px;
+  border: 1px solid #e1ece4;
+  border-radius: 12px;
+  background: linear-gradient(120deg, #f5faf6, #fff);
+}
+.shell-main .patient-page .patient-top-chrome .crumb,
+.patient-page .patient-top-chrome .crumb { margin: 0; font-size: 11px; }
+.shell-main .patient-page .patient-top-chrome .business-page-header,
+.patient-page .patient-top-chrome .business-page-header { min-height: 22px; align-items: center; }
+.shell-main .patient-page .patient-layout.patient-create-layout,
+.patient-page .patient-layout.patient-create-layout {
+  width: 100%;
+  max-width: var(--patient-shell-w);
+  min-width: 0;
+  grid-template-columns: minmax(245px, .36fr) minmax(0, .64fr);
+  gap: 14px;
+}
+.shell-main .patient-page .patient-layout.patient-create-layout > *,
+.patient-page .patient-layout.patient-create-layout > * { min-width: 0; }
+.shell-main .patient-page .clinical-patient-summary,
+.patient-page .clinical-patient-summary { gap: 14px; padding: 18px; }
+.shell-main .patient-page .clinical-patient-summary .patient-summary-grid,
+.patient-page .clinical-patient-summary .patient-summary-grid { gap: 12px 10px; padding-block: 14px; }
+.shell-main .patient-page .clinical-create-panel,
+.patient-page .clinical-create-panel { gap: 14px; padding: 18px; }
+.shell-main .patient-page .clinical-create-panel .patient-mode-button,
+.patient-page .clinical-create-panel .patient-mode-button { min-height: 30px; padding-inline: 8px; }
+.shell-main .patient-page .clinical-create-panel .clinical-section,
+.patient-page .clinical-create-panel .clinical-section { padding-top: 13px; }
+.shell-main .patient-page .clinical-create-panel .field-grid,
+.patient-page .clinical-create-panel .field-grid { gap: 12px; }
+.shell-main .patient-page .clinical-create-panel .clinical-form-footer,
+.patient-page .clinical-create-panel .clinical-form-footer { gap: 10px; margin-top: 0; padding-top: 12px; }
+.shell-main .patient-page .clinical-create-panel .clinical-form-footer .button,
+.patient-page .clinical-create-panel .clinical-form-footer .button { height: 30px; min-height: 30px; padding-inline: 12px; }
+@media (max-width: 1280px) {
+  .shell-main .patient-page,
+  .patient-page { max-width: 100%; }
+  .shell-main .patient-page .patient-layout.patient-create-layout,
+  .patient-page .patient-layout.patient-create-layout { max-width: 100%; }
+}
+@media (max-width: 1040px) {
+  .shell-main .patient-page .patient-layout.patient-create-layout,
+  .patient-page .patient-layout.patient-create-layout { grid-template-columns: minmax(0, 1fr); }
+  .shell-main .patient-page .clinical-patient-summary,
+  .patient-page .clinical-patient-summary { position: static; }
+}
+@media (max-width: 760px) {
+  .shell-main .patient-page .patient-top-chrome,
+  .patient-page .patient-top-chrome { padding: 10px 12px; }
+}
+@media (max-width: 640px) {
+  .shell-main .patient-page .clinical-patient-summary,
+  .patient-page .clinical-patient-summary { gap: 14px; padding: 16px; }
+  .shell-main .patient-page .patient-summary-grid,
+  .patient-page .patient-summary-grid { gap: 12px 10px; }
+  .shell-main .patient-page .clinical-create-panel,
+  .patient-page .clinical-create-panel { padding: 16px; }
+}
+/* End UI90-04G-FIX-01 */

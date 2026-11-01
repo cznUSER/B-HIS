@@ -1,0 +1,156 @@
+{
+  "slice": "UI90-04G-FIX-01",
+  "tipBaseline": "403e8b2",
+  "fullTipBaseline": "403e8b202842caedf3abc56a0b6e34ff83c03b07",
+  "note": "UI-only; isolated non-live fixture; no live API; no patient writes; not SCORE/PRELIVE; no 90% sign-off; shell does not verify list Morph or FIX-02.",
+  "styleSha256": "0f352e904871cb54fdded3a47f3de9801602bff638208ec33e756f3d81a5cec1",
+  "invariants": {
+    "scriptByteIdentical": true,
+    "existingCssUnchanged": true,
+    "patientOnlySelectors": true,
+    "rootTestId": true,
+    "topChromeTestId": true,
+    "preservedTestIds": true,
+    "scopedShellWidth": true
+  },
+  "pageerrors": [],
+  "blockedExternalRequests": [],
+  "results": [
+    {
+      "viewport": 1440,
+      "pageW": 868,
+      "pageMaxWidth": "868px",
+      "tokenShell": "868px",
+      "topChrome": true,
+      "topH": 87,
+      "summary": true,
+      "panel": true,
+      "modeSwitch": true,
+      "summaryBox": {
+        "x": 286,
+        "y": 170.1875,
+        "width": 307.4375,
+        "height": 354
+      },
+      "panelBox": {
+        "x": 607.4375,
+        "y": 170.1875,
+        "width": 546.5625,
+        "height": 496
+      },
+      "summaryPadding": "18px",
+      "panelPadding": "18px",
+      "layoutColumns": "307.438px 546.562px",
+      "footerButtonHeight": 30,
+      "overflow": false,
+      "contained": true,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "safeFixture": true,
+      "checks": {
+        "pagePass": true,
+        "tokenPass": true,
+        "topPass": true,
+        "summaryPass": true,
+        "panelPass": true,
+        "stackingPass": true,
+        "overflowPass": true,
+        "footerPass": true,
+        "safeFixturePass": true
+      },
+      "pass": true,
+      "screenshot": "after-1440.png"
+    },
+    {
+      "viewport": 1024,
+      "pageW": 944,
+      "pageMaxWidth": "100%",
+      "tokenShell": "868px",
+      "topChrome": true,
+      "topH": 87,
+      "summary": true,
+      "panel": true,
+      "modeSwitch": true,
+      "summaryBox": {
+        "x": 40,
+        "y": 170.1875,
+        "width": 944,
+        "height": 354
+      },
+      "panelBox": {
+        "x": 40,
+        "y": 538.1875,
+        "width": 944,
+        "height": 496
+      },
+      "summaryPadding": "18px",
+      "panelPadding": "18px",
+      "layoutColumns": "944px",
+      "footerButtonHeight": 30,
+      "overflow": false,
+      "contained": true,
+      "scrollWidth": 1024,
+      "innerWidth": 1024,
+      "safeFixture": true,
+      "checks": {
+        "pagePass": true,
+        "tokenPass": true,
+        "topPass": true,
+        "summaryPass": true,
+        "panelPass": true,
+        "stackingPass": true,
+        "overflowPass": true,
+        "footerPass": true,
+        "safeFixturePass": true
+      },
+      "pass": true,
+      "screenshot": "after-1024.png"
+    },
+    {
+      "viewport": 390,
+      "pageW": 310,
+      "pageMaxWidth": "100%",
+      "tokenShell": "868px",
+      "topChrome": true,
+      "topH": 87,
+      "summary": true,
+      "panel": true,
+      "modeSwitch": true,
+      "summaryBox": {
+        "x": 40,
+        "y": 208.5625,
+        "width": 310,
+        "height": 350
+      },
+      "panelBox": {
+        "x": 40,
+        "y": 572.5625,
+        "width": 310,
+        "height": 871
+      },
+      "summaryPadding": "16px",
+      "panelPadding": "16px",
+      "layoutColumns": "310px",
+      "footerButtonHeight": 30,
+      "overflow": false,
+      "contained": true,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "safeFixture": true,
+      "checks": {
+        "pagePass": true,
+        "tokenPass": true,
+        "topPass": true,
+        "summaryPass": true,
+        "panelPass": true,
+        "stackingPass": true,
+        "overflowPass": true,
+        "footerPass": true,
+        "safeFixturePass": true
+      },
+      "pass": true,
+      "screenshot": "after-390.png"
+    }
+  ],
+  "allPass": true
+}
