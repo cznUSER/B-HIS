@@ -194,7 +194,7 @@ async function onCreate() {
           <span class="clinical-badge" :class="{ 'patient-summary-badge-created': locked }">{{ locked ? '已创建' : '待保存' }}</span>
         </div>
 
-        <dl class="patient-summary-grid">
+        <dl class="patient-summary-grid" data-testid="patient-summary-grid">
           <div><dt>性别</dt><dd>{{ summarySex }}</dd></div>
           <div><dt>出生日期</dt><dd>{{ summaryBirthday }}</dd></div>
           <div><dt>费别</dt><dd>{{ summaryFare }}</dd></div>
@@ -416,9 +416,9 @@ async function onCreate() {
           </p>
         </div>
 
-        <div v-if="!locked && canCreatePatient" class="clinical-form-footer">
+        <div v-if="!locked && canCreatePatient" class="clinical-form-footer" data-testid="patient-form-footer">
           <p><span class="clinical-foot-dot" aria-hidden="true"></span> 完善必填资料后保存，档案将生成患者号</p>
-          <div class="panel-actions">
+          <div class="panel-actions" data-testid="patient-panel-actions">
           <button class="button button-compact" type="submit" :disabled="saving">
             {{ saving ? '正在保存…' : '保存建档' }}
           </button>

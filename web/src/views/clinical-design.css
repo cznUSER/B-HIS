@@ -482,3 +482,113 @@
   .patient-page .clinical-create-panel { padding: 16px; }
 }
 /* End UI90-04G-FIX-01 */
+/* UI90-04G-FIX-02: summary detail + field-grid + footer chrome; conserve FIX-01 shell 868 / adaptive topH~87. */
+.shell-main .patient-page .clinical-patient-summary .patient-summary-grid,
+.patient-page .clinical-patient-summary .patient-summary-grid {
+  gap: 10px 12px;
+  padding-block: 12px;
+}
+.shell-main .patient-page .clinical-patient-summary .patient-summary-grid dt,
+.patient-page .clinical-patient-summary .patient-summary-grid dt {
+  letter-spacing: 0.02em;
+  line-height: 1.35;
+}
+.shell-main .patient-page .clinical-patient-summary .patient-summary-grid dd,
+.patient-page .clinical-patient-summary .patient-summary-grid dd {
+  margin-top: 3px;
+  line-height: 1.35;
+}
+.shell-main .patient-page .clinical-patient-summary .patient-summary-progress-head,
+.patient-page .clinical-patient-summary .patient-summary-progress-head {
+  margin-top: 2px;
+  min-height: 18px;
+}
+.shell-main .patient-page .clinical-patient-summary .patient-summary-progress,
+.patient-page .clinical-patient-summary .patient-summary-progress {
+  height: 6px;
+  margin-top: -10px;
+}
+.shell-main .patient-page .clinical-patient-summary .patient-summary-state,
+.patient-page .clinical-patient-summary .patient-summary-state {
+  gap: 10px;
+  padding-top: 12px;
+}
+.shell-main .patient-page .clinical-create-panel .clinical-section,
+.patient-page .clinical-create-panel .clinical-section {
+  padding-top: 14px;
+}
+.shell-main .patient-page .clinical-create-panel .clinical-section + .clinical-section,
+.patient-page .clinical-create-panel .clinical-section + .clinical-section {
+  margin-top: 2px;
+}
+.shell-main .patient-page .clinical-create-panel .clinical-section legend,
+.patient-page .clinical-create-panel .clinical-section legend {
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.shell-main .patient-page .clinical-create-panel .clinical-section .field-grid,
+.patient-page .clinical-create-panel .clinical-section .field-grid {
+  gap: 14px 12px;
+}
+.shell-main .patient-page .clinical-create-panel .field-grid .field-wide,
+.patient-page .clinical-create-panel .field-grid .field-wide {
+  grid-column: 1 / -1;
+}
+.shell-main .patient-page .clinical-create-panel .clinical-form-footer,
+.patient-page .clinical-create-panel .clinical-form-footer {
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  padding-top: 14px;
+}
+.shell-main .patient-page .clinical-create-panel .clinical-form-footer > p,
+.patient-page .clinical-create-panel .clinical-form-footer > p {
+  max-width: 280px;
+  color: #91a398;
+  font-size: 10px;
+  line-height: 1.6;
+}
+.shell-main .patient-page .clinical-create-panel .panel-actions,
+.patient-page .clinical-create-panel .panel-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+.shell-main .patient-page .clinical-create-panel .clinical-form-footer .button,
+.patient-page .clinical-create-panel .clinical-form-footer .button {
+  height: 30px;
+  min-height: 30px;
+  min-width: 90px;
+  padding-inline: 14px;
+  box-sizing: border-box;
+}
+@media (max-width: 640px) {
+  .shell-main .patient-page .clinical-create-panel .clinical-section .field-grid,
+  .patient-page .clinical-create-panel .clinical-section .field-grid {
+    gap: 12px;
+  }
+  .shell-main .patient-page .clinical-create-panel .clinical-form-footer,
+  .patient-page .clinical-create-panel .clinical-form-footer {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .shell-main .patient-page .clinical-create-panel .clinical-form-footer > p,
+  .patient-page .clinical-create-panel .clinical-form-footer > p {
+    max-width: none;
+  }
+  .shell-main .patient-page .clinical-create-panel .panel-actions,
+  .patient-page .clinical-create-panel .panel-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+  .shell-main .patient-page .clinical-create-panel .clinical-form-footer .button,
+  .patient-page .clinical-create-panel .clinical-form-footer .button {
+    flex: 1 1 90px;
+  }
+}
+/* End UI90-04G-FIX-02 */
+

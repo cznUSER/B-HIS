@@ -1,0 +1,214 @@
+{
+  "slice": "UI90-04G-FIX-02",
+  "tipBaseline": "9d23097",
+  "fullTipBaseline": "9d23097fc2419add4a8054c1f4da0d0c69051d8b",
+  "implementAnchor": "f282e09",
+  "note": "UI-only; isolated non-live fixture; no live API; no patient writes; not SCORE/PRELIVE; no 90% sign-off; conserve FIX-01 shell 868/topH~87; geometry does not verify list Morph / BTN-WIRE / live createPatient.",
+  "styleSha256": "2981ef6a12e011d27bb40fc6fa77750894a0d0219f7c3c8a7bd5d5984b648a1a",
+  "invariants": {
+    "scriptByteIdentical": true,
+    "fix01Kept": true,
+    "cssWithoutFix02MatchesTip": true,
+    "patientOnlySelectors": true,
+    "rootTestId": true,
+    "topChromeTestId": true,
+    "preservedTestIds": true,
+    "newTestIds": true,
+    "scopedShellWidth": true,
+    "noSharedFooterRewrite": true
+  },
+  "pageerrors": [],
+  "blockedExternalRequests": [],
+  "results": [
+    {
+      "viewport": 1440,
+      "pageW": 868,
+      "pageMaxWidth": "868px",
+      "tokenShell": "868px",
+      "topChrome": true,
+      "topH": 87,
+      "summary": true,
+      "summaryGrid": true,
+      "summaryGridBox": {
+        "x": 305,
+        "y": 252.1875,
+        "width": 269.4375,
+        "height": 144.0625
+      },
+      "summaryGridGap": "10px 12px",
+      "panel": true,
+      "modeSwitch": true,
+      "section": true,
+      "fieldGridGap": "14px 12px",
+      "fieldWideColumn": "",
+      "footer": true,
+      "actions": true,
+      "footerBox": {
+        "x": 626.4375,
+        "y": 693.1875,
+        "width": 508.5625,
+        "height": 45
+      },
+      "footerButtonHeight": 30,
+      "footerButtonMinWidth": "90px",
+      "footerButtonWidth": 90,
+      "summaryBox": {
+        "x": 286,
+        "y": 170.1875,
+        "width": 307.4375,
+        "height": 356.0625
+      },
+      "panelBox": {
+        "x": 607.4375,
+        "y": 170.1875,
+        "width": 546.5625,
+        "height": 587
+      },
+      "overflow": false,
+      "contained": true,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "safeFixture": true,
+      "checks": {
+        "pagePass": true,
+        "tokenPass": true,
+        "topPass": true,
+        "summaryPass": true,
+        "fieldPass": true,
+        "footerPass": true,
+        "stackingPass": true,
+        "overflowPass": true,
+        "safeFixturePass": true
+      },
+      "pass": true,
+      "screenshot": "after-1440.png"
+    },
+    {
+      "viewport": 1024,
+      "pageW": 944,
+      "pageMaxWidth": "100%",
+      "tokenShell": "868px",
+      "topChrome": true,
+      "topH": 87,
+      "summary": true,
+      "summaryGrid": true,
+      "summaryGridBox": {
+        "x": 59,
+        "y": 252.1875,
+        "width": 906,
+        "height": 144.0625
+      },
+      "summaryGridGap": "10px 12px",
+      "panel": true,
+      "modeSwitch": true,
+      "section": true,
+      "fieldGridGap": "14px 12px",
+      "fieldWideColumn": "",
+      "footer": true,
+      "actions": true,
+      "footerBox": {
+        "x": 59,
+        "y": 1063.25,
+        "width": 906,
+        "height": 45
+      },
+      "footerButtonHeight": 30,
+      "footerButtonMinWidth": "90px",
+      "footerButtonWidth": 90,
+      "summaryBox": {
+        "x": 40,
+        "y": 170.1875,
+        "width": 944,
+        "height": 356.0625
+      },
+      "panelBox": {
+        "x": 40,
+        "y": 540.25,
+        "width": 944,
+        "height": 587
+      },
+      "overflow": false,
+      "contained": true,
+      "scrollWidth": 1024,
+      "innerWidth": 1024,
+      "safeFixture": true,
+      "checks": {
+        "pagePass": true,
+        "tokenPass": true,
+        "topPass": true,
+        "summaryPass": true,
+        "fieldPass": true,
+        "footerPass": true,
+        "stackingPass": true,
+        "overflowPass": true,
+        "safeFixturePass": true
+      },
+      "pass": true,
+      "screenshot": "after-1024.png"
+    },
+    {
+      "viewport": 390,
+      "pageW": 310,
+      "pageMaxWidth": "100%",
+      "tokenShell": "868px",
+      "topChrome": true,
+      "topH": 87,
+      "summary": true,
+      "summaryGrid": true,
+      "summaryGridBox": {
+        "x": 57,
+        "y": 288.5625,
+        "width": 276,
+        "height": 144.0625
+      },
+      "summaryGridGap": "10px 12px",
+      "panel": true,
+      "modeSwitch": true,
+      "section": true,
+      "fieldGridGap": "12px",
+      "fieldWideColumn": "",
+      "footer": true,
+      "actions": true,
+      "footerBox": {
+        "x": 57,
+        "y": 1375.625,
+        "width": 276,
+        "height": 71
+      },
+      "footerButtonHeight": 30,
+      "footerButtonMinWidth": "90px",
+      "footerButtonWidth": 134,
+      "summaryBox": {
+        "x": 40,
+        "y": 208.5625,
+        "width": 310,
+        "height": 352.0625
+      },
+      "panelBox": {
+        "x": 40,
+        "y": 574.625,
+        "width": 310,
+        "height": 889
+      },
+      "overflow": false,
+      "contained": true,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "safeFixture": true,
+      "checks": {
+        "pagePass": true,
+        "tokenPass": true,
+        "topPass": true,
+        "summaryPass": true,
+        "fieldPass": true,
+        "footerPass": true,
+        "stackingPass": true,
+        "overflowPass": true,
+        "safeFixturePass": true
+      },
+      "pass": true,
+      "screenshot": "after-390.png"
+    }
+  ],
+  "allPass": true
+}
