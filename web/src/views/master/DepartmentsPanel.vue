@@ -22,6 +22,7 @@ const notice = ref('')
 const noticeError = ref(false)
 const errorCode = ref('')
 const form = reactive({ deptCode: '', deptName: '', status: 'ACTIVE', sortNo: 0 })
+const activeTab = ref('normal') // 'normal' | 'nursing' · UI90-04D-FIX-01 tab shell only
 
 const canMaintain = computed(() => listReady.value && !loading.value && !saving.value)
 
@@ -52,6 +53,7 @@ async function load() {
 function startCreate() {
   if (!canMaintain.value) return
   editing.value = true
+  activeTab.value = 'normal'
   editingId.value = ''
   form.deptCode = ''
   form.deptName = ''
@@ -63,6 +65,7 @@ function startCreate() {
 function startEdit(row) {
   if (!canMaintain.value) return
   editing.value = true
+  activeTab.value = 'normal'
   editingId.value = row.departmentId
   form.deptCode = row.deptCode
   form.deptName = row.deptName
@@ -136,33 +139,72 @@ onMounted(load)
 
     <form v-if="editing" class="master-form" data-testid="dept-form" @submit.prevent="onSave">
       <div class="master-editor-head"><div><p class="master-eyebrow">科室维护</p><h3>{{ editingId ? '编辑科室' : '新建科室' }}</h3></div><span class="master-soft-badge">{{ editingId ? form.deptCode : '新记录' }}</span></div>
-      <fieldset class="master-form-group"><legend>科室信息与状态</legend><div class="field-grid">
-        <label class="field">
-          <span>科室代码 <abbr class="req" title="必填">*</abbr></span>
-          <input v-model="form.deptCode" required data-testid="dept-code" autocomplete="off" />
-        </label>
-        <label class="field">
-          <span>科室名称 <abbr class="req" title="必填">*</abbr></span>
-          <input v-model="form.deptName" required data-testid="dept-name" autocomplete="off" />
-        </label>
-        <label class="field">
-          <span>状态</span>
-          <select v-model="form.status">
-            <option value="ACTIVE">启用</option>
-            <option value="INACTIVE">停用</option>
-          </select>
-        </label>
-        <label class="field">
-          <span>排序</span>
-          <input v-model.number="form.sortNo" type="number" step="1" />
-        </label>
-      </div></fieldset>
-      <p class="field-hint">代码在未删除范围内唯一。停用后再挂号、再开单时不会出现。</p>
+      <div class="dept-editor-tabs" role="tablist" aria-label="科室编辑页签" data-testid="dept-editor-tabs">
+        <button
+          class="dept-editor-tab"
+          type="button"
+          role="tab"
+          data-testid="dept-tab-normal"
+          :aria-selected="activeTab === 'normal'"
+          :tabindex="activeTab === 'normal' ? 0 : -1"
+          :class="{ 'is-active': activeTab === 'normal' }"
+          @click="activeTab = 'normal'"
+        >常规</button>
+        <button
+          class="dept-editor-tab"
+          type="button"
+          role="tab"
+          data-testid="dept-tab-nursing"
+          :aria-selected="activeTab === 'nursing'"
+          :tabindex="activeTab === 'nursing' ? 0 : -1"
+          :class="{ 'is-active': activeTab === 'nursing' }"
+          @click="activeTab = 'nursing'"
+        >护理单元包含科室</button>
+      </div>
+      <div
+        v-show="activeTab === 'normal'"
+        class="dept-editor-tabpanel"
+        role="tabpanel"
+        data-testid="dept-tabpanel-normal"
+        aria-label="常规"
+      >
+        <fieldset class="master-form-group"><legend>科室信息与状态</legend><div class="field-grid">
+          <label class="field">
+            <span>科室代码 <abbr class="req" title="必填">*</abbr></span>
+            <input v-model="form.deptCode" required data-testid="dept-code" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>科室名称 <abbr class="req" title="必填">*</abbr></span>
+            <input v-model="form.deptName" required data-testid="dept-name" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>状态</span>
+            <select v-model="form.status">
+              <option value="ACTIVE">启用</option>
+              <option value="INACTIVE">停用</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>排序</span>
+            <input v-model.number="form.sortNo" type="number" step="1" />
+          </label>
+        </div></fieldset>
+        <p class="field-hint">代码在未删除范围内唯一。停用后再挂号、再开单时不会出现。</p>
+      </div>
+      <div
+        v-show="activeTab === 'nursing'"
+        class="dept-editor-tabpanel dept-editor-tabpanel-nursing"
+        role="tabpanel"
+        data-testid="dept-tabpanel-nursing"
+        aria-label="护理单元包含科室"
+      >
+        <p class="dept-nursing-placeholder" data-testid="dept-nursing-placeholder">本片未实现护理单元子列表（FIX-02 后置；禁 CRUD）</p>
+      </div>
       <div class="panel-actions">
         <button class="button button-compact" type="submit" data-testid="dept-save" :disabled="!canMaintain">
           {{ saving ? '正在保存…' : '保存' }}
         </button>
-        <button class="button button-ghost button-compact" type="button" @click="editing = false">取消</button>
+        <button class="button button-ghost button-compact" type="button" data-testid="dept-cancel" @click="editing = false">取消</button>
       </div>
     </form>
 
@@ -226,4 +268,59 @@ onMounted(load)
 .ui2-department-panel.patient-panel.master-data-panel .master-form .panel-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 .ui2-department-panel.patient-panel.master-data-panel .master-form .panel-actions .button { width: 90px; height: 30px; min-height: 30px; padding: 0 5px; border: 1px solid #aaa; border-radius: 3px; background: #e6e6e6; color: #202020; font: 16px SimSun, '宋体', serif; }
 .ui2-department-panel.patient-panel.master-data-panel .master-form .field-hint { margin-top: 10px; font: 12px/1.5 'Segoe UI', sans-serif; }
+/* UI90-04D-FIX-01: DepartmentFrm pcMain tabs — 常规 / 护理单元包含科室; TabHeight≈30; editor w≈408; actions 90×30 conserved. */
+.ui2-department-panel.patient-panel.master-data-panel .master-form {
+  --dept-editor-w: 408px;
+  --dept-tab-h: 30px;
+  --dept-pc-h: 366px;
+  width: var(--dept-editor-w);
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-editor-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  height: var(--dept-tab-h);
+  min-height: var(--dept-tab-h);
+  margin: 0 0 8px;
+  border-bottom: 1px solid #999;
+  background: #e8e8e8;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-editor-tab {
+  height: var(--dept-tab-h);
+  min-height: var(--dept-tab-h);
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #202020;
+  font: 12px/30px 'Segoe UI', SimSun, '宋体', sans-serif;
+  cursor: pointer;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-editor-tab.is-active {
+  background: #f0f0f0;
+  border-color: #999;
+  border-bottom-color: #f0f0f0;
+  margin-bottom: -1px;
+  font-weight: 600;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-editor-tabpanel {
+  min-height: 120px;
+  box-sizing: border-box;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-editor-tabpanel-nursing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+  border: 1px dashed #bbb;
+  background: #f7f7f7;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-nursing-placeholder {
+  margin: 0;
+  padding: 12px;
+  color: #666;
+  font: 12px/1.5 'Segoe UI', sans-serif;
+  text-align: center;
+}
 </style>

@@ -1,0 +1,63 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>UI90-04D-FIX-01 department editor tab shell probe</title>
+<style>
+html,body{margin:0;padding:12px;background:#fff;font-family:SimSun,'宋体',serif;color:#202020}
+.button{display:inline-flex;align-items:center;justify-content:center;border:1px solid #aaa;background:#e6e6e6;cursor:pointer}
+.button-ghost{background:#f5f5f5}
+.button-compact{}
+.field-grid{display:grid;gap:7px}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+<link rel="stylesheet" href="./_scoped.css" />
+</head>
+<body>
+<section class="ui2-department-panel" id="panel">
+  <form class="master-form" data-testid="dept-form" id="dept-form" onsubmit="return false">
+    <div class="master-editor-head"><div><p class="master-eyebrow">科室维护</p><h3>新建科室</h3></div><span class="master-soft-badge">新记录</span></div>
+    <div class="dept-editor-tabs" role="tablist" aria-label="科室编辑页签" data-testid="dept-editor-tabs">
+      <button class="dept-editor-tab is-active" type="button" role="tab" data-testid="dept-tab-normal" aria-selected="true" id="tab-normal">常规</button>
+      <button class="dept-editor-tab" type="button" role="tab" data-testid="dept-tab-nursing" aria-selected="false" id="tab-nursing">护理单元包含科室</button>
+    </div>
+    <div class="dept-editor-tabpanel" role="tabpanel" data-testid="dept-tabpanel-normal" id="panel-normal" aria-label="常规">
+      <fieldset class="master-form-group"><legend>科室信息与状态</legend><div class="field-grid">
+        <label class="field"><span>科室代码 *</span><input data-testid="dept-code" value="" /></label>
+        <label class="field"><span>科室名称 *</span><input data-testid="dept-name" value="" /></label>
+        <label class="field"><span>状态</span><select><option>启用</option></select></label>
+        <label class="field"><span>排序</span><input type="number" value="0" /></label>
+      </div></fieldset>
+      <p class="field-hint">代码在未删除范围内唯一。停用后再挂号、再开单时不会出现。</p>
+    </div>
+    <div class="dept-editor-tabpanel dept-editor-tabpanel-nursing" role="tabpanel" data-testid="dept-tabpanel-nursing" id="panel-nursing" aria-label="护理单元包含科室" hidden>
+      <p class="dept-nursing-placeholder" data-testid="dept-nursing-placeholder">本片未实现护理单元子列表（FIX-02 后置；禁 CRUD）</p>
+    </div>
+    <div class="panel-actions">
+      <button class="button button-compact" type="submit" data-testid="dept-save" id="dept-save">保存</button>
+      <button class="button button-ghost button-compact" type="button" data-testid="dept-cancel" id="dept-cancel">取消</button>
+    </div>
+  </form>
+</section>
+<script>
+(function(){
+  const tabN=document.getElementById('tab-normal');
+  const tabU=document.getElementById('tab-nursing');
+  const pN=document.getElementById('panel-normal');
+  const pU=document.getElementById('panel-nursing');
+  function activate(which){
+    const normal = which==='normal';
+    tabN.classList.toggle('is-active', normal);
+    tabU.classList.toggle('is-active', !normal);
+    tabN.setAttribute('aria-selected', String(normal));
+    tabU.setAttribute('aria-selected', String(!normal));
+    pN.hidden = !normal;
+    pU.hidden = normal;
+  }
+  tabN.addEventListener('click', ()=>activate('normal'));
+  tabU.addEventListener('click', ()=>activate('nursing'));
+  window.__deptActivate = activate;
+})();
+</script>
+</body>
+</html>
