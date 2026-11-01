@@ -1,19 +1,19 @@
 {
-  "updatedAt": "2026-11-01 08:17 Asia/Shanghai",
-  "sourceUpdated": "2026-11-01 08:17 Asia/Shanghai",
+  "updatedAt": "2026-11-01 08:24 Asia/Shanghai",
+  "sourceUpdated": "2026-11-01 08:24 Asia/Shanghai",
   "current": {
-    "task": "idle",
-    "status": "idle",
-    "startedAt": "—",
-    "duration": "—",
+    "task": "UI90-04B-LEFT-03 · UserOperationsLogPanel 壳宽 1008（H05）",
+    "status": "in_progress",
+    "startedAt": "2026-11-01 08:24 Asia/Shanghai",
+    "duration": "2.5～3.8h",
     "eta": "—",
-    "blocker": "等 Jarvis/H14 代决下一刀；UI90-04B-LEFT-02 已关（H05 ef46286；H06 44d330d 建议通过；不签 90%；未 SCORE）；壳/表列默认后置 LEFT-03/04；SCORE 后置"
+    "blocker": "tipBaseline 8695f2a；origin 0/0；本页内容壳宽对齐 DFM ClientWidth 1008±2（--uol-shell-w）；结果区相对 panel Left≈0/宽随壳；LEFT-01 filters 108/183/385/431+196/81 与 LEFT-02 header 15/110/105/9+45/30 守恒；禁全局改 AppShell/MasterPanelHeader；禁表列 Width；禁新 search API；明确不签 90%；不做 SCORE；禁 DIAG-AUTOSAVE/ICD/Dict/强制编码/022；表列后置 LEFT-04；AppShell/458→后置 03b；满 3.8h 无 md/壳宽测表→停"
   },
   "counts": {
-    "total": 94,
+    "total": 95,
     "done": 78,
-    "pending": 16,
-    "percent": 83
+    "pending": 17,
+    "percent": 82
   },
   "tasks": [
     {
@@ -485,6 +485,11 @@
       "status": "done",
       "summary": "UI90-04B-LEFT-02 用户操作日志页 header 返回/检索/导出相对 Left 薄首片（pnlHeader；H05；不签 90%）",
       "timing": "完成：2026-11-01 08:17 Asia/Shanghai；H05 实现 tip **ef46286**（全 ef4628631225c1ff37ed606ebb9b29e04524c832）；交付=deliverables/h05/ui90-04b-left-02-2026-11-01.md + deliverables/h05/ui90-04b-left-02/；H06 抽验 tip **44d330d**（全 44d330d576c97b3e175370fcdac4672ea11ddb95）建议通过；spotcheck=deliverables/h06/ui90-04b-left-02-spotcheck-2026-11-01.md；相对 header：returnL=15、titleL=110、searchR=105、exportR=9、headerH=45、btnH=30（1440/1024/861）；LEFT-01 filters 108/183/385/431 + Top 6/37、196/81 回归过；未改 MasterPanelHeader；无整页壳 absolute、无表列 Width、无新 search API；**明确不签 90%**；未 SCORE；tipBaseline e673055；开工 tip 87ef44f；关片前 ahead≈3（实现+开工+抽验未 push）；禁 force/reset"
+    },
+    {
+      "status": "in_progress",
+      "summary": "UI90-04B-LEFT-03 用户操作日志页壳宽 1008 薄首片（本页壳；H05；不签 90%）",
+      "timing": "开工：2026-11-01 08:24 Asia/Shanghai；H05；H14卡 deliverables/h14/ui90-04b-left-03-start-card-2026-11-01.md；tipBaseline **8695f2a**（全 8695f2a3a6df1965f620c14f126aad381b45a6aa）；估时 2.5～3.8h；边界=本页内容壳宽对齐 DFM ClientWidth 1008±2（--uol-shell-w）；结果区相对 panel Left≈0±2/宽随壳；LEFT-01 filters 108/183/385/431+196/81 与 LEFT-02 header 15/110/105/9+45/30 守恒；禁全局改 AppShell/MasterPanelHeader；禁表列 Width；禁新 search API；禁签 90%；禁 SCORE；禁 DIAG-AUTOSAVE；禁官方 ICD/Dict/强制编码/022；表列Width→后置 LEFT-04；AppShell/458→后置 03b；origin **ahead/behind 0/0**；clone 否；满 3.8h 无 md/壳宽测表→停；≥4h 软拆 LEFT-03/03b/04"
     }
   ],
   "notes": [
