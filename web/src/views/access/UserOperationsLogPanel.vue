@@ -188,22 +188,49 @@ onMounted(async () => {
     <p v-else-if="ready && !rows.length" class="result-empty">没有符合条件的操作记录</p>
     <div v-else-if="ready" class="result-wrap user-operations-results" tabindex="0" role="region" aria-label="用户操作日志列表，可横向滚动">
       <div class="master-table-head"><h3>操作记录</h3><span>{{ rows.length }} 条已加载</span></div>
-      <table class="register-table">
-        <thead><tr><th>模块名称</th><th>日志类型</th><th>记录时间</th><th>用户名称</th><th>登陆科室</th><th>日志内容</th><th>IP地址</th><th>MAC地址</th><th>程序版本号</th><th>结果</th><th>请求编号</th><th>错误代码</th></tr></thead>
+      <table class="register-table user-operations-table">
+        <colgroup>
+          <col class="uol-col-module" />
+          <col class="uol-col-type" />
+          <col class="uol-col-time" />
+          <col class="uol-col-user" />
+          <col class="uol-col-dept" />
+          <col class="uol-col-content" />
+          <col class="uol-col-ip" />
+          <col class="uol-col-mac" />
+          <col class="uol-col-version" />
+          <col class="uol-col-ext-outcome" />
+          <col class="uol-col-ext-request" />
+          <col class="uol-col-ext-error" />
+        </colgroup>
+        <thead><tr>
+          <th class="uol-col-module">模块名称</th>
+          <th class="uol-col-type">日志类型</th>
+          <th class="uol-col-time">记录时间</th>
+          <th class="uol-col-user">用户名称</th>
+          <th class="uol-col-dept">登陆科室</th>
+          <th class="uol-col-content">日志内容</th>
+          <th class="uol-col-ip">IP地址</th>
+          <th class="uol-col-mac">MAC地址</th>
+          <th class="uol-col-version">程序版本号</th>
+          <th class="uol-col-ext-outcome">结果</th>
+          <th class="uol-col-ext-request">请求编号</th>
+          <th class="uol-col-ext-error">错误代码</th>
+        </tr></thead>
         <tbody>
           <tr v-for="(row, index) in rows" :key="`${row.requestId}-${row.time}-${index}`">
-            <td>{{ row.module || '—' }}</td>
-            <td>{{ row.type || '—' }}</td>
-            <td class="user-operations-time">{{ formatTime(row.time) }}</td>
-            <td><span>{{ row.user || row.userId || '—' }}</span><small v-if="row.userId && row.user && row.userId !== row.user" class="user-operations-user-id">{{ row.userId }}</small></td>
-            <td>{{ row.department || '—' }}</td>
-            <td>{{ row.description || '—' }}</td>
-            <td class="mono">{{ row.ip || '—' }}</td>
-            <td class="mono">{{ row.mac || '—' }}</td>
-            <td>{{ row.version || '—' }}</td>
-            <td><span class="status-pill" :data-status="row.outcome">{{ row.outcome || '—' }}</span></td>
-            <td class="mono">{{ row.requestId || '—' }}</td>
-            <td class="mono">{{ row.errorCode || '—' }}</td>
+            <td class="uol-col-module">{{ row.module || '—' }}</td>
+            <td class="uol-col-type">{{ row.type || '—' }}</td>
+            <td class="uol-col-time user-operations-time">{{ formatTime(row.time) }}</td>
+            <td class="uol-col-user"><span>{{ row.user || row.userId || '—' }}</span><small v-if="row.userId && row.user && row.userId !== row.user" class="user-operations-user-id">{{ row.userId }}</small></td>
+            <td class="uol-col-dept">{{ row.department || '—' }}</td>
+            <td class="uol-col-content">{{ row.description || '—' }}</td>
+            <td class="uol-col-ip mono">{{ row.ip || '—' }}</td>
+            <td class="uol-col-mac mono">{{ row.mac || '—' }}</td>
+            <td class="uol-col-version">{{ row.version || '—' }}</td>
+            <td class="uol-col-ext-outcome"><span class="status-pill" :data-status="row.outcome">{{ row.outcome || '—' }}</span></td>
+            <td class="uol-col-ext-request mono">{{ row.requestId || '—' }}</td>
+            <td class="uol-col-ext-error mono">{{ row.errorCode || '—' }}</td>
           </tr>
         </tbody>
       </table>
@@ -213,7 +240,26 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.user-operations-panel.access-data-panel.patient-panel.access-data-panel { --uol-shell-w: 1008px; gap: 0; padding: 0; border: 1px solid #999; border-radius: 0; background: #f0f0f0; color: #202020; font: 16px SimSun, '宋体', serif; box-sizing: border-box; }
+.user-operations-panel.access-data-panel.patient-panel.access-data-panel {
+  --uol-shell-w: 1008px;
+  --uol-col-w-module: 102px;
+  --uol-col-w-type: 76px;
+  --uol-col-w-time: 123px;
+  --uol-col-w-user: 67px;
+  --uol-col-w-dept: 67px;
+  --uol-col-w-content: 324px;
+  --uol-col-w-ip: 87px;
+  --uol-col-w-mac: 85px;
+  --uol-col-w-version: 75px;
+  gap: 0;
+  padding: 0;
+  border: 1px solid #999;
+  border-radius: 0;
+  background: #f0f0f0;
+  color: #202020;
+  font: 16px SimSun, '宋体', serif;
+  box-sizing: border-box;
+}
 .user-operations-panel.access-data-panel.patient-panel :deep(.master-panel-header) {
   --uol-hdr-left-return: 15px;
   --uol-hdr-left-title: 110px;
@@ -306,8 +352,32 @@ onMounted(async () => {
 .user-operations-user-picker-list button { width: 100%; margin-bottom: 3px; text-align: left; overflow-wrap: anywhere; }
 .user-operations-user-picker-list button[aria-pressed='true'] { border-color: #666; background: #dedede; }
 .user-operations-user-picker p { margin: 8px 0; overflow-wrap: anywhere; }
-.user-operations-results { max-width: 100%; }
-.user-operations-time { min-width: 155px; white-space: nowrap; }
+.user-operations-results { max-width: 100%; overflow-x: auto; }
+.user-operations-time { white-space: nowrap; }
+.user-operations-panel.access-data-panel.patient-panel .user-operations-table {
+  table-layout: fixed;
+  width: calc(
+    var(--uol-col-w-module) + var(--uol-col-w-type) + var(--uol-col-w-time) + var(--uol-col-w-user) + var(--uol-col-w-dept) +
+    var(--uol-col-w-content) + var(--uol-col-w-ip) + var(--uol-col-w-mac) + var(--uol-col-w-version) + 240px
+  );
+  min-width: 100%;
+  box-sizing: border-box;
+}
+.user-operations-panel.access-data-panel.patient-panel .uol-col-module { width: var(--uol-col-w-module); }
+.user-operations-panel.access-data-panel.patient-panel .uol-col-type { width: var(--uol-col-w-type); }
+.user-operations-panel.access-data-panel.patient-panel .uol-col-time { width: var(--uol-col-w-time); }
+.user-operations-panel.access-data-panel.patient-panel .uol-col-user { width: var(--uol-col-w-user); }
+.user-operations-panel.access-data-panel.patient-panel .uol-col-dept { width: var(--uol-col-w-dept); }
+.user-operations-panel.access-data-panel.patient-panel .uol-col-content { width: var(--uol-col-w-content); overflow: hidden; text-overflow: ellipsis; }
+.user-operations-panel.access-data-panel.patient-panel .uol-col-ip { width: var(--uol-col-w-ip); }
+.user-operations-panel.access-data-panel.patient-panel .uol-col-mac { width: var(--uol-col-w-mac); }
+.user-operations-panel.access-data-panel.patient-panel .uol-col-version { width: var(--uol-col-w-version); }
+.user-operations-panel.access-data-panel.patient-panel .uol-col-ext-outcome,
+.user-operations-panel.access-data-panel.patient-panel .uol-col-ext-request,
+.user-operations-panel.access-data-panel.patient-panel .uol-col-ext-error {
+  width: auto;
+  min-width: 72px;
+}
 .user-operations-user-id { display: block; color: #829286; font-size: 10px; }
 .user-operations-panel.access-data-panel.patient-panel .mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 10px; overflow-wrap: anywhere; }
 .user-operations-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0 2px; color: #829286; font-size: 11px; }
@@ -325,6 +395,10 @@ onMounted(async () => {
     max-width: none;
     box-sizing: border-box;
     margin: 0;
+  }
+  .user-operations-panel.access-data-panel.patient-panel .user-operations-time {
+    min-width: 0;
+    max-width: var(--uol-col-w-time);
   }
 }
 @media (min-width: 861px) {
@@ -387,6 +461,25 @@ onMounted(async () => {
   .user-operations-panel.access-data-panel.patient-panel {
     width: auto;
     max-width: 100%;
+  }
+  .user-operations-panel.access-data-panel.patient-panel .user-operations-table {
+    table-layout: auto;
+    width: max-content;
+    min-width: 100%;
+  }
+  .user-operations-panel.access-data-panel.patient-panel .uol-col-module,
+  .user-operations-panel.access-data-panel.patient-panel .uol-col-type,
+  .user-operations-panel.access-data-panel.patient-panel .uol-col-time,
+  .user-operations-panel.access-data-panel.patient-panel .uol-col-user,
+  .user-operations-panel.access-data-panel.patient-panel .uol-col-dept,
+  .user-operations-panel.access-data-panel.patient-panel .uol-col-content,
+  .user-operations-panel.access-data-panel.patient-panel .uol-col-ip,
+  .user-operations-panel.access-data-panel.patient-panel .uol-col-mac,
+  .user-operations-panel.access-data-panel.patient-panel .uol-col-version {
+    width: auto;
+  }
+  .user-operations-panel.access-data-panel.patient-panel .user-operations-time {
+    min-width: 155px;
   }
 }
 @media (max-width: 860px) {
