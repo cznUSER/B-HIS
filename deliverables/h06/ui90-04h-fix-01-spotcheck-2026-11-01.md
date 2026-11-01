@@ -16,7 +16,7 @@
 | tipBaseline | `1a70c90` | `1a70c909f54e9674f78de618341bb6c733424bc8` | `90eb38c…` |
 | 实现 tip | `4667d05` | `4667d05fc451b43c0e8249a8183c3bde0822652b` | **`1a70c90`**（吻合） |
 | H05 tipFinal（抽验前 HEAD） | `c858330` | `c858330080cb88f43847b81943f97595c7c76dca` | `4667d05` |
-| H06 tipFinal | （本 commit 后填） | — | — |
+| H06 tipFinal | `737aaab` | `737aaab5d936059060820d8adcc48366a58000ac` | `c858330` |
 
 分支：`codex/register-slot-card-20261028`。  
 抽验开工时 ahead/behind vs `origin/codex/register-slot-card-20261028`：**ahead 2 / behind 0**（未 push；本片亦不 push）。
