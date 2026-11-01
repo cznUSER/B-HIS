@@ -153,9 +153,7 @@
       document.querySelector('[data-testid="dept-functions"]').value = '';
       document.querySelector('[data-testid="dept-category"]').value = '';
     };
-    document.querySelector('[data-testid="dept-functions-btn"]').addEventListener('click', () => {
-      window.__state.dialogOpened = true;
-    });
+    document.querySelector('[data-testid="dept-functions-btn"]').addEventListener('click', () => { /* noop — FIX-03c-FIXTURE-01: align production/03b; never set dialogOpened */ });
     document.querySelector('[data-testid="dept-cancel"]').addEventListener('click', () => {
       window.__resetExtra();
     });

@@ -88,7 +88,7 @@
         "status": "ACTIVE",
         "deptCode": "D001"
       },
-      "dialogAfterClick": true,
+      "dialogAfterClick": false,
       "saveKeys": [
         "deptCode",
         "deptName",
@@ -134,7 +134,8 @@
         "savePass": true,
         "nursingPass": true,
         "overflowPass": true,
-        "hintPass": true
+        "hintPass": true,
+        "noopPass": true
       },
       "pass": true
     },
@@ -224,7 +225,7 @@
         "status": "ACTIVE",
         "deptCode": "D001"
       },
-      "dialogAfterClick": true,
+      "dialogAfterClick": false,
       "saveKeys": [
         "deptCode",
         "deptName",
@@ -270,7 +271,8 @@
         "savePass": true,
         "nursingPass": true,
         "overflowPass": true,
-        "hintPass": true
+        "hintPass": true,
+        "noopPass": true
       },
       "pass": true
     },
@@ -360,7 +362,7 @@
         "status": "ACTIVE",
         "deptCode": "D001"
       },
-      "dialogAfterClick": true,
+      "dialogAfterClick": false,
       "saveKeys": [
         "deptCode",
         "deptName",
@@ -406,7 +408,8 @@
         "savePass": true,
         "nursingPass": true,
         "overflowPass": true,
-        "hintPass": true
+        "hintPass": true,
+        "noopPass": true
       },
       "pass": true
     }

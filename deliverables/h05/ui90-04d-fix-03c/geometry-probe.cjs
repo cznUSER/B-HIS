@@ -1,4 +1,4 @@
-﻿const { chromium } = require('C:/Users/SYG/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const { chromium } = require('C:/Users/SYG/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -184,8 +184,9 @@ function near(actual, expected, tol) {
     const nursingPass = nursing.nursingVisible && near(nursing.listH, 257, 2) && near(nursing.addW, 90, 2) && near(nursing.addH, 30, 2);
     const overflowPass = base.overflow === false;
     const hintPass = /激活标记≠启停 status/.test(base.hintText) && /未接主数据/.test(base.hintText) && /未持久化/.test(base.hintText);
+    const noopPass = dialogAfterClick === false;
 
-    const pass = formWPass && btnPass && controlsPass && conservePass && mutexPass && activeNeStatusPass && discardPass && savePass && nursingPass && overflowPass && hintPass && pageerrors.length === 0;
+    const pass = formWPass && btnPass && controlsPass && conservePass && mutexPass && activeNeStatusPass && discardPass && savePass && nursingPass && overflowPass && hintPass && noopPass && pageerrors.length === 0;
 
     results.push({
       width,
@@ -199,7 +200,7 @@ function near(actual, expected, tol) {
       afterCancel,
       radiosAfterCancel,
       nursing,
-      checks: { formWPass, btnPass, controlsPass, conservePass, mutexPass, activeNeStatusPass, discardPass, savePass, nursingPass, overflowPass, hintPass },
+      checks: { formWPass, btnPass, controlsPass, conservePass, mutexPass, activeNeStatusPass, discardPass, savePass, nursingPass, overflowPass, hintPass, noopPass },
       pass,
     });
   }
