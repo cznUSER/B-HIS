@@ -1,19 +1,19 @@
 {
-  "updatedAt": "2026-11-01 08:11 Asia/Shanghai",
-  "sourceUpdated": "2026-11-01 08:11 Asia/Shanghai",
+  "updatedAt": "2026-11-01 08:17 Asia/Shanghai",
+  "sourceUpdated": "2026-11-01 08:17 Asia/Shanghai",
   "current": {
-    "task": "UI90-04B-LEFT-02 · UserOperationsLogPanel pnlHeader 相对 Left（H05）",
-    "status": "in_progress",
-    "startedAt": "2026-11-01 08:11 Asia/Shanghai",
-    "duration": "2.5～3.7h",
+    "task": "idle",
+    "status": "idle",
+    "startedAt": "—",
+    "duration": "—",
     "eta": "—",
-    "blocker": "tipBaseline e673055；origin 0/0；pnlHeader 返回/标题/检索/导出相对 Left（DFM 15/110/813/909 或 right 105/9 等价）；45/30 守恒；LEFT-01 filters 108/183/385/431+196/81 守恒；禁全局改 MasterPanelHeader；禁整页壳 absolute；禁表列 Width；禁新 search API；明确不签 90%；不做 SCORE；禁 DIAG-AUTOSAVE/ICD/Dict/强制编码/022；满 3.7h 无 md/相对测表→停；壳/表列后置 LEFT-03/04"
+    "blocker": "等 Jarvis/H14 代决下一刀；UI90-04B-LEFT-02 已关（H05 ef46286；H06 44d330d 建议通过；不签 90%；未 SCORE）；壳/表列默认后置 LEFT-03/04；SCORE 后置"
   },
   "counts": {
     "total": 94,
-    "done": 77,
-    "pending": 17,
-    "percent": 82
+    "done": 78,
+    "pending": 16,
+    "percent": 83
   },
   "tasks": [
     {
@@ -482,9 +482,9 @@
       "timing": "完成：2026-11-01 07:59 Asia/Shanghai；H05 实现 tip **de00f3e**（全 de00f3e0a7a5de084ef49318eb3bb87b09ab5cca）；交付=deliverables/h05/ui90-04b-left-01-2026-11-01.md + deliverables/h05/ui90-04b-left-01/；H06 抽验 tip **61b28b4**（全 61b28b480437546d6db6583e8751796e94642d2f）建议通过；spotcheck=deliverables/h06/ui90-04b-left-01-spotcheck-2026-11-01.md；相对 .user-operations-filters Left/Top 与 DFM 108/183/385/431、Top 6/37 精确一致；主控宽 196、filters 高 81 守恒（1440/1024/861）；FIX-03 未回归；仅条件区内命名 absolute；无全页/header absolute、无表列 Width、无 Go/022/ICD/Dict/新 search API；**明确不签 90%**；未 SCORE；tipBaseline 159a309；开工 tip 2fb9c4a；关片前已普通 push 抽验 tip；origin 关片前 0/0；禁 force/reset"
     },
     {
-      "status": "in_progress",
+      "status": "done",
       "summary": "UI90-04B-LEFT-02 用户操作日志页 header 返回/检索/导出相对 Left 薄首片（pnlHeader；H05；不签 90%）",
-      "timing": "开工：2026-11-01 08:11 Asia/Shanghai；H05；H14卡 deliverables/h14/ui90-04b-left-02-start-card-2026-11-01.md；tipBaseline **e673055**（全 e6730551f8d04fd2cafd54b29019940237ea4375）；估时 2.5～3.7h；边界=pnlHeader 内返回/标题/检索/导出相对 Left（DFM 15/110/813/909 或 right 105/9 等价）；header 高 45±2；按钮高 30±2；LEFT-01 filters 回归过；禁全局改 MasterPanelHeader；禁整页壳 absolute；禁表列 Width；禁新 search API；禁签 90%；禁 SCORE；禁 DIAG-AUTOSAVE；禁官方 ICD/Dict/强制编码/022；壳1008/表列Width→后置 LEFT-03/04；origin **ahead/behind 0/0**；clone 否；满 3.7h 无 md/相对测表→停；≥4h 软拆 LEFT-02/03/04"
+      "timing": "完成：2026-11-01 08:17 Asia/Shanghai；H05 实现 tip **ef46286**（全 ef4628631225c1ff37ed606ebb9b29e04524c832）；交付=deliverables/h05/ui90-04b-left-02-2026-11-01.md + deliverables/h05/ui90-04b-left-02/；H06 抽验 tip **44d330d**（全 44d330d576c97b3e175370fcdac4672ea11ddb95）建议通过；spotcheck=deliverables/h06/ui90-04b-left-02-spotcheck-2026-11-01.md；相对 header：returnL=15、titleL=110、searchR=105、exportR=9、headerH=45、btnH=30（1440/1024/861）；LEFT-01 filters 108/183/385/431 + Top 6/37、196/81 回归过；未改 MasterPanelHeader；无整页壳 absolute、无表列 Width、无新 search API；**明确不签 90%**；未 SCORE；tipBaseline e673055；开工 tip 87ef44f；关片前 ahead≈3（实现+开工+抽验未 push）；禁 force/reset"
     }
   ],
   "notes": [
@@ -546,6 +546,7 @@
     "H01（2026-11-01 00:56 Asia/Shanghai）：UI90-04C-REVERIFY-01 → in_progress 派 H06；H14卡 deliverables/h14/ui90-04c-reverify-01-start-card-2026-11-01.md；基线 tip 2b69533；估时 1.5～3.0h；只读复验、不签 90%；origin 0/0；counts 72/17/89（81%；in_progress 计入 pending）；未跑 sync_progress.py；未改业务源码；未 git commit/push/reset",
     "H01（2026-11-01 01:24 Asia/Shanghai）：UI90-04C-FIX-03 → in_progress 派 H05；H14卡 deliverables/h14/ui90-04c-fix-03-start-card-2026-11-01.md；基线 tip f0aa482；估时 2.0～3.5h；button-edit 薄首片（只读+省略号；复用 fetchUsers；写回 filters.userId）；**明确不签 90%**；不并 FIX-04；不做 SCORE；origin 0/0；counts 74/17/91（81%；in_progress 计入 pending）；未跑 sync_progress.py；未改业务源码；未 git commit/push/reset",
     "H01 收口（2026-11-01 02:14 Asia/Shanghai）：UI90-04C-FIX-04=done tip **64ec746**；H05 实现 **4b2e605**（两行网格+列宽 token；测宽达标）；H06 tip **64ec746** 抽验建议通过；**明确不签 90%**；未 SCORE；未 absolute Left/04b；current=idle 待 Jarvis/H14 定下一刀；origin 关片前 ahead 1（H06）；counts 76/16/92（83%）；未跑 sync_progress.py；未改业务源码；关片仅看板+STATUS；禁 force/reset",
-    "H01 关片（2026-11-01 07:59 Asia/Shanghai）：UI90-04B-LEFT-01=done tip **61b28b4**（H05 实现 **de00f3e**；H06 抽验 **61b28b4** 建议通过；**明确不签 90%**；未 SCORE）；current=idle 等 Jarvis/H14 代决下一刀；origin 关片前已推平抽验 tip **0/0**；counts 77/16/93（83%）；未跑 sync_progress.py；未改业务源码；关片仅看板+STATUS+bak；禁 force/reset"
+    "H01 关片（2026-11-01 07:59 Asia/Shanghai）：UI90-04B-LEFT-01=done tip **61b28b4**（H05 实现 **de00f3e**；H06 抽验 **61b28b4** 建议通过；**明确不签 90%**；未 SCORE）；current=idle 等 Jarvis/H14 代决下一刀；origin 关片前已推平抽验 tip **0/0**；counts 77/16/93（83%）；未跑 sync_progress.py；未改业务源码；关片仅看板+STATUS+bak；禁 force/reset",
+    "H01 关片（2026-11-01 08:17 Asia/Shanghai）：UI90-04B-LEFT-02=done tip **44d330d**（H05 实现 **ef46286**；H06 抽验 **44d330d** 建议通过；**明确不签 90%**；未 SCORE）；current=idle 等 Jarvis/H14 代决下一刀；origin 关片前 ahead≈3（实现 ef46286 + 开工 87ef44f + 抽验 44d330d）；counts 78/16/94（83%）；未跑 sync_progress.py；未改业务源码；关片仅看板+STATUS+bak；禁 force/reset"
   ]
 }
