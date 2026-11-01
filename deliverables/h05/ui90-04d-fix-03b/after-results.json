@@ -1,0 +1,330 @@
+{
+  "allPass": true,
+  "pageerrors": [],
+  "results": [
+    {
+      "width": 1440,
+      "formW": 408,
+      "formH": 952,
+      "tabBarH": 30,
+      "tabNormalText": "常规",
+      "tabNursingText": "护理单元包含科室",
+      "tabNormalSelected": true,
+      "normalVisible": true,
+      "nursingVisible": false,
+      "fields": [
+        "科室代码 *",
+        "科室名称 *",
+        "状态",
+        "排序",
+        "电话号码",
+        "负责人",
+        "助记码",
+        "自动编码",
+        "科室功能",
+        "科室分类"
+      ],
+      "fieldCount": 10,
+      "hasPhone": true,
+      "hasManager": true,
+      "hasInputCode": true,
+      "hasAutoCode": true,
+      "autoCodeDisabled": true,
+      "autoCodeReadOnly": true,
+      "hasFunctions": true,
+      "hasFunctionsBtn": true,
+      "functionsBtnW": 25,
+      "functionsBtnH": 25,
+      "hasCategory": true,
+      "categoryOptions": [
+        {
+          "value": "",
+          "text": "—"
+        },
+        {
+          "value": "ui-placeholder-clinical",
+          "text": "占位·临床（非主数据）"
+        },
+        {
+          "value": "ui-placeholder-medtech",
+          "text": "占位·医技（非主数据）"
+        },
+        {
+          "value": "ui-placeholder-admin",
+          "text": "占位·行政（非主数据）"
+        }
+      ],
+      "hintText": "本片新增字段（电话号码 / 负责人 / 助记码 / 自动编码 / 科室功能 / 科室分类）为 UI 壳 / 未持久化；不写入 saveDepartment；功能按钮与分类未接主数据。",
+      "saveW": 90,
+      "saveH": 30,
+      "cancelW": 90,
+      "cancelH": 30,
+      "tokenW": "408px",
+      "overflow": false,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "savePayloadKeys": [
+        "deptCode",
+        "deptName",
+        "status",
+        "sortNo"
+      ],
+      "dialogOpenedBefore": false,
+      "filled": {
+        "phone": "13800000000",
+        "manager": "张三",
+        "inputCode": "KS",
+        "serialNo": "",
+        "functions": "门诊",
+        "departmentAttr": "ui-placeholder-clinical"
+      },
+      "afterCancel": {
+        "phone": "",
+        "manager": "",
+        "inputCode": "",
+        "serialNo": "",
+        "functions": "",
+        "departmentAttr": ""
+      },
+      "dialogAfterClick": false,
+      "nursing": {
+        "nursingVisible": true,
+        "listH": 257,
+        "addW": 90,
+        "addH": 30,
+        "delW": 90,
+        "delH": 30,
+        "noteText": "护理单元包含科室列表为 UI 仅演示（未持久化 / mock）；取消或关闭编辑丢弃本地草稿；不写入 saveDepartment。",
+        "tabNursingSelected": true
+      },
+      "checks": {
+        "formWPass": true,
+        "btnPass": true,
+        "shellsPass": true,
+        "savePass": true,
+        "discardPass": true,
+        "noopPass": true,
+        "nursingPass": true,
+        "overflowPass": true,
+        "pass": true
+      },
+      "screenshot": "E:\\B-HIS\\deliverables\\h05\\ui90-04d-fix-03b\\after-1440.png"
+    },
+    {
+      "width": 1024,
+      "formW": 408,
+      "formH": 952,
+      "tabBarH": 30,
+      "tabNormalText": "常规",
+      "tabNursingText": "护理单元包含科室",
+      "tabNormalSelected": true,
+      "normalVisible": true,
+      "nursingVisible": false,
+      "fields": [
+        "科室代码 *",
+        "科室名称 *",
+        "状态",
+        "排序",
+        "电话号码",
+        "负责人",
+        "助记码",
+        "自动编码",
+        "科室功能",
+        "科室分类"
+      ],
+      "fieldCount": 10,
+      "hasPhone": true,
+      "hasManager": true,
+      "hasInputCode": true,
+      "hasAutoCode": true,
+      "autoCodeDisabled": true,
+      "autoCodeReadOnly": true,
+      "hasFunctions": true,
+      "hasFunctionsBtn": true,
+      "functionsBtnW": 25,
+      "functionsBtnH": 25,
+      "hasCategory": true,
+      "categoryOptions": [
+        {
+          "value": "",
+          "text": "—"
+        },
+        {
+          "value": "ui-placeholder-clinical",
+          "text": "占位·临床（非主数据）"
+        },
+        {
+          "value": "ui-placeholder-medtech",
+          "text": "占位·医技（非主数据）"
+        },
+        {
+          "value": "ui-placeholder-admin",
+          "text": "占位·行政（非主数据）"
+        }
+      ],
+      "hintText": "本片新增字段（电话号码 / 负责人 / 助记码 / 自动编码 / 科室功能 / 科室分类）为 UI 壳 / 未持久化；不写入 saveDepartment；功能按钮与分类未接主数据。",
+      "saveW": 90,
+      "saveH": 30,
+      "cancelW": 90,
+      "cancelH": 30,
+      "tokenW": "408px",
+      "overflow": false,
+      "scrollWidth": 1024,
+      "innerWidth": 1024,
+      "savePayloadKeys": [
+        "deptCode",
+        "deptName",
+        "status",
+        "sortNo"
+      ],
+      "dialogOpenedBefore": false,
+      "filled": {
+        "phone": "13800000000",
+        "manager": "张三",
+        "inputCode": "KS",
+        "serialNo": "",
+        "functions": "门诊",
+        "departmentAttr": "ui-placeholder-clinical"
+      },
+      "afterCancel": {
+        "phone": "",
+        "manager": "",
+        "inputCode": "",
+        "serialNo": "",
+        "functions": "",
+        "departmentAttr": ""
+      },
+      "dialogAfterClick": false,
+      "nursing": {
+        "nursingVisible": true,
+        "listH": 257,
+        "addW": 90,
+        "addH": 30,
+        "delW": 90,
+        "delH": 30,
+        "noteText": "护理单元包含科室列表为 UI 仅演示（未持久化 / mock）；取消或关闭编辑丢弃本地草稿；不写入 saveDepartment。",
+        "tabNursingSelected": true
+      },
+      "checks": {
+        "formWPass": true,
+        "btnPass": true,
+        "shellsPass": true,
+        "savePass": true,
+        "discardPass": true,
+        "noopPass": true,
+        "nursingPass": true,
+        "overflowPass": true,
+        "pass": true
+      },
+      "screenshot": "E:\\B-HIS\\deliverables\\h05\\ui90-04d-fix-03b\\after-1024.png"
+    },
+    {
+      "width": 390,
+      "formW": 358,
+      "formH": 952,
+      "tabBarH": 30,
+      "tabNormalText": "常规",
+      "tabNursingText": "护理单元包含科室",
+      "tabNormalSelected": true,
+      "normalVisible": true,
+      "nursingVisible": false,
+      "fields": [
+        "科室代码 *",
+        "科室名称 *",
+        "状态",
+        "排序",
+        "电话号码",
+        "负责人",
+        "助记码",
+        "自动编码",
+        "科室功能",
+        "科室分类"
+      ],
+      "fieldCount": 10,
+      "hasPhone": true,
+      "hasManager": true,
+      "hasInputCode": true,
+      "hasAutoCode": true,
+      "autoCodeDisabled": true,
+      "autoCodeReadOnly": true,
+      "hasFunctions": true,
+      "hasFunctionsBtn": true,
+      "functionsBtnW": 25,
+      "functionsBtnH": 25,
+      "hasCategory": true,
+      "categoryOptions": [
+        {
+          "value": "",
+          "text": "—"
+        },
+        {
+          "value": "ui-placeholder-clinical",
+          "text": "占位·临床（非主数据）"
+        },
+        {
+          "value": "ui-placeholder-medtech",
+          "text": "占位·医技（非主数据）"
+        },
+        {
+          "value": "ui-placeholder-admin",
+          "text": "占位·行政（非主数据）"
+        }
+      ],
+      "hintText": "本片新增字段（电话号码 / 负责人 / 助记码 / 自动编码 / 科室功能 / 科室分类）为 UI 壳 / 未持久化；不写入 saveDepartment；功能按钮与分类未接主数据。",
+      "saveW": 90,
+      "saveH": 30,
+      "cancelW": 90,
+      "cancelH": 30,
+      "tokenW": "408px",
+      "overflow": false,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "savePayloadKeys": [
+        "deptCode",
+        "deptName",
+        "status",
+        "sortNo"
+      ],
+      "dialogOpenedBefore": false,
+      "filled": {
+        "phone": "13800000000",
+        "manager": "张三",
+        "inputCode": "KS",
+        "serialNo": "",
+        "functions": "门诊",
+        "departmentAttr": "ui-placeholder-clinical"
+      },
+      "afterCancel": {
+        "phone": "",
+        "manager": "",
+        "inputCode": "",
+        "serialNo": "",
+        "functions": "",
+        "departmentAttr": ""
+      },
+      "dialogAfterClick": false,
+      "nursing": {
+        "nursingVisible": true,
+        "listH": 257,
+        "addW": 90,
+        "addH": 30,
+        "delW": 90,
+        "delH": 30,
+        "noteText": "护理单元包含科室列表为 UI 仅演示（未持久化 / mock）；取消或关闭编辑丢弃本地草稿；不写入 saveDepartment。",
+        "tabNursingSelected": true
+      },
+      "checks": {
+        "formWPass": true,
+        "btnPass": true,
+        "shellsPass": true,
+        "savePass": true,
+        "discardPass": true,
+        "noopPass": true,
+        "nursingPass": true,
+        "overflowPass": true,
+        "pass": true
+      },
+      "screenshot": "E:\\B-HIS\\deliverables\\h05\\ui90-04d-fix-03b\\after-390.png"
+    }
+  ]
+}

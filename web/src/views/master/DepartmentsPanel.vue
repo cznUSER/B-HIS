@@ -21,7 +21,7 @@ const status = ref('')
 const notice = ref('')
 const noticeError = ref(false)
 const errorCode = ref('')
-const form = reactive({ deptCode: '', deptName: '', status: 'ACTIVE', sortNo: 0, phone: '', manager: '', inputCode: '' }) // UI90-04D-FIX-03: phone/manager/inputCode UI-only; never in saveDepartment
+const form = reactive({ deptCode: '', deptName: '', status: 'ACTIVE', sortNo: 0, phone: '', manager: '', inputCode: '', serialNo: '', functions: '', departmentAttr: '' }) // UI90-04D-FIX-03/03b: phone/manager/inputCode/serialNo/functions/departmentAttr UI-only; never in saveDepartment
 const activeTab = ref('normal') // 'normal' | 'nursing' · UI90-04D-FIX-01 tab shell only
 // UI90-04D-FIX-02: nursing ListBox draft is UI-only / mock; never persists; never expands saveDepartment.
 const nursingMembers = ref([])
@@ -55,10 +55,13 @@ function delNursingMember() {
 function cancelEdit() {
   editing.value = false
   resetNursingDraft()
-  // UI90-04D-FIX-03: discard local UI-only drafts
+  // UI90-04D-FIX-03/03b: discard local UI-only drafts
   form.phone = ''
   form.manager = ''
   form.inputCode = ''
+  form.serialNo = ''
+  form.functions = ''
+  form.departmentAttr = ''
 }
 
 const canMaintain = computed(() => listReady.value && !loading.value && !saving.value)
@@ -101,6 +104,9 @@ function startCreate() {
   form.phone = ''
   form.manager = ''
   form.inputCode = ''
+  form.serialNo = ''
+  form.functions = ''
+  form.departmentAttr = ''
   show('', false)
 }
 
@@ -114,10 +120,13 @@ function startEdit(row) {
   form.deptName = row.deptName
   form.status = row.status
   form.sortNo = row.sortNo
-  // UI90-04D-FIX-03: DTO has no phone/manager/inputCode — leave empty; do not claim server refill
+  // UI90-04D-FIX-03/03b: DTO has no phone/manager/inputCode/serialNo/functions/departmentAttr — leave empty; do not claim server refill
   form.phone = ''
   form.manager = ''
   form.inputCode = ''
+  form.serialNo = ''
+  form.functions = ''
+  form.departmentAttr = ''
   show('', false)
 }
 
@@ -156,6 +165,11 @@ async function toggle(row) {
   } finally {
     saving.value = false
   }
+}
+
+
+function onFunctionsButtonClick() {
+  // UI90-04D-FIX-03b: ButtonEdit chrome only; noop — no Dict / no dialog / no search API
 }
 
 onMounted(load)
@@ -249,9 +263,51 @@ onMounted(load)
             <span>助记码</span>
             <input v-model="form.inputCode" type="text" data-testid="dept-input-code" autocomplete="off" />
           </label>
+          <label class="field">
+            <span>自动编码</span>
+            <input
+              v-model="form.serialNo"
+              type="text"
+              data-testid="dept-auto-code"
+              autocomplete="off"
+              disabled
+              readonly
+              aria-readonly="true"
+              title="只读流水壳；不改写科室代码；未接编码规则"
+            />
+          </label>
+          <label class="field">
+            <span>科室功能</span>
+            <div class="dept-button-edit" data-testid="dept-functions-wrap">
+              <input
+                v-model="form.functions"
+                type="text"
+                data-testid="dept-functions"
+                autocomplete="off"
+                title="UI 壳；未接主数据 / Dict"
+              />
+              <button
+                class="dept-button-edit-btn"
+                type="button"
+                data-testid="dept-functions-btn"
+                title="未接线"
+                aria-label="科室功能（未接线）"
+                @click="onFunctionsButtonClick"
+              >…</button>
+            </div>
+          </label>
+          <label class="field">
+            <span>科室分类</span>
+            <select v-model="form.departmentAttr" data-testid="dept-category" title="本地静态壳；非主数据 Lookup">
+              <option value="">—</option>
+              <option value="ui-placeholder-clinical">占位·临床（非主数据）</option>
+              <option value="ui-placeholder-medtech">占位·医技（非主数据）</option>
+              <option value="ui-placeholder-admin">占位·行政（非主数据）</option>
+            </select>
+          </label>
         </div></fieldset>
         <p class="field-hint">代码在未删除范围内唯一。停用后再挂号、再开单时不会出现。</p>
-        <p class="field-hint" data-testid="dept-extra-fields-hint">本片新增字段（电话号码 / 负责人 / 助记码）为 UI 仅 / 未持久化；不写入 saveDepartment。</p>
+        <p class="field-hint" data-testid="dept-extra-fields-hint">本片新增字段（电话号码 / 负责人 / 助记码 / 自动编码 / 科室功能 / 科室分类）为 UI 壳 / 未持久化；不写入 saveDepartment；功能按钮与分类未接主数据。</p>
       </div>
       <div
         v-show="activeTab === 'nursing'"
@@ -475,5 +531,34 @@ onMounted(load)
   background: #e6e6e6;
   color: #202020;
   font: 16px SimSun, '宋体', serif;
+}
+/* UI90-04D-FIX-03b: edtFunctions ButtonEdit chrome (noop); local only. */
+.ui2-department-panel.patient-panel.master-data-panel .dept-button-edit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 25px;
+  align-items: stretch;
+  gap: 0;
+  width: 100%;
+  min-width: 0;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-button-edit input {
+  border-right: 0;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-button-edit-btn {
+  width: 25px;
+  height: 25px;
+  min-height: 25px;
+  padding: 0;
+  border: 1px solid #999;
+  border-radius: 0;
+  background: #e6e6e6;
+  color: #202020;
+  font: 12px/1 'Segoe UI', sans-serif;
+  cursor: default;
+}
+.ui2-department-panel.patient-panel.master-data-panel .master-form .field input[disabled],
+.ui2-department-panel.patient-panel.master-data-panel .master-form .field input[readonly] {
+  background: #ececec;
+  color: #555;
 }
 </style>

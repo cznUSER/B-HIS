@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UI90-04D-FIX-03b geometry fixture</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 16px; background: #f7f7f7; font-family: 'Segoe UI', sans-serif; }
+    .button { display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+    .button-ghost { background: #f3f3f3; }
+    .button-compact {}
+    .banner { margin-top: 8px; }
+    .req { color: #b00; text-decoration: none; }
+    .master-soft-badge { font: 12px 'Segoe UI', sans-serif; color: #555; }
+  </style>
+  <link rel="stylesheet" href="./_scoped.css" />
+</head>
+<body>
+  <section class="patient-panel master-data-panel ui2-department-panel">
+    <form class="master-form" data-testid="dept-form" onsubmit="return false;">
+      <div class="master-editor-head"><div><p class="master-eyebrow">科室维护</p><h3>新建科室</h3></div><span class="master-soft-badge">新记录</span></div>
+      <div class="dept-editor-tabs" role="tablist" aria-label="科室编辑页签" data-testid="dept-editor-tabs">
+        <button class="dept-editor-tab is-active" type="button" role="tab" data-testid="dept-tab-normal" aria-selected="true">常规</button>
+        <button class="dept-editor-tab" type="button" role="tab" data-testid="dept-tab-nursing" aria-selected="false">护理单元包含科室</button>
+      </div>
+      <div class="dept-editor-tabpanel" role="tabpanel" data-testid="dept-tabpanel-normal" aria-label="常规">
+        <fieldset class="master-form-group"><legend>科室信息与状态</legend><div class="field-grid">
+          <label class="field"><span>科室代码 <abbr class="req" title="必填">*</abbr></span><input data-testid="dept-code" value="D001" /></label>
+          <label class="field"><span>科室名称 <abbr class="req" title="必填">*</abbr></span><input data-testid="dept-name" value="内科" /></label>
+          <label class="field"><span>状态</span><select data-testid="dept-status"><option>启用</option></select></label>
+          <label class="field"><span>排序</span><input type="number" value="0" /></label>
+          <label class="field"><span>电话号码</span><input data-testid="dept-phone" /></label>
+          <label class="field"><span>负责人</span><input data-testid="dept-manager" /></label>
+          <label class="field"><span>助记码</span><input data-testid="dept-input-code" /></label>
+          <label class="field"><span>自动编码</span><input data-testid="dept-auto-code" disabled readonly value="" title="只读流水壳" /></label>
+          <label class="field"><span>科室功能</span>
+            <div class="dept-button-edit" data-testid="dept-functions-wrap">
+              <input data-testid="dept-functions" />
+              <button class="dept-button-edit-btn" type="button" data-testid="dept-functions-btn" title="未接线" aria-label="科室功能（未接线）">…</button>
+            </div>
+          </label>
+          <label class="field"><span>科室分类</span>
+            <select data-testid="dept-category" title="本地静态壳；非主数据 Lookup">
+              <option value="">—</option>
+              <option value="ui-placeholder-clinical">占位·临床（非主数据）</option>
+              <option value="ui-placeholder-medtech">占位·医技（非主数据）</option>
+              <option value="ui-placeholder-admin">占位·行政（非主数据）</option>
+            </select>
+          </label>
+        </div></fieldset>
+        <p class="field-hint">代码在未删除范围内唯一。</p>
+        <p class="field-hint" data-testid="dept-extra-fields-hint">本片新增字段（电话号码 / 负责人 / 助记码 / 自动编码 / 科室功能 / 科室分类）为 UI 壳 / 未持久化；不写入 saveDepartment；功能按钮与分类未接主数据。</p>
+      </div>
+      <div class="dept-editor-tabpanel dept-editor-tabpanel-nursing" role="tabpanel" data-testid="dept-tabpanel-nursing" aria-label="护理单元包含科室" hidden>
+        <p class="dept-nursing-note" data-testid="dept-nursing-note">护理单元包含科室列表为 UI 仅演示（未持久化 / mock）；取消或关闭编辑丢弃本地草稿；不写入 saveDepartment。</p>
+        <ul class="dept-nursing-list" role="listbox" data-testid="dept-nursing-list" aria-label="护理单元包含科室（UI 仅 / 未持久化）">
+          <li class="dept-nursing-empty" data-testid="dept-nursing-empty" role="option">（空表 · 未持久化）</li>
+        </ul>
+        <div class="dept-nursing-actions" data-testid="dept-nursing-actions">
+          <button class="button button-compact dept-nursing-btn" type="button" data-testid="dept-nursing-add">增加</button>
+          <button class="button button-ghost button-compact dept-nursing-btn" type="button" data-testid="dept-nursing-del" disabled>删除</button>
+        </div>
+      </div>
+      <div class="panel-actions">
+        <button class="button button-compact" type="button" data-testid="dept-save">保存</button>
+        <button class="button button-ghost button-compact" type="button" data-testid="dept-cancel">取消</button>
+      </div>
+    </form>
+  </section>
+  <script>
+    const state = { phone:'', manager:'', inputCode:'', serialNo:'', functions:'', departmentAttr:'' };
+    window.__savePayloadKeys = () => ['deptCode','deptName','status','sortNo'];
+    window.__extraState = () => ({ ...state });
+    window.__setExtraFromDom = () => {
+      state.phone = document.querySelector('[data-testid="dept-phone"]').value;
+      state.manager = document.querySelector('[data-testid="dept-manager"]').value;
+      state.inputCode = document.querySelector('[data-testid="dept-input-code"]').value;
+      state.serialNo = document.querySelector('[data-testid="dept-auto-code"]').value;
+      state.functions = document.querySelector('[data-testid="dept-functions"]').value;
+      state.departmentAttr = document.querySelector('[data-testid="dept-category"]').value;
+    };
+    window.__clearExtra = () => {
+      state.phone=''; state.manager=''; state.inputCode=''; state.serialNo=''; state.functions=''; state.departmentAttr='';
+      document.querySelector('[data-testid="dept-phone"]').value='';
+      document.querySelector('[data-testid="dept-manager"]').value='';
+      document.querySelector('[data-testid="dept-input-code"]').value='';
+      // auto-code stays disabled empty
+      document.querySelector('[data-testid="dept-functions"]').value='';
+      document.querySelector('[data-testid="dept-category"]').value='';
+    };
+    let dialogOpened = false;
+    window.__dialogOpened = () => dialogOpened;
+    document.querySelector('[data-testid="dept-functions-btn"]').addEventListener('click', () => { /* noop */ });
+    document.querySelector('[data-testid="dept-cancel"]').addEventListener('click', () => { window.__clearExtra(); });
+    document.querySelector('[data-testid="dept-tab-nursing"]').addEventListener('click', () => {
+      document.querySelector('[data-testid="dept-tab-normal"]').classList.remove('is-active');
+      document.querySelector('[data-testid="dept-tab-nursing"]').classList.add('is-active');
+      document.querySelector('[data-testid="dept-tab-normal"]').setAttribute('aria-selected','false');
+      document.querySelector('[data-testid="dept-tab-nursing"]').setAttribute('aria-selected','true');
+      document.querySelector('[data-testid="dept-tabpanel-normal"]').hidden = true;
+      document.querySelector('[data-testid="dept-tabpanel-nursing"]').hidden = false;
+    });
+    document.querySelector('[data-testid="dept-tab-normal"]').addEventListener('click', () => {
+      document.querySelector('[data-testid="dept-tab-nursing"]').classList.remove('is-active');
+      document.querySelector('[data-testid="dept-tab-normal"]').classList.add('is-active');
+      document.querySelector('[data-testid="dept-tab-nursing"]').setAttribute('aria-selected','false');
+      document.querySelector('[data-testid="dept-tab-normal"]').setAttribute('aria-selected','true');
+      document.querySelector('[data-testid="dept-tabpanel-nursing"]').hidden = true;
+      document.querySelector('[data-testid="dept-tabpanel-normal"]').hidden = false;
+    });
+    let netHits = 0;
+    window.__netHits = () => netHits;
+    // category change must not invent network
+    document.querySelector('[data-testid="dept-category"]').addEventListener('change', () => {});
+  </script>
+</body>
+</html>

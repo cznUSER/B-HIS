@@ -1,0 +1,150 @@
+/* UI2.0/bsdata/DepartmentFrm: 408px editor, Songti 16px, 90x30 actions. */
+.ui2-department-panel.patient-panel.master-data-panel { color: #202020; font-family: SimSun, '宋体', serif; }
+.ui2-department-panel.patient-panel.master-data-panel .master-form { width: 408px; max-width: 100%; margin: 12px 0; padding: 12px; border: 1px solid #999; border-radius: 0; background: #f0f0f0; box-sizing: border-box; }
+.ui2-department-panel.patient-panel.master-data-panel .master-editor-head { min-height: 30px; margin: -12px -12px 12px; padding: 6px 12px; background: #e4e4e4; border-bottom: 1px solid #999; }
+.ui2-department-panel.patient-panel.master-data-panel .master-editor-head h3 { margin: 0; font: 16px SimSun, '宋体', serif; }
+.ui2-department-panel.patient-panel.master-data-panel .master-eyebrow { display: none; }
+.ui2-department-panel.patient-panel.master-data-panel .master-form-group { padding: 8px 0; border: 0; border-radius: 0; background: transparent; }
+.ui2-department-panel.patient-panel.master-data-panel .master-form-group legend { font: 12px 'Segoe UI', sans-serif; }
+.ui2-department-panel.patient-panel.master-data-panel .master-form .field-grid { display: grid; grid-template-columns: 1fr; gap: 7px; }
+.ui2-department-panel.patient-panel.master-data-panel .master-form .field { display: grid; grid-template-columns: 76px minmax(0, 1fr); align-items: center; gap: 6px; }
+.ui2-department-panel.patient-panel.master-data-panel .master-form .field > span { display: block; padding: 3px 5px; border: 1px solid #bbb; border-radius: 5px; background: #dedede; color: #202020; font: 12px/17px 'Segoe UI', sans-serif; }
+.ui2-department-panel.patient-panel.master-data-panel .master-form .field input, .ui2-department-panel.patient-panel.master-data-panel .master-form .field select { width: 100%; min-width: 0; height: 25px; min-height: 25px; padding: 2px 5px; border: 1px solid #999; border-radius: 0; background: #fff; color: #202020; font: 16px SimSun, '宋体', serif; box-sizing: border-box; }
+.ui2-department-panel.patient-panel.master-data-panel .master-form .panel-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.ui2-department-panel.patient-panel.master-data-panel .master-form .panel-actions .button { width: 90px; height: 30px; min-height: 30px; padding: 0 5px; border: 1px solid #aaa; border-radius: 3px; background: #e6e6e6; color: #202020; font: 16px SimSun, '宋体', serif; }
+.ui2-department-panel.patient-panel.master-data-panel .master-form .field-hint { margin-top: 10px; font: 12px/1.5 'Segoe UI', sans-serif; }
+/* UI90-04D-FIX-01: DepartmentFrm pcMain tabs — 常规 / 护理单元包含科室; TabHeight≈30; editor w≈408; actions 90×30 conserved. */
+.ui2-department-panel.patient-panel.master-data-panel .master-form {
+  --dept-editor-w: 408px;
+  --dept-tab-h: 30px;
+  --dept-pc-h: 366px;
+  width: var(--dept-editor-w);
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-editor-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  height: var(--dept-tab-h);
+  min-height: var(--dept-tab-h);
+  margin: 0 0 8px;
+  border-bottom: 1px solid #999;
+  background: #e8e8e8;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-editor-tab {
+  height: var(--dept-tab-h);
+  min-height: var(--dept-tab-h);
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #202020;
+  font: 12px/30px 'Segoe UI', SimSun, '宋体', sans-serif;
+  cursor: pointer;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-editor-tab.is-active {
+  background: #f0f0f0;
+  border-color: #999;
+  border-bottom-color: #f0f0f0;
+  margin-bottom: -1px;
+  font-weight: 600;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-editor-tabpanel {
+  min-height: 120px;
+  box-sizing: border-box;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-editor-tabpanel-nursing {
+  /* UI90-04D-FIX-02: DFM lbSubList 404×257 + btnAdd/btnDel 90×30; UI-only draft. */
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 8px;
+  min-height: 160px;
+  border: 0;
+  background: transparent;
+  --dept-nursing-list-h: 257px;
+  --dept-nursing-btn-w: 90px;
+  --dept-nursing-btn-h: 30px;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-nursing-note {
+  margin: 0;
+  padding: 0 2px;
+  color: #666;
+  font: 12px/1.45 'Segoe UI', sans-serif;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-nursing-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  height: var(--dept-nursing-list-h);
+  min-height: 120px;
+  max-height: var(--dept-nursing-list-h);
+  overflow: auto;
+  border: 1px solid #999;
+  background: #fff;
+  box-sizing: border-box;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-nursing-empty,
+.ui2-department-panel.patient-panel.master-data-panel .dept-nursing-item {
+  margin: 0;
+  padding: 2px 6px;
+  min-height: 15px;
+  color: #202020;
+  font: 16px/15px SimSun, '宋体', serif;
+  cursor: default;
+  user-select: none;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-nursing-empty {
+  color: #888;
+  font: 12px/1.5 'Segoe UI', sans-serif;
+  padding: 8px 6px;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-nursing-item.is-selected {
+  background: #cce4f7;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-nursing-actions {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-nursing-btn {
+  width: var(--dept-nursing-btn-w);
+  height: var(--dept-nursing-btn-h);
+  min-height: var(--dept-nursing-btn-h);
+  padding: 0 5px;
+  border: 1px solid #aaa;
+  border-radius: 3px;
+  background: #e6e6e6;
+  color: #202020;
+  font: 16px SimSun, '宋体', serif;
+}
+/* UI90-04D-FIX-03b: edtFunctions ButtonEdit chrome (noop); local only. */
+.ui2-department-panel.patient-panel.master-data-panel .dept-button-edit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 25px;
+  align-items: stretch;
+  gap: 0;
+  width: 100%;
+  min-width: 0;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-button-edit input {
+  border-right: 0;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-button-edit-btn {
+  width: 25px;
+  height: 25px;
+  min-height: 25px;
+  padding: 0;
+  border: 1px solid #999;
+  border-radius: 0;
+  background: #e6e6e6;
+  color: #202020;
+  font: 12px/1 'Segoe UI', sans-serif;
+  cursor: default;
+}
+.ui2-department-panel.patient-panel.master-data-panel .master-form .field input[disabled],
+.ui2-department-panel.patient-panel.master-data-panel .master-form .field input[readonly] {
+  background: #ececec;
+  color: #555;
+}
