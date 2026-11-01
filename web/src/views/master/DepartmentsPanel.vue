@@ -1,5 +1,4 @@
 <script setup>
-import { useErrorDialog } from '../../components/feedback/useErrorDialog.js'
 // 2026-10-14 P1-H05-WEB-USABILITY 读取状态独立于写入提示；只有成功读取才可维护。
 // 2026-10-13 P1-H05-MASTER-UI 科室：代码唯一，可启停。种子 dept-1 / dept-2 可改。
 import { computed, onMounted, reactive, ref } from 'vue'
@@ -150,10 +149,6 @@ async function toggle(row) {
 
 onMounted(load)
 
-useErrorDialog([
-  () => loadError.value,
-  () => noticeError.value ? notice.value : '',
-])
 </script>
 
 <template>
