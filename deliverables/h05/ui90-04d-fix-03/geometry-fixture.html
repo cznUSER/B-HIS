@@ -1,0 +1,131 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>UI90-04D-FIX-03 normal multi-field probe</title>
+<style>
+html,body{margin:0;padding:12px;background:#fff;font-family:SimSun,'宋体',serif;color:#202020}
+.button{display:inline-flex;align-items:center;justify-content:center;border:1px solid #aaa;background:#e6e6e6;cursor:pointer}
+.button-ghost{background:#f5f5f5}
+.field-grid{display:grid;gap:7px}
+button:disabled{opacity:.55;cursor:not-allowed}
+</style>
+<link rel="stylesheet" href="./_scoped.css" />
+</head>
+<body>
+<section class="patient-panel master-data-panel ui2-department-panel" id="panel">
+  <form class="master-form" data-testid="dept-form" id="dept-form" onsubmit="return false">
+    <div class="master-editor-head"><div><p class="master-eyebrow">科室维护</p><h3>新建科室</h3></div><span class="master-soft-badge">新记录</span></div>
+    <div class="dept-editor-tabs" role="tablist" aria-label="科室编辑页签" data-testid="dept-editor-tabs">
+      <button class="dept-editor-tab is-active" type="button" role="tab" data-testid="dept-tab-normal" aria-selected="true" id="tab-normal">常规</button>
+      <button class="dept-editor-tab" type="button" role="tab" data-testid="dept-tab-nursing" aria-selected="false" id="tab-nursing">护理单元包含科室</button>
+    </div>
+    <div class="dept-editor-tabpanel" role="tabpanel" data-testid="dept-tabpanel-normal" id="panel-normal" aria-label="常规">
+      <fieldset class="master-form-group"><legend>科室信息与状态</legend><div class="field-grid">
+        <label class="field"><span>科室代码 *</span><input data-testid="dept-code" value="" /></label>
+        <label class="field"><span>科室名称 *</span><input data-testid="dept-name" value="" /></label>
+        <label class="field"><span>状态</span><select><option>启用</option></select></label>
+        <label class="field"><span>排序</span><input type="number" value="0" /></label>
+        <label class="field"><span>电话号码</span><input data-testid="dept-phone" id="dept-phone" value="" /></label>
+        <label class="field"><span>负责人</span><input data-testid="dept-manager" id="dept-manager" value="" /></label>
+        <label class="field"><span>助记码</span><input data-testid="dept-input-code" id="dept-input-code" value="" /></label>
+      </div></fieldset>
+      <p class="field-hint">代码在未删除范围内唯一。停用后再挂号、再开单时不会出现。</p>
+      <p class="field-hint" data-testid="dept-extra-fields-hint">本片新增字段（电话号码 / 负责人 / 助记码）为 UI 仅 / 未持久化；不写入 saveDepartment。</p>
+    </div>
+    <div class="dept-editor-tabpanel dept-editor-tabpanel-nursing" role="tabpanel" data-testid="dept-tabpanel-nursing" id="panel-nursing" aria-label="护理单元包含科室" hidden>
+      <p class="dept-nursing-note" data-testid="dept-nursing-note">护理单元包含科室列表为 UI 仅演示（未持久化 / mock）；取消或关闭编辑丢弃本地草稿；不写入 saveDepartment。</p>
+      <ul class="dept-nursing-list" role="listbox" data-testid="dept-nursing-list" aria-label="护理单元包含科室（UI 仅 / 未持久化）" tabindex="0" id="nursing-list">
+        <li class="dept-nursing-empty" data-testid="dept-nursing-empty" role="option" aria-disabled="true">（空表 · 未持久化）</li>
+      </ul>
+      <div class="dept-nursing-actions" data-testid="dept-nursing-actions">
+        <button class="button button-compact dept-nursing-btn" type="button" data-testid="dept-nursing-add" id="nursing-add">增加</button>
+        <button class="button button-ghost button-compact dept-nursing-btn" type="button" data-testid="dept-nursing-del" id="nursing-del" disabled>删除</button>
+      </div>
+    </div>
+    <div class="panel-actions">
+      <button class="button button-compact" type="submit" data-testid="dept-save" id="dept-save">保存</button>
+      <button class="button button-ghost button-compact" type="button" data-testid="dept-cancel" id="dept-cancel">取消</button>
+    </div>
+  </form>
+</section>
+<script>
+(function(){
+  const tabN=document.getElementById('tab-normal');
+  const tabU=document.getElementById('tab-nursing');
+  const pN=document.getElementById('panel-normal');
+  const pU=document.getElementById('panel-nursing');
+  const list=document.getElementById('nursing-list');
+  const addBtn=document.getElementById('nursing-add');
+  const delBtn=document.getElementById('nursing-del');
+  const phone=document.getElementById('dept-phone');
+  const manager=document.getElementById('dept-manager');
+  const inputCode=document.getElementById('dept-input-code');
+  let members=[];
+  let selected=-1;
+  const savePayload = { deptCode:'', deptName:'', status:'ACTIVE', sortNo:0 };
+  function render(){
+    list.innerHTML='';
+    if(!members.length){
+      const li=document.createElement('li');
+      li.className='dept-nursing-empty';
+      li.setAttribute('data-testid','dept-nursing-empty');
+      li.setAttribute('role','option');
+      li.setAttribute('aria-disabled','true');
+      li.textContent='（空表 · 未持久化）';
+      list.appendChild(li);
+      selected=-1;
+    } else {
+      members.forEach((item, idx)=>{
+        const li=document.createElement('li');
+        li.className='dept-nursing-item'+(selected===idx?' is-selected':'');
+        li.setAttribute('role','option');
+        li.setAttribute('aria-selected', String(selected===idx));
+        li.setAttribute('data-testid','dept-nursing-item-'+idx);
+        li.textContent=item.label;
+        li.addEventListener('click', ()=>{ selected=idx; render(); });
+        list.appendChild(li);
+      });
+    }
+    delBtn.disabled = selected < 0;
+  }
+  function activate(which){
+    const normal = which==='normal';
+    tabN.classList.toggle('is-active', normal);
+    tabU.classList.toggle('is-active', !normal);
+    tabN.setAttribute('aria-selected', String(normal));
+    tabU.setAttribute('aria-selected', String(!normal));
+    pN.hidden = !normal;
+    pU.hidden = normal;
+  }
+  function discardExtras(){
+    phone.value=''; manager.value=''; inputCode.value='';
+  }
+  addBtn.addEventListener('click', ()=>{
+    const n=members.length+1;
+    members.push({id:'ui-only-'+Date.now()+'-'+n, label:'UI 仅演示行 '+n+'（未持久化 / mock）'});
+    selected=members.length-1;
+    render();
+  });
+  delBtn.addEventListener('click', ()=>{
+    if(selected<0) return;
+    members.splice(selected,1);
+    if(!members.length) selected=-1;
+    else if(selected>=members.length) selected=members.length-1;
+    render();
+  });
+  tabN.addEventListener('click', ()=>activate('normal'));
+  tabU.addEventListener('click', ()=>activate('nursing'));
+  document.getElementById('dept-cancel').addEventListener('click', ()=>{
+    members=[]; selected=-1; discardExtras(); render();
+  });
+  window.__deptActivate = activate;
+  window.__nursingState = ()=>({count:members.length, selected, labels:members.map(m=>m.label)});
+  window.__extraState = ()=>({phone:phone.value, manager:manager.value, inputCode:inputCode.value});
+  window.__savePayloadKeys = ()=>Object.keys(savePayload);
+  window.__discardExtras = discardExtras;
+  render();
+})();
+</script>
+</body>
+</html>

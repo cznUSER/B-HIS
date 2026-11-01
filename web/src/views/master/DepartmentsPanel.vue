@@ -21,7 +21,7 @@ const status = ref('')
 const notice = ref('')
 const noticeError = ref(false)
 const errorCode = ref('')
-const form = reactive({ deptCode: '', deptName: '', status: 'ACTIVE', sortNo: 0 })
+const form = reactive({ deptCode: '', deptName: '', status: 'ACTIVE', sortNo: 0, phone: '', manager: '', inputCode: '' }) // UI90-04D-FIX-03: phone/manager/inputCode UI-only; never in saveDepartment
 const activeTab = ref('normal') // 'normal' | 'nursing' · UI90-04D-FIX-01 tab shell only
 // UI90-04D-FIX-02: nursing ListBox draft is UI-only / mock; never persists; never expands saveDepartment.
 const nursingMembers = ref([])
@@ -55,6 +55,10 @@ function delNursingMember() {
 function cancelEdit() {
   editing.value = false
   resetNursingDraft()
+  // UI90-04D-FIX-03: discard local UI-only drafts
+  form.phone = ''
+  form.manager = ''
+  form.inputCode = ''
 }
 
 const canMaintain = computed(() => listReady.value && !loading.value && !saving.value)
@@ -94,6 +98,9 @@ function startCreate() {
   form.deptName = ''
   form.status = 'ACTIVE'
   form.sortNo = 0
+  form.phone = ''
+  form.manager = ''
+  form.inputCode = ''
   show('', false)
 }
 
@@ -107,6 +114,10 @@ function startEdit(row) {
   form.deptName = row.deptName
   form.status = row.status
   form.sortNo = row.sortNo
+  // UI90-04D-FIX-03: DTO has no phone/manager/inputCode — leave empty; do not claim server refill
+  form.phone = ''
+  form.manager = ''
+  form.inputCode = ''
   show('', false)
 }
 
@@ -226,8 +237,21 @@ onMounted(load)
             <span>排序</span>
             <input v-model.number="form.sortNo" type="number" step="1" />
           </label>
+          <label class="field">
+            <span>电话号码</span>
+            <input v-model="form.phone" type="text" data-testid="dept-phone" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>负责人</span>
+            <input v-model="form.manager" type="text" data-testid="dept-manager" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>助记码</span>
+            <input v-model="form.inputCode" type="text" data-testid="dept-input-code" autocomplete="off" />
+          </label>
         </div></fieldset>
         <p class="field-hint">代码在未删除范围内唯一。停用后再挂号、再开单时不会出现。</p>
+        <p class="field-hint" data-testid="dept-extra-fields-hint">本片新增字段（电话号码 / 负责人 / 助记码）为 UI 仅 / 未持久化；不写入 saveDepartment。</p>
       </div>
       <div
         v-show="activeTab === 'nursing'"

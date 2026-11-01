@@ -1,0 +1,264 @@
+{
+  "allPass": true,
+  "pageerrors": [],
+  "results": [
+    {
+      "viewport": 1440,
+      "formW": 408,
+      "formH": 839,
+      "tabBarH": 31,
+      "tabNormalText": "常规",
+      "tabNursingText": "护理单元包含科室",
+      "tabNormalSelected": true,
+      "normalVisible": true,
+      "nursingVisible": false,
+      "fields": [
+        "科室代码 *",
+        "科室名称 *",
+        "状态",
+        "排序",
+        "电话号码",
+        "负责人",
+        "助记码"
+      ],
+      "fieldCount": 7,
+      "hasPhone": true,
+      "hasManager": true,
+      "hasInputCode": true,
+      "hintText": "本片新增字段（电话号码 / 负责人 / 助记码）为 UI 仅 / 未持久化；不写入 saveDepartment。",
+      "saveW": 90,
+      "saveH": 30,
+      "cancelW": 90,
+      "cancelH": 30,
+      "tokenW": "408px",
+      "overflow": false,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "savePayloadKeys": [
+        "deptCode",
+        "deptName",
+        "status",
+        "sortNo"
+      ],
+      "tabNursingSelected": false,
+      "filled": {
+        "phone": "13800000000",
+        "manager": "张三",
+        "inputCode": "KS"
+      },
+      "discarded": {
+        "phone": "",
+        "manager": "",
+        "inputCode": ""
+      },
+      "nursing": {
+        "tabNormalSelected": false,
+        "tabNursingSelected": true,
+        "normalVisible": false,
+        "nursingVisible": true,
+        "listRole": "listbox",
+        "listH": 257,
+        "addText": "增加",
+        "delText": "删除",
+        "addW": 90,
+        "addH": 30,
+        "delW": 90,
+        "delH": 30,
+        "note": "护理单元包含科室列表为 UI 仅演示（未持久化 / mock）；取消或关闭编辑丢弃本地草稿；不写入 saveDepartment。"
+      },
+      "afterAdd": {
+        "count": 1,
+        "state": {
+          "count": 1,
+          "selected": 0,
+          "labels": [
+            "UI 仅演示行 1（未持久化 / mock）"
+          ]
+        }
+      },
+      "checks": {
+        "widthPass": true,
+        "btnPass": true,
+        "tabPass": true,
+        "fieldsPass": true,
+        "discardPass": true,
+        "nursingPass": true,
+        "overflowPass": true,
+        "pass": true
+      },
+      "shot": "E:\\B-HIS\\deliverables\\h05\\ui90-04d-fix-03\\after-1440.png"
+    },
+    {
+      "viewport": 1024,
+      "formW": 408,
+      "formH": 839,
+      "tabBarH": 31,
+      "tabNormalText": "常规",
+      "tabNursingText": "护理单元包含科室",
+      "tabNormalSelected": true,
+      "normalVisible": true,
+      "nursingVisible": false,
+      "fields": [
+        "科室代码 *",
+        "科室名称 *",
+        "状态",
+        "排序",
+        "电话号码",
+        "负责人",
+        "助记码"
+      ],
+      "fieldCount": 7,
+      "hasPhone": true,
+      "hasManager": true,
+      "hasInputCode": true,
+      "hintText": "本片新增字段（电话号码 / 负责人 / 助记码）为 UI 仅 / 未持久化；不写入 saveDepartment。",
+      "saveW": 90,
+      "saveH": 30,
+      "cancelW": 90,
+      "cancelH": 30,
+      "tokenW": "408px",
+      "overflow": false,
+      "scrollWidth": 1024,
+      "innerWidth": 1024,
+      "savePayloadKeys": [
+        "deptCode",
+        "deptName",
+        "status",
+        "sortNo"
+      ],
+      "tabNursingSelected": false,
+      "filled": {
+        "phone": "13800000000",
+        "manager": "张三",
+        "inputCode": "KS"
+      },
+      "discarded": {
+        "phone": "",
+        "manager": "",
+        "inputCode": ""
+      },
+      "nursing": {
+        "tabNormalSelected": false,
+        "tabNursingSelected": true,
+        "normalVisible": false,
+        "nursingVisible": true,
+        "listRole": "listbox",
+        "listH": 257,
+        "addText": "增加",
+        "delText": "删除",
+        "addW": 90,
+        "addH": 30,
+        "delW": 90,
+        "delH": 30,
+        "note": "护理单元包含科室列表为 UI 仅演示（未持久化 / mock）；取消或关闭编辑丢弃本地草稿；不写入 saveDepartment。"
+      },
+      "afterAdd": {
+        "count": 1,
+        "state": {
+          "count": 1,
+          "selected": 0,
+          "labels": [
+            "UI 仅演示行 1（未持久化 / mock）"
+          ]
+        }
+      },
+      "checks": {
+        "widthPass": true,
+        "btnPass": true,
+        "tabPass": true,
+        "fieldsPass": true,
+        "discardPass": true,
+        "nursingPass": true,
+        "overflowPass": true,
+        "pass": true
+      },
+      "shot": "E:\\B-HIS\\deliverables\\h05\\ui90-04d-fix-03\\after-1024.png"
+    },
+    {
+      "viewport": 390,
+      "formW": 342,
+      "formH": 857,
+      "tabBarH": 31,
+      "tabNormalText": "常规",
+      "tabNursingText": "护理单元包含科室",
+      "tabNormalSelected": true,
+      "normalVisible": true,
+      "nursingVisible": false,
+      "fields": [
+        "科室代码 *",
+        "科室名称 *",
+        "状态",
+        "排序",
+        "电话号码",
+        "负责人",
+        "助记码"
+      ],
+      "fieldCount": 7,
+      "hasPhone": true,
+      "hasManager": true,
+      "hasInputCode": true,
+      "hintText": "本片新增字段（电话号码 / 负责人 / 助记码）为 UI 仅 / 未持久化；不写入 saveDepartment。",
+      "saveW": 90,
+      "saveH": 30,
+      "cancelW": 90,
+      "cancelH": 30,
+      "tokenW": "408px",
+      "overflow": false,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "savePayloadKeys": [
+        "deptCode",
+        "deptName",
+        "status",
+        "sortNo"
+      ],
+      "tabNursingSelected": false,
+      "filled": {
+        "phone": "13800000000",
+        "manager": "张三",
+        "inputCode": "KS"
+      },
+      "discarded": {
+        "phone": "",
+        "manager": "",
+        "inputCode": ""
+      },
+      "nursing": {
+        "tabNormalSelected": false,
+        "tabNursingSelected": true,
+        "normalVisible": false,
+        "nursingVisible": true,
+        "listRole": "listbox",
+        "listH": 257,
+        "addText": "增加",
+        "delText": "删除",
+        "addW": 90,
+        "addH": 30,
+        "delW": 90,
+        "delH": 30,
+        "note": "护理单元包含科室列表为 UI 仅演示（未持久化 / mock）；取消或关闭编辑丢弃本地草稿；不写入 saveDepartment。"
+      },
+      "afterAdd": {
+        "count": 1,
+        "state": {
+          "count": 1,
+          "selected": 0,
+          "labels": [
+            "UI 仅演示行 1（未持久化 / mock）"
+          ]
+        }
+      },
+      "checks": {
+        "widthPass": true,
+        "btnPass": true,
+        "tabPass": true,
+        "fieldsPass": true,
+        "discardPass": true,
+        "nursingPass": true,
+        "overflowPass": true,
+        "pass": true
+      },
+      "shot": "E:\\B-HIS\\deliverables\\h05\\ui90-04d-fix-03\\after-390.png"
+    }
+  ]
+}
