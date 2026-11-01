@@ -486,8 +486,8 @@ onMounted(async () => {
         </BusinessEmptyState>
 
         <template v-else-if="preview">
-          <div class="charge-workspace">
-          <section class="charge-preview" aria-labelledby="charge-preview-title">
+          <div class="charge-workspace" data-testid="charge-workspace">
+          <section class="charge-preview" data-testid="charge-preview" aria-labelledby="charge-preview-title">
           <div class="panel-head"><div><p class="charge-section-kicker">02 · REVIEW</p><h2 id="charge-preview-title">核对待收明细</h2></div><span class="charge-counter">{{ preview.items.length }} 项</span></div>
           <dl class="charge-meta">
             <div>
@@ -505,7 +505,7 @@ onMounted(async () => {
           </dl>
 
           <p id="charge-pending-scroll" class="table-scroll-hint">左右滑动可查看完整明细</p>
-          <div class="result-wrap" role="region" aria-label="待收明细，可横向滚动" aria-describedby="charge-pending-scroll" tabindex="0">
+          <div class="result-wrap" data-testid="charge-pending-scroll-wrap" role="region" aria-label="待收明细，可横向滚动" aria-describedby="charge-pending-scroll" tabindex="0">
             <table class="patient-table" data-testid="charge-pending">
               <caption class="sr-only">待收明细</caption>
               <thead>

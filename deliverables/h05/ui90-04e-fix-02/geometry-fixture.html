@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>UI90-04E-FIX-02 charge detail/settle chrome probe (UI-only; non-live; not paid)</title>
+<style>
+html,body{margin:0;padding:12px;background:#f3f6f4;font-family:system-ui,sans-serif;color:#203528}
+.shell-main{max-width:1200px;margin:0 auto;padding:16px;background:#eef2ef}
+.button{display:inline-flex;align-items:center;justify-content:center;border:1px solid #8fb9a2;background:#3c8f6c;color:#fff;border-radius:10px;padding:0 18px;height:36px;cursor:pointer;font:inherit}
+.button-ghost{background:#fff;color:#3c8f6c}
+.button-compact{}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field > span{font-size:12px;font-weight:600;color:#516860}
+.field input{height:36px;padding:0 10px;border:1px solid #c9d9cf;border-radius:8px;font:inherit}
+.patient-panel{border:1px solid #d8e6dc;border-radius:12px;background:#fff;overflow:hidden}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.panel-head h2{margin:0;font-size:16px}
+.panel-actions{display:flex;gap:8px}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.demo-chips{display:flex;flex-wrap:wrap;gap:8px}
+.demo-chip{border:1px solid #d5e4da;border-radius:10px;background:#fff;padding:10px 13px}
+.charge-meta{display:grid;margin:0;padding:16px;border-radius:12px;background:#f6faf7}
+.charge-meta div{min-width:0}
+.charge-meta dt{margin:0;color:#8dab99;font-size:11px}
+.charge-meta dd{margin:6px 0 0}
+.result-wrap{overflow:auto;border:1px solid #dce8df;border-radius:12px}
+.patient-table{width:100%;border-collapse:collapse;font-size:13px}
+.patient-table th,.patient-table td{padding:8px 10px;border-bottom:1px solid #eaf0ec;text-align:left}
+.patient-table th{background:#f4faf7;color:#3d5666;font-weight:700}
+.fixture-banner{margin:0 22px 12px;padding:8px 12px;border:1px dashed #b7cfc0;border-radius:8px;background:#f7fbf8;color:#5f7d6b;font-size:12px}
+</style>
+<link rel="stylesheet" href="./_scoped.css" />
+</head>
+<body>
+<div class="shell-main">
+  <section class="charge-page" data-testid="charge-page" aria-labelledby="charge-title">
+    <h1 id="charge-title" class="sr-only">门诊收费</h1>
+    <div class="charge-workbar" data-testid="charge-workbar">
+      <div class="charge-view-switch" role="group" aria-label="收费工作区">
+        <button type="button" class="is-active" aria-pressed="true">待收结算</button>
+        <button type="button" aria-pressed="false">已收查询 <span>0</span></button>
+      </div>
+      <p class="charge-workbar-note">先核对患者与处方，再确认金额</p>
+    </div>
+    <div class="charge-layout">
+      <section class="patient-panel charge-pending-panel" aria-labelledby="pending-title">
+        <div class="charge-candidate-zone" data-testid="charge-candidate-zone">
+          <div class="panel-head">
+            <div><p class="charge-section-kicker">01 · IDENTIFY</p><h2 id="pending-title">定位待收</h2></div>
+            <span class="charge-counter">1 个候选</span>
+          </div>
+          <form class="charge-search" data-testid="charge-search" onsubmit="return false">
+            <label class="field">
+              <span>患者 / 挂号 / 处方</span>
+              <input name="charge-keyword" autocomplete="off" value="张三" />
+            </label>
+            <button class="button button-compact" type="submit">检索</button>
+          </form>
+          <div class="demo-chips" aria-label="患者候选">
+            <div class="demo-chip is-active"><span class="charge-candidate-name">张三</span><span class="charge-candidate-scene">待收</span></div>
+          </div>
+        </div>
+        <p class="fixture-banner" data-testid="fixture-ui-only-banner">UI-only 几何骨架 · 非活体 · 非已支付成功 · 未调用 pay/refund</p>
+        <div class="charge-workspace" data-testid="charge-workspace">
+          <section class="charge-preview" data-testid="charge-preview" aria-labelledby="charge-preview-title">
+            <div class="panel-head"><div><p class="charge-section-kicker">02 · REVIEW</p><h2 id="charge-preview-title">核对待收明细</h2></div><span class="charge-counter">3 项</span></div>
+            <dl class="charge-meta">
+              <div><dt>患者</dt><dd>张三 · P0001</dd></div>
+              <div><dt>挂号</dt><dd>R001 · 内科</dd></div>
+              <div><dt>处方</dt><dd>RX001 · COMMITTED</dd></div>
+            </dl>
+            <p id="charge-pending-scroll" class="table-scroll-hint">左右滑动可查看完整明细</p>
+            <div class="result-wrap" data-testid="charge-pending-scroll-wrap" role="region" aria-label="待收明细，可横向滚动" aria-describedby="charge-pending-scroll" tabindex="0">
+              <table class="patient-table" data-testid="charge-pending">
+                <caption class="sr-only">待收明细（UI-only fixture）</caption>
+                <thead>
+                  <tr><th>项目</th><th>数量</th><th>单价</th><th>金额</th><th>库存</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td class="charge-item-name">阿莫西林胶囊</td><td>2盒</td><td>12.50</td><td class="charge-amount-cell">25.00</td><td><span class="charge-stock-state">充足</span></td></tr>
+                  <tr><td class="charge-item-name">血常规</td><td>1次</td><td>28.00</td><td class="charge-amount-cell">28.00</td><td><span class="charge-stock-state">充足</span></td></tr>
+                  <tr><td class="charge-item-name">葡萄糖注射液</td><td>1瓶</td><td>6.80</td><td class="charge-amount-cell">6.80</td><td><span class="charge-stock-state">充足</span></td></tr>
+                  <tr><td class="charge-item-name">（占位行）</td><td>—</td><td>—</td><td class="charge-amount-cell">—</td><td><span class="charge-stock-state">骨架</span></td></tr>
+                  <tr><td class="charge-item-name">（占位行）</td><td>—</td><td>—</td><td class="charge-amount-cell">—</td><td><span class="charge-stock-state">骨架</span></td></tr>
+                  <tr><td class="charge-item-name">（占位行）</td><td>—</td><td>—</td><td class="charge-amount-cell">—</td><td><span class="charge-stock-state">骨架</span></td></tr>
+                  <tr><td class="charge-item-name">（占位行）</td><td>—</td><td>—</td><td class="charge-amount-cell">—</td><td><span class="charge-stock-state">骨架</span></td></tr>
+                  <tr><td class="charge-item-name">（占位行）</td><td>—</td><td>—</td><td class="charge-amount-cell">—</td><td><span class="charge-stock-state">骨架</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+          <aside class="charge-pay" data-testid="charge-pay" aria-labelledby="charge-settle-title">
+            <div class="charge-settle-head"><p class="charge-section-kicker">03 · SETTLE</p><h2 id="charge-settle-title">收银结算</h2></div>
+            <div class="charge-total"><span>本次应收</span><strong>59.80</strong><span>人民币 · 元 · UI-only</span></div>
+            <div class="money-grid">
+              <label class="field"><span>应收</span><input value="59.80" readonly tabindex="-1" /></label>
+              <label class="field"><span>优惠</span><input value="0.00" readonly tabindex="-1" /></label>
+              <label class="field"><span>实收</span><input value="59.80" readonly tabindex="-1" data-testid="charge-paid-amount" /></label>
+            </div>
+            <fieldset class="pay-types">
+              <legend>支付方式</legend>
+              <label class="pay-option"><input type="radio" name="pay-type" checked />现金</label>
+              <label class="pay-option is-reserved"><input type="radio" name="pay-type" disabled />微信<span>预留</span></label>
+            </fieldset>
+            <p class="charge-settle-note">请核对实收金额后确认。本 fixture 不触发收费写。</p>
+            <div class="panel-actions charge-settle-actions">
+              <button class="button button-compact" type="button" data-testid="charge-confirm">确认收费</button>
+              <button class="button button-ghost button-compact" type="button">返回</button>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </div>
+  </section>
+</div>
+</body>
+</html>

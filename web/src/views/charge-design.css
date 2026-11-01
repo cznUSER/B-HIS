@@ -1,8 +1,11 @@
-/* UI90-04E-FIX-01: DFM shell ~1008 + top/search chrome ~47 (UI-only; no pay/refund semantic change). */
+/* UI90-04E-FIX-01: DFM shell ~1008 + top/search chrome ~47 (conserved). */
+/* UI90-04E-FIX-02: detail/preview ~329 + settle chrome UI-only; no pay/refund semantic change; no 90% sign-off. */
 .shell-main .charge-page,
 .charge-page {
   --charge-shell-w: 1008px;
   --charge-top-h: 47px;
+  --charge-preview-h: 329px;
+  --charge-settle-w: 340px;
   width: 100%;
   max-width: var(--charge-shell-w);
   margin-inline: auto;
@@ -107,8 +110,56 @@
 .shell-main .charge-page .demo-chip .charge-candidate-scene { color: #8b9f90; font-size: 10px; }
 .charge-candidate-hint { color: #95a79a; font-size: 12px; }
 .charge-pending-panel > :is(.banner, .ok-banner, .result-empty, .business-empty-state) { margin: 0 25px 22px; }
-.charge-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 25px; padding: 0 25px 25px; align-items: start; }
-.charge-preview { min-width: 0; display: flex; flex-direction: column; gap: 18px; padding-top: 4px; }
+.charge-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--charge-settle-w, 340px);
+  gap: 20px;
+  padding: 0 22px 22px;
+  align-items: start;
+  min-width: 0;
+}
+.charge-preview {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 2px;
+}
+.charge-preview .result-wrap[data-testid="charge-pending-scroll-wrap"],
+.charge-preview .result-wrap {
+  min-height: var(--charge-preview-h, 329px);
+  box-sizing: border-box;
+}
+.charge-preview .panel-head { min-height: 28px; }
+.charge-page .charge-preview .patient-table {
+  width: 100%;
+  min-width: 560px;
+  table-layout: fixed;
+}
+.charge-page .charge-preview .patient-table th,
+.charge-page .charge-preview .patient-table td {
+  padding: 10px 12px;
+  vertical-align: middle;
+}
+.charge-page .charge-preview .patient-table th:nth-child(1),
+.charge-page .charge-preview .patient-table td:nth-child(1) { width: 38%; }
+.charge-page .charge-preview .patient-table th:nth-child(2),
+.charge-page .charge-preview .patient-table td:nth-child(2) { width: 12%; }
+.charge-page .charge-preview .patient-table th:nth-child(3),
+.charge-page .charge-preview .patient-table td:nth-child(3) { width: 14%; }
+.charge-page .charge-preview .patient-table th:nth-child(4),
+.charge-page .charge-preview .patient-table td:nth-child(4) { width: 16%; }
+.charge-page .charge-preview .patient-table th:nth-child(5),
+.charge-page .charge-preview .patient-table td:nth-child(5) { width: 20%; }
+.charge-page .charge-preview .patient-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f4faf7;
+  font-size: 12px;
+  letter-spacing: .02em;
+}
+.charge-page .charge-preview .patient-table tbody td { font-size: 12px; line-height: 1.45; }
 .shell-main .charge-page .charge-meta { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; padding: 16px; background: #f6faf7; }
 .shell-main .charge-page .charge-meta dd { margin-top: 6px; color: #4d6b59; font-size: 12px; line-height: 1.7; word-break: break-word; }
 .shell-main .charge-page .charge-preview .patient-table { min-width: 560px; }
@@ -116,13 +167,27 @@
 .shell-main .charge-page .charge-amount-cell { font-variant-numeric: tabular-nums; color: #377557; font-weight: 600; white-space: nowrap; }
 .charge-stock-state { display: inline-flex; padding: 3px 8px; border-radius: 5px; background: #edf6ef; color: #6a8a72; font-size: 10px; white-space: nowrap; }
 .charge-stock-state.is-short { background: #fff0ed; color: #b57968; }
-.charge-page .charge-pay { position: sticky; top: 20px; padding: 22px; gap: 20px; border: 1px solid #d8e8dc; border-radius: 15px; background: linear-gradient(160deg, #f7fbf7, #f0f7f2); box-shadow: 0 5px 20px #31542c06; }
+.charge-page .charge-pay {
+  position: sticky;
+  top: 20px;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 18px 16px;
+  gap: 14px;
+  min-width: 0;
+  border: 1px solid #d8e8dc;
+  border-radius: 14px;
+  background: linear-gradient(160deg, #f7fbf7, #f0f7f2);
+  box-shadow: 0 5px 18px #31542c08;
+  box-sizing: border-box;
+}
+.charge-settle-head { display: flex; flex-direction: column; gap: 2px; }
 .charge-settle-head h2 { color: #365c44; font-size: 16px; font-weight: 650; }
-.charge-total { display: flex; flex-direction: column; gap: 6px; padding: 16px 0 18px; border-bottom: 1px solid #dfeae1; }
+.charge-total { display: flex; flex-direction: column; gap: 4px; padding: 12px 0 14px; border-bottom: 1px solid #dfeae1; }
 .charge-total > span:first-child { color: #7d9784; font-size: 12px; }
-.charge-total strong { color: #2e7854; font-size: 40px; font-weight: 550; letter-spacing: -.04em; line-height: 1.25; font-variant-numeric: tabular-nums; word-break: break-all; }
+.charge-total strong { color: #2e7854; font-size: 34px; font-weight: 600; letter-spacing: -.03em; line-height: 1.2; font-variant-numeric: tabular-nums; word-break: break-all; }
 .charge-total > span:last-child { color: #99ad9e; font-size: 9px; letter-spacing: .06em; }
-.charge-page .money-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.charge-page .money-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; min-width: 0; }
 .shell-main .charge-page .money-grid .field > span { color: #829787; font-size: 10px; font-weight: 500; }
 .shell-main .charge-page .money-grid input { padding: 0 8px; border: 1px solid #dce8de; background: #fff; color: #496953; font-size: 12px; font-variant-numeric: tabular-nums; }
 .charge-page .pay-types { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
@@ -132,7 +197,7 @@
 .charge-page .pay-option.is-reserved { border-color: #e3ebe4; background: #f7faf7; color: #98aa9b; font-size: 10px; }
 .charge-page .pay-option.is-reserved span { padding: 1px 4px; border-radius: 4px; background: #edf1ed; color: #a2b0a4; font-size: 8px; }
 .charge-settle-note { color: #8ea391; font-size: 10px; line-height: 1.7; }
-.charge-page .charge-settle-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.charge-page .charge-settle-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; margin-top: 2px; min-width: 0; }
 .charge-settle-actions .button { padding: 0 14px; }
 .shell-main .charge-page .charge-records-panel { gap: 22px; }
 .charge-records-panel .charge-search { padding: 17px; border: 1px solid #e5eee7; border-radius: 12px; background: #f8fbf8; }
@@ -152,9 +217,9 @@
 .charge-page .charge-refund-actions { position: sticky; bottom: -28px; display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: auto; padding: 18px 0 23px; border-top: 1px solid #e3ebe4; background: #fff; }
 .charge-refund-count { color: #97a79a; font-size: 11px; }
 .charge-refund-count strong { color: #4b8562; font-size: 15px; }
-@media (max-width: 1250px) { .charge-workspace { grid-template-columns: minmax(0, 1fr) 295px; gap: 18px; } .charge-page .charge-pay { padding: 18px; } }
-@media (max-width: 1050px) { .charge-workspace { grid-template-columns: minmax(0, 1fr); } .charge-page .charge-pay { position: static; } .charge-page .pay-types { grid-template-columns: repeat(5, minmax(0, 1fr)); } .charge-page .money-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .charge-page .charge-settle-actions { grid-template-columns: minmax(0, 1fr) auto; max-width: 360px; } }
-@media (max-width: 760px) { .charge-workbar-note { display: none; } .charge-view-switch { width: 100%; } .charge-view-switch button { flex: 1; justify-content: center; padding: 0 10px; } .shell-main .charge-page .charge-pending-panel { padding: 0; } .charge-candidate-zone { padding: 18px; } .charge-pending-panel > :is(.banner, .ok-banner, .result-empty, .business-empty-state) { margin: 0 18px 18px; } .charge-workspace { padding: 0 18px 18px; } .shell-main .charge-page .charge-meta { grid-template-columns: minmax(0, 1fr); } .charge-page .pay-types { grid-template-columns: repeat(2, minmax(0, 1fr)); } .charge-total strong { font-size: 35px; } .charge-page .refund-drawer { padding: 20px; } .charge-page .charge-refund-actions { bottom: -20px; } .charge-page .refund-drawer .charge-meta > div { grid-template-columns: minmax(0, 1fr); gap: 2px; } }
+@media (max-width: 1250px) { .charge-workspace { grid-template-columns: minmax(0, 1fr) min(295px, var(--charge-settle-w, 340px)); gap: 16px; } .charge-page .charge-pay { padding: 18px; } }
+@media (max-width: 1050px) { .charge-preview .result-wrap { min-height: 240px; } .charge-workspace { grid-template-columns: minmax(0, 1fr); } .charge-page .charge-pay { position: static; } .charge-page .pay-types { grid-template-columns: repeat(5, minmax(0, 1fr)); } .charge-page .money-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .charge-page .charge-settle-actions { grid-template-columns: minmax(0, 1fr) auto; max-width: 360px; } }
+@media (max-width: 760px) { .charge-preview .result-wrap { min-height: 200px; } .charge-workbar-note { display: none; } .charge-view-switch { width: 100%; } .charge-view-switch button { flex: 1; justify-content: center; padding: 0 10px; } .shell-main .charge-page .charge-pending-panel { padding: 0; } .charge-candidate-zone { padding: 18px; } .charge-pending-panel > :is(.banner, .ok-banner, .result-empty, .business-empty-state) { margin: 0 18px 18px; } .charge-workspace { padding: 0 18px 18px; } .shell-main .charge-page .charge-meta { grid-template-columns: minmax(0, 1fr); } .charge-page .pay-types { grid-template-columns: repeat(2, minmax(0, 1fr)); } .charge-total strong { font-size: 35px; } .charge-page .refund-drawer { padding: 20px; } .charge-page .charge-refund-actions { bottom: -20px; } .charge-page .refund-drawer .charge-meta > div { grid-template-columns: minmax(0, 1fr); gap: 2px; } }
 @media (prefers-reduced-motion: reduce) { .charge-view-switch button, .charge-page .demo-chip { transition: none; } }
 
 /* 2026-10-14 P1-H05-WEB-USABILITY: keyboard scrolling and narrow-screen action reachability. */
