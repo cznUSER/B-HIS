@@ -21,7 +21,7 @@ const status = ref('')
 const notice = ref('')
 const noticeError = ref(false)
 const errorCode = ref('')
-const form = reactive({ deptCode: '', deptName: '', status: 'ACTIVE', sortNo: 0, phone: '', manager: '', inputCode: '', serialNo: '', functions: '', departmentAttr: '' }) // UI90-04D-FIX-03/03b: phone/manager/inputCode/serialNo/functions/departmentAttr UI-only; never in saveDepartment
+const form = reactive({ deptCode: '', deptName: '', status: 'ACTIVE', sortNo: 0, phone: '', manager: '', inputCode: '', serialNo: '', functions: '', departmentAttr: '', deptKind: 'normal', expandInterface1: '', expandInterface2: '', guidInfo: '', isActiveMark: false }) // UI90-04D-FIX-03/03b/03c: phone/manager/inputCode/serialNo/functions/departmentAttr/deptKind/expandInterface*/guidInfo/isActiveMark UI-only; never in saveDepartment; isActiveMark !== status
 const activeTab = ref('normal') // 'normal' | 'nursing' · UI90-04D-FIX-01 tab shell only
 // UI90-04D-FIX-02: nursing ListBox draft is UI-only / mock; never persists; never expands saveDepartment.
 const nursingMembers = ref([])
@@ -55,13 +55,18 @@ function delNursingMember() {
 function cancelEdit() {
   editing.value = false
   resetNursingDraft()
-  // UI90-04D-FIX-03/03b: discard local UI-only drafts
+  // UI90-04D-FIX-03/03b/03c: discard local UI-only drafts
   form.phone = ''
   form.manager = ''
   form.inputCode = ''
   form.serialNo = ''
   form.functions = ''
   form.departmentAttr = ''
+  form.deptKind = 'normal'
+  form.expandInterface1 = ''
+  form.expandInterface2 = ''
+  form.guidInfo = ''
+  form.isActiveMark = false
 }
 
 const canMaintain = computed(() => listReady.value && !loading.value && !saving.value)
@@ -107,6 +112,11 @@ function startCreate() {
   form.serialNo = ''
   form.functions = ''
   form.departmentAttr = ''
+  form.deptKind = 'normal'
+  form.expandInterface1 = ''
+  form.expandInterface2 = ''
+  form.guidInfo = ''
+  form.isActiveMark = false
   show('', false)
 }
 
@@ -120,13 +130,18 @@ function startEdit(row) {
   form.deptName = row.deptName
   form.status = row.status
   form.sortNo = row.sortNo
-  // UI90-04D-FIX-03/03b: DTO has no phone/manager/inputCode/serialNo/functions/departmentAttr — leave empty; do not claim server refill
+  // UI90-04D-FIX-03/03b/03c: DTO has no phone/manager/inputCode/serialNo/functions/departmentAttr/deptKind/expandInterface*/guidInfo/isActiveMark — leave empty/default; do not claim server refill; isActiveMark !== status
   form.phone = ''
   form.manager = ''
   form.inputCode = ''
   form.serialNo = ''
   form.functions = ''
   form.departmentAttr = ''
+  form.deptKind = 'normal'
+  form.expandInterface1 = ''
+  form.expandInterface2 = ''
+  form.guidInfo = ''
+  form.isActiveMark = false
   show('', false)
 }
 
@@ -305,9 +320,49 @@ onMounted(load)
               <option value="ui-placeholder-admin">占位·行政（非主数据）</option>
             </select>
           </label>
+          <div class="field field-span-2 dept-kind-group" data-testid="dept-kind-group" role="radiogroup" aria-label="科室类型">
+            <span class="dept-kind-label">科室类型</span>
+            <div class="dept-kind-options">
+              <label class="dept-kind-option">
+                <input type="radio" name="deptKind" value="normal" v-model="form.deptKind" data-testid="dept-kind-normal" />
+                <span>普通科室</span>
+              </label>
+              <label class="dept-kind-option">
+                <input type="radio" name="deptKind" value="ek" v-model="form.deptKind" data-testid="dept-kind-ek" />
+                <span>儿科</span>
+              </label>
+              <label class="dept-kind-option">
+                <input type="radio" name="deptKind" value="jz" v-model="form.deptKind" data-testid="dept-kind-jz" />
+                <span>急诊科</span>
+              </label>
+              <label class="dept-kind-option">
+                <input type="radio" name="deptKind" value="zy" v-model="form.deptKind" data-testid="dept-kind-zy" />
+                <span>中医科</span>
+              </label>
+            </div>
+          </div>
+          <label class="field">
+            <span>接口(一)</span>
+            <input v-model="form.expandInterface1" type="text" data-testid="dept-iface-1" autocomplete="off" title="UI 壳；未接主数据 / Dict" />
+          </label>
+          <label class="field">
+            <span>接口(二)</span>
+            <input v-model="form.expandInterface2" type="text" data-testid="dept-iface-2" autocomplete="off" title="UI 壳；未接主数据 / Dict" />
+          </label>
+          <label class="field field-span-2">
+            <span>导诊提示</span>
+            <input v-model="form.guidInfo" type="text" data-testid="dept-guide-info" autocomplete="off" title="UI 壳；未接主数据" />
+          </label>
+          <label class="field dept-active-mark-field">
+            <span>激活标记</span>
+            <label class="dept-active-mark">
+              <input type="checkbox" v-model="form.isActiveMark" data-testid="dept-active-mark" title="激活标记 ≠ 启停 status；不绑定 status" />
+              <span>激活标记（≠启停 status）</span>
+            </label>
+          </label>
         </div></fieldset>
         <p class="field-hint">代码在未删除范围内唯一。停用后再挂号、再开单时不会出现。</p>
-        <p class="field-hint" data-testid="dept-extra-fields-hint">本片新增字段（电话号码 / 负责人 / 助记码 / 自动编码 / 科室功能 / 科室分类）为 UI 壳 / 未持久化；不写入 saveDepartment；功能按钮与分类未接主数据。</p>
+        <p class="field-hint" data-testid="dept-extra-fields-hint">本片新增字段（电话号码 / 负责人 / 助记码 / 自动编码 / 科室功能 / 科室分类 / 科室类型四单选 / 接口(一)(二) / 导诊提示 / 激活标记）为 UI 壳 / 未持久化；不写入 saveDepartment；激活标记≠启停 status；功能按钮与分类、接口与导诊未接主数据。</p>
       </div>
       <div
         v-show="activeTab === 'nursing'"
@@ -560,5 +615,39 @@ onMounted(load)
 .ui2-department-panel.patient-panel.master-data-panel .master-form .field input[readonly] {
   background: #ececec;
   color: #555;
+}
+
+.ui2-department-panel.patient-panel.master-data-panel .dept-kind-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-kind-label {
+  font-size: 12px;
+  color: var(--muted, #5b6472);
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-kind-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: center;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-kind-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-active-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.ui2-department-panel.patient-panel.master-data-panel .field-span-2 {
+  grid-column: 1 / -1;
 }
 </style>

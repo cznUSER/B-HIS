@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UI90-04D-FIX-03c geometry fixture</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 16px; background: #f7f7f7; font-family: 'Segoe UI', sans-serif; }
+    .button { display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border: 1px solid #ccc; background: #fff; }
+    .button-ghost { background: #f3f3f3; }
+    .button-compact {}
+    .banner { margin-top: 8px; }
+    .req { color: #b00; text-decoration: none; }
+    .master-soft-badge { font: 12px 'Segoe UI', sans-serif; color: #555; }
+  </style>
+  <link rel="stylesheet" href="./_scoped.css" />
+</head>
+<body>
+  <section class="patient-panel master-data-panel ui2-department-panel">
+    <form class="master-form" data-testid="dept-form" onsubmit="return false;">
+      <div class="master-editor-head"><div><p class="master-eyebrow">科室维护</p><h3>新建科室</h3></div><span class="master-soft-badge">新记录</span></div>
+      <div class="dept-editor-tabs" role="tablist" aria-label="科室编辑页签" data-testid="dept-editor-tabs">
+        <button class="dept-editor-tab is-active" type="button" role="tab" data-testid="dept-tab-normal" aria-selected="true" tabindex="0">常规</button>
+        <button class="dept-editor-tab" type="button" role="tab" data-testid="dept-tab-nursing" aria-selected="false" tabindex="-1">护理单元包含科室</button>
+      </div>
+      <div class="dept-editor-tabpanel" role="tabpanel" data-testid="dept-tabpanel-normal" aria-label="常规">
+        <fieldset class="master-form-group"><legend>科室信息与状态</legend><div class="field-grid">
+          <label class="field"><span>科室代码 <abbr class="req" title="必填">*</abbr></span><input data-testid="dept-code" value="D001" /></label>
+          <label class="field"><span>科室名称 <abbr class="req" title="必填">*</abbr></span><input data-testid="dept-name" value="内科" /></label>
+          <label class="field"><span>状态</span><select data-testid="dept-status"><option value="ACTIVE" selected>启用</option><option value="INACTIVE">停用</option></select></label>
+          <label class="field"><span>排序</span><input type="number" value="0" data-testid="dept-sort" /></label>
+          <label class="field"><span>电话号码</span><input data-testid="dept-phone" /></label>
+          <label class="field"><span>负责人</span><input data-testid="dept-manager" /></label>
+          <label class="field"><span>助记码</span><input data-testid="dept-input-code" /></label>
+          <label class="field"><span>自动编码</span><input data-testid="dept-auto-code" disabled readonly value="" title="只读流水壳；不改写科室代码；未接编码规则" /></label>
+          <label class="field"><span>科室功能</span>
+            <div class="dept-button-edit" data-testid="dept-functions-wrap">
+              <input data-testid="dept-functions" />
+              <button class="dept-button-edit-btn" type="button" data-testid="dept-functions-btn" title="未接线" aria-label="科室功能（未接线）">…</button>
+            </div>
+          </label>
+          <label class="field"><span>科室分类</span>
+            <select data-testid="dept-category" title="本地静态壳；非主数据 Lookup">
+              <option value="">—</option>
+              <option value="ui-placeholder-clinical">占位·临床（非主数据）</option>
+              <option value="ui-placeholder-medtech">占位·医技（非主数据）</option>
+              <option value="ui-placeholder-admin">占位·行政（非主数据）</option>
+            </select>
+          </label>
+          <div class="field field-span-2 dept-kind-group" data-testid="dept-kind-group" role="radiogroup" aria-label="科室类型">
+            <span class="dept-kind-label">科室类型</span>
+            <div class="dept-kind-options">
+              <label class="dept-kind-option"><input type="radio" name="deptKind" value="normal" data-testid="dept-kind-normal" checked /><span>普通科室</span></label>
+              <label class="dept-kind-option"><input type="radio" name="deptKind" value="ek" data-testid="dept-kind-ek" /><span>儿科</span></label>
+              <label class="dept-kind-option"><input type="radio" name="deptKind" value="jz" data-testid="dept-kind-jz" /><span>急诊科</span></label>
+              <label class="dept-kind-option"><input type="radio" name="deptKind" value="zy" data-testid="dept-kind-zy" /><span>中医科</span></label>
+            </div>
+          </div>
+          <label class="field"><span>接口(一)</span><input data-testid="dept-iface-1" title="UI 壳；未接主数据 / Dict" /></label>
+          <label class="field"><span>接口(二)</span><input data-testid="dept-iface-2" title="UI 壳；未接主数据 / Dict" /></label>
+          <label class="field field-span-2"><span>导诊提示</span><input data-testid="dept-guide-info" title="UI 壳；未接主数据" /></label>
+          <label class="field dept-active-mark-field"><span>激活标记</span>
+            <label class="dept-active-mark"><input type="checkbox" data-testid="dept-active-mark" title="激活标记 ≠ 启停 status；不绑定 status" /><span>激活标记（≠启停 status）</span></label>
+          </label>
+        </div></fieldset>
+        <p class="field-hint">代码在未删除范围内唯一。停用后再挂号、再开单时不会出现。</p>
+        <p class="field-hint" data-testid="dept-extra-fields-hint">本片新增字段（电话号码 / 负责人 / 助记码 / 自动编码 / 科室功能 / 科室分类 / 科室类型四单选 / 接口(一)(二) / 导诊提示 / 激活标记）为 UI 壳 / 未持久化；不写入 saveDepartment；激活标记≠启停 status；功能按钮与分类、接口与导诊未接主数据。</p>
+      </div>
+      <div class="dept-editor-tabpanel dept-editor-tabpanel-nursing" role="tabpanel" data-testid="dept-tabpanel-nursing" aria-label="护理单元包含科室" hidden>
+        <p class="dept-nursing-note" data-testid="dept-nursing-note">护理单元包含科室列表为 UI 仅演示（未持久化 / mock）；取消或关闭编辑丢弃本地草稿；不写入 saveDepartment。</p>
+        <ul class="dept-nursing-list" role="listbox" data-testid="dept-nursing-list" aria-label="护理单元包含科室">
+          <li class="dept-nursing-empty" data-testid="dept-nursing-empty">（空表 · UI-only）</li>
+        </ul>
+        <div class="dept-nursing-actions" data-testid="dept-nursing-actions">
+          <button class="button button-compact dept-nursing-btn" type="button" data-testid="dept-nursing-add">增加</button>
+          <button class="button button-ghost button-compact dept-nursing-btn" type="button" data-testid="dept-nursing-del" disabled>删除</button>
+        </div>
+      </div>
+      <div class="panel-actions">
+        <button class="button button-compact" type="button" data-testid="dept-save">保存</button>
+        <button class="button button-ghost button-compact" type="button" data-testid="dept-cancel">取消</button>
+      </div>
+    </form>
+  </section>
+  <script>
+    window.__state = {
+      deptKind: 'normal',
+      expandInterface1: '',
+      expandInterface2: '',
+      guidInfo: '',
+      isActiveMark: false,
+      phone: '',
+      manager: '',
+      inputCode: '',
+      functions: '',
+      departmentAttr: '',
+      status: 'ACTIVE',
+      deptCode: 'D001',
+      dialogOpened: false,
+      savePayloadKeys: ['deptCode', 'deptName', 'status', 'sortNo'],
+    };
+    window.__savePayloadKeys = () => window.__state.savePayloadKeys.slice();
+    window.__dialogOpened = () => window.__state.dialogOpened;
+    window.__extraState = () => ({
+      deptKind: window.__state.deptKind,
+      expandInterface1: window.__state.expandInterface1,
+      expandInterface2: window.__state.expandInterface2,
+      guidInfo: window.__state.guidInfo,
+      isActiveMark: window.__state.isActiveMark,
+      phone: window.__state.phone,
+      manager: window.__state.manager,
+      inputCode: window.__state.inputCode,
+      functions: window.__state.functions,
+      departmentAttr: window.__state.departmentAttr,
+      status: window.__state.status,
+      deptCode: window.__state.deptCode,
+    });
+    window.__setExtraFromDom = () => {
+      const kind = document.querySelector('input[name="deptKind"]:checked');
+      window.__state.deptKind = kind ? kind.value : 'normal';
+      window.__state.expandInterface1 = document.querySelector('[data-testid="dept-iface-1"]').value;
+      window.__state.expandInterface2 = document.querySelector('[data-testid="dept-iface-2"]').value;
+      window.__state.guidInfo = document.querySelector('[data-testid="dept-guide-info"]').value;
+      window.__state.isActiveMark = document.querySelector('[data-testid="dept-active-mark"]').checked;
+      window.__state.phone = document.querySelector('[data-testid="dept-phone"]').value;
+      window.__state.manager = document.querySelector('[data-testid="dept-manager"]').value;
+      window.__state.inputCode = document.querySelector('[data-testid="dept-input-code"]').value;
+      window.__state.functions = document.querySelector('[data-testid="dept-functions"]').value;
+      window.__state.departmentAttr = document.querySelector('[data-testid="dept-category"]').value;
+      window.__state.status = document.querySelector('[data-testid="dept-status"]').value;
+      window.__state.deptCode = document.querySelector('[data-testid="dept-code"]').value;
+    };
+    window.__resetExtra = () => {
+      window.__state.deptKind = 'normal';
+      window.__state.expandInterface1 = '';
+      window.__state.expandInterface2 = '';
+      window.__state.guidInfo = '';
+      window.__state.isActiveMark = false;
+      window.__state.phone = '';
+      window.__state.manager = '';
+      window.__state.inputCode = '';
+      window.__state.functions = '';
+      window.__state.departmentAttr = '';
+      document.querySelector('[data-testid="dept-kind-normal"]').checked = true;
+      document.querySelector('[data-testid="dept-iface-1"]').value = '';
+      document.querySelector('[data-testid="dept-iface-2"]').value = '';
+      document.querySelector('[data-testid="dept-guide-info"]').value = '';
+      document.querySelector('[data-testid="dept-active-mark"]').checked = false;
+      document.querySelector('[data-testid="dept-phone"]').value = '';
+      document.querySelector('[data-testid="dept-manager"]').value = '';
+      document.querySelector('[data-testid="dept-input-code"]').value = '';
+      document.querySelector('[data-testid="dept-functions"]').value = '';
+      document.querySelector('[data-testid="dept-category"]').value = '';
+    };
+    document.querySelector('[data-testid="dept-functions-btn"]').addEventListener('click', () => {
+      window.__state.dialogOpened = true;
+    });
+    document.querySelector('[data-testid="dept-cancel"]').addEventListener('click', () => {
+      window.__resetExtra();
+    });
+    document.querySelector('[data-testid="dept-save"]').addEventListener('click', () => {
+      // save stays four keys only; never include 03c fields
+      window.__state.savePayloadKeys = ['deptCode', 'deptName', 'status', 'sortNo'];
+    });
+    document.querySelector('[data-testid="dept-tab-nursing"]').addEventListener('click', () => {
+      const n = document.querySelector('[data-testid="dept-tabpanel-normal"]');
+      const u = document.querySelector('[data-testid="dept-tabpanel-nursing"]');
+      const tn = document.querySelector('[data-testid="dept-tab-normal"]');
+      const tu = document.querySelector('[data-testid="dept-tab-nursing"]');
+      n.hidden = true; u.hidden = false;
+      tn.classList.remove('is-active'); tu.classList.add('is-active');
+      tn.setAttribute('aria-selected', 'false'); tu.setAttribute('aria-selected', 'true');
+    });
+    document.querySelector('[data-testid="dept-tab-normal"]').addEventListener('click', () => {
+      const n = document.querySelector('[data-testid="dept-tabpanel-normal"]');
+      const u = document.querySelector('[data-testid="dept-tabpanel-nursing"]');
+      const tn = document.querySelector('[data-testid="dept-tab-normal"]');
+      const tu = document.querySelector('[data-testid="dept-tab-nursing"]');
+      n.hidden = false; u.hidden = true;
+      tn.classList.add('is-active'); tu.classList.remove('is-active');
+      tn.setAttribute('aria-selected', 'true'); tu.setAttribute('aria-selected', 'false');
+    });
+    document.querySelector('[data-testid="dept-active-mark"]').addEventListener('change', (e) => {
+      // deliberately do NOT touch status
+      window.__state.isActiveMark = e.target.checked;
+    });
+  </script>
+</body>
+</html>
