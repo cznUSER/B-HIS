@@ -1,0 +1,1032 @@
+{
+  "task": "UI90-04B-LEFT-02",
+  "tipBase": "e6730551f8d04fd2cafd54b29019940237ea4375",
+  "phase": "after",
+  "mode": "isolated Vue component; synthetic API; relative-to-header Left/right; LEFT-01 regression; not live host or SCORE; no 90% sign-off",
+  "sourceSha256": "0179372849c669c4b1ee93f35b418446047b9f0d5fa50e5296f121905ffad500",
+  "measurements": [
+    {
+      "viewport": 1440,
+      "header": {
+        "width": 1406,
+        "height": 45,
+        "position": "relative",
+        "tokens": {
+          "leftReturn": "15px",
+          "leftTitle": "110px",
+          "leftSearch": "813px",
+          "leftExport": "909px",
+          "rightSearch": "105px",
+          "rightExport": "9px"
+        },
+        "return": {
+          "left": 15,
+          "top": 9,
+          "right": 1324.71875,
+          "width": 66.28125,
+          "height": 30,
+          "position": "absolute",
+          "offsetParentIsHeader": true
+        },
+        "title": {
+          "left": 110,
+          "top": 2,
+          "right": 1168,
+          "width": 128,
+          "height": 25,
+          "position": "absolute",
+          "offsetParentIsHeader": true
+        },
+        "search": {
+          "left": 1213.296875,
+          "top": 7,
+          "right": 105,
+          "width": 87.703125,
+          "height": 30,
+          "position": "absolute",
+          "offsetParentIsHeader": true
+        },
+        "export": {
+          "left": 1309.296875,
+          "top": 7,
+          "right": 9,
+          "width": 87.703125,
+          "height": 30,
+          "position": "absolute",
+          "offsetParentIsHeader": true
+        }
+      },
+      "filters": {
+        "height": 81.00000762939453,
+        "position": "relative",
+        "tokens": {
+          "filtersHeight": "81px",
+          "controlWidth": "196px",
+          "row1": "6px",
+          "row2": "37px"
+        },
+        "targets": [
+          {
+            "name": "label-module",
+            "left": 108,
+            "top": 6,
+            "expectedLeft": 108,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 60,
+            "token": "108px"
+          },
+          {
+            "name": "ctrl-module",
+            "left": 183,
+            "top": 6,
+            "expectedLeft": 183,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 196,
+            "token": "183px"
+          },
+          {
+            "name": "label-user",
+            "left": 385,
+            "top": 6,
+            "expectedLeft": 385,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 36,
+            "token": "385px"
+          },
+          {
+            "name": "ctrl-user",
+            "left": 431,
+            "top": 6,
+            "expectedLeft": 431,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 196,
+            "token": "431px"
+          },
+          {
+            "name": "label-begin",
+            "left": 108,
+            "top": 37,
+            "expectedLeft": 108,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 60,
+            "token": "108px"
+          },
+          {
+            "name": "ctrl-begin",
+            "left": 183,
+            "top": 37,
+            "expectedLeft": 183,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 196,
+            "token": "183px"
+          },
+          {
+            "name": "label-sep",
+            "left": 385,
+            "top": 37,
+            "expectedLeft": 385,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 24,
+            "token": "385px"
+          },
+          {
+            "name": "ctrl-end",
+            "left": 431,
+            "top": 37,
+            "expectedLeft": 431,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 196,
+            "token": "431px"
+          }
+        ],
+        "controls": [
+          {
+            "selector": ".user-operations-filters select",
+            "width": 196,
+            "height": 25
+          },
+          {
+            "selector": ".user-operations-user-button-edit",
+            "width": 196,
+            "height": 25
+          },
+          {
+            "selector": "input[aria-label='记录日期起']",
+            "width": 196,
+            "height": 25
+          },
+          {
+            "selector": "input[aria-label='记录日期止']",
+            "width": 196,
+            "height": 25
+          }
+        ]
+      },
+      "overflow": false,
+      "headerPass": true,
+      "headerFlowPass": true,
+      "left01Pass": true
+    },
+    {
+      "viewport": 1024,
+      "header": {
+        "width": 990,
+        "height": 45,
+        "position": "relative",
+        "tokens": {
+          "leftReturn": "15px",
+          "leftTitle": "110px",
+          "leftSearch": "813px",
+          "leftExport": "909px",
+          "rightSearch": "105px",
+          "rightExport": "9px"
+        },
+        "return": {
+          "left": 15,
+          "top": 8.999999046325684,
+          "right": 908.71875,
+          "width": 66.28125,
+          "height": 30,
+          "position": "absolute",
+          "offsetParentIsHeader": true
+        },
+        "title": {
+          "left": 110,
+          "top": 1.9999990463256836,
+          "right": 752,
+          "width": 128,
+          "height": 25,
+          "position": "absolute",
+          "offsetParentIsHeader": true
+        },
+        "search": {
+          "left": 797.296875,
+          "top": 6.999999046325684,
+          "right": 105,
+          "width": 87.703125,
+          "height": 30,
+          "position": "absolute",
+          "offsetParentIsHeader": true
+        },
+        "export": {
+          "left": 893.296875,
+          "top": 6.999999046325684,
+          "right": 9,
+          "width": 87.703125,
+          "height": 30,
+          "position": "absolute",
+          "offsetParentIsHeader": true
+        }
+      },
+      "filters": {
+        "height": 81.00001525878906,
+        "position": "relative",
+        "tokens": {
+          "filtersHeight": "81px",
+          "controlWidth": "196px",
+          "row1": "6px",
+          "row2": "37px"
+        },
+        "targets": [
+          {
+            "name": "label-module",
+            "left": 108,
+            "top": 5.999996185302734,
+            "expectedLeft": 108,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 60,
+            "token": "108px"
+          },
+          {
+            "name": "ctrl-module",
+            "left": 183,
+            "top": 5.999996185302734,
+            "expectedLeft": 183,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 196,
+            "token": "183px"
+          },
+          {
+            "name": "label-user",
+            "left": 385,
+            "top": 5.999996185302734,
+            "expectedLeft": 385,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 36,
+            "token": "385px"
+          },
+          {
+            "name": "ctrl-user",
+            "left": 431,
+            "top": 5.999996185302734,
+            "expectedLeft": 431,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 196,
+            "token": "431px"
+          },
+          {
+            "name": "label-begin",
+            "left": 108,
+            "top": 37.000003814697266,
+            "expectedLeft": 108,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 60,
+            "token": "108px"
+          },
+          {
+            "name": "ctrl-begin",
+            "left": 183,
+            "top": 37.000003814697266,
+            "expectedLeft": 183,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 196,
+            "token": "183px"
+          },
+          {
+            "name": "label-sep",
+            "left": 385,
+            "top": 37.000003814697266,
+            "expectedLeft": 385,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 24,
+            "token": "385px"
+          },
+          {
+            "name": "ctrl-end",
+            "left": 431,
+            "top": 37.000003814697266,
+            "expectedLeft": 431,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 196,
+            "token": "431px"
+          }
+        ],
+        "controls": [
+          {
+            "selector": ".user-operations-filters select",
+            "width": 196,
+            "height": 25.00000762939453
+          },
+          {
+            "selector": ".user-operations-user-button-edit",
+            "width": 196,
+            "height": 25.00000762939453
+          },
+          {
+            "selector": "input[aria-label='记录日期起']",
+            "width": 196,
+            "height": 25
+          },
+          {
+            "selector": "input[aria-label='记录日期止']",
+            "width": 196,
+            "height": 25
+          }
+        ]
+      },
+      "overflow": false,
+      "headerPass": true,
+      "headerFlowPass": true,
+      "left01Pass": true
+    },
+    {
+      "viewport": 861,
+      "header": {
+        "width": 827,
+        "height": 45,
+        "position": "relative",
+        "tokens": {
+          "leftReturn": "15px",
+          "leftTitle": "110px",
+          "leftSearch": "813px",
+          "leftExport": "909px",
+          "rightSearch": "105px",
+          "rightExport": "9px"
+        },
+        "return": {
+          "left": 15,
+          "top": 8.999999046325684,
+          "right": 745.71875,
+          "width": 66.28125,
+          "height": 30,
+          "position": "absolute",
+          "offsetParentIsHeader": true
+        },
+        "title": {
+          "left": 110,
+          "top": 2,
+          "right": 589,
+          "width": 128,
+          "height": 25,
+          "position": "absolute",
+          "offsetParentIsHeader": true
+        },
+        "search": {
+          "left": 634.296875,
+          "top": 6.999999046325684,
+          "right": 105,
+          "width": 87.703125,
+          "height": 30,
+          "position": "absolute",
+          "offsetParentIsHeader": true
+        },
+        "export": {
+          "left": 730.296875,
+          "top": 6.999999046325684,
+          "right": 9,
+          "width": 87.703125,
+          "height": 30,
+          "position": "absolute",
+          "offsetParentIsHeader": true
+        }
+      },
+      "filters": {
+        "height": 81,
+        "position": "relative",
+        "tokens": {
+          "filtersHeight": "81px",
+          "controlWidth": "196px",
+          "row1": "6px",
+          "row2": "37px"
+        },
+        "targets": [
+          {
+            "name": "label-module",
+            "left": 108,
+            "top": 6,
+            "expectedLeft": 108,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 60,
+            "token": "108px"
+          },
+          {
+            "name": "ctrl-module",
+            "left": 183,
+            "top": 6,
+            "expectedLeft": 183,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 196,
+            "token": "183px"
+          },
+          {
+            "name": "label-user",
+            "left": 385,
+            "top": 6,
+            "expectedLeft": 385,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 36,
+            "token": "385px"
+          },
+          {
+            "name": "ctrl-user",
+            "left": 431,
+            "top": 6,
+            "expectedLeft": 431,
+            "expectedTop": 6,
+            "position": "absolute",
+            "width": 196,
+            "token": "431px"
+          },
+          {
+            "name": "label-begin",
+            "left": 108,
+            "top": 37,
+            "expectedLeft": 108,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 60,
+            "token": "108px"
+          },
+          {
+            "name": "ctrl-begin",
+            "left": 183,
+            "top": 37,
+            "expectedLeft": 183,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 196,
+            "token": "183px"
+          },
+          {
+            "name": "label-sep",
+            "left": 385,
+            "top": 37,
+            "expectedLeft": 385,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 24,
+            "token": "385px"
+          },
+          {
+            "name": "ctrl-end",
+            "left": 431,
+            "top": 37,
+            "expectedLeft": 431,
+            "expectedTop": 37,
+            "position": "absolute",
+            "width": 196,
+            "token": "431px"
+          }
+        ],
+        "controls": [
+          {
+            "selector": ".user-operations-filters select",
+            "width": 196,
+            "height": 25
+          },
+          {
+            "selector": ".user-operations-user-button-edit",
+            "width": 196,
+            "height": 25
+          },
+          {
+            "selector": "input[aria-label='记录日期起']",
+            "width": 196,
+            "height": 25
+          },
+          {
+            "selector": "input[aria-label='记录日期止']",
+            "width": 196,
+            "height": 25
+          }
+        ]
+      },
+      "overflow": false,
+      "headerPass": true,
+      "headerFlowPass": true,
+      "left01Pass": true
+    },
+    {
+      "viewport": 860,
+      "header": {
+        "width": 826,
+        "height": 45,
+        "position": "relative",
+        "tokens": {
+          "leftReturn": "15px",
+          "leftTitle": "110px",
+          "leftSearch": "813px",
+          "leftExport": "909px",
+          "rightSearch": "105px",
+          "rightExport": "9px"
+        },
+        "return": {
+          "left": 556.3125,
+          "top": 7,
+          "right": 203.40625,
+          "width": 66.28125,
+          "height": 30.000001907348633,
+          "position": "static",
+          "offsetParentIsHeader": true
+        },
+        "title": {
+          "left": 54,
+          "top": 13,
+          "right": 345.078125,
+          "width": 426.921875,
+          "height": 17.999998092651367,
+          "position": "static",
+          "offsetParentIsHeader": true
+        },
+        "search": {
+          "left": 630.59375,
+          "top": 7,
+          "right": 107.703125,
+          "width": 87.703125,
+          "height": 30.000001907348633,
+          "position": "static",
+          "offsetParentIsHeader": true
+        },
+        "export": {
+          "left": 726.296875,
+          "top": 7,
+          "right": 12,
+          "width": 87.703125,
+          "height": 30.000001907348633,
+          "position": "static",
+          "offsetParentIsHeader": true
+        }
+      },
+      "filters": {
+        "height": 150,
+        "position": "relative",
+        "tokens": {
+          "filtersHeight": "81px",
+          "controlWidth": "196px",
+          "row1": "6px",
+          "row2": "37px"
+        },
+        "targets": [
+          {
+            "name": "label-module",
+            "left": 12,
+            "top": 25.999996185302734,
+            "expectedLeft": 108,
+            "expectedTop": 6,
+            "position": "static",
+            "width": 60,
+            "token": "108px"
+          },
+          {
+            "name": "ctrl-module",
+            "left": 12,
+            "top": 55.999996185302734,
+            "expectedLeft": 183,
+            "expectedTop": 6,
+            "position": "static",
+            "width": 395,
+            "token": "183px"
+          },
+          {
+            "name": "label-user",
+            "left": 419,
+            "top": 25.999996185302734,
+            "expectedLeft": 385,
+            "expectedTop": 6,
+            "position": "static",
+            "width": 36,
+            "token": "385px"
+          },
+          {
+            "name": "ctrl-user",
+            "left": 419,
+            "top": 55.999996185302734,
+            "expectedLeft": 431,
+            "expectedTop": 6,
+            "position": "static",
+            "width": 395,
+            "token": "431px"
+          },
+          {
+            "name": "label-begin",
+            "left": 12,
+            "top": 83.99999618530273,
+            "expectedLeft": 108,
+            "expectedTop": 37,
+            "position": "static",
+            "width": 60,
+            "token": "108px"
+          },
+          {
+            "name": "ctrl-begin",
+            "left": 12,
+            "top": 113.99999618530273,
+            "expectedLeft": 183,
+            "expectedTop": 37,
+            "position": "static",
+            "width": 381,
+            "token": "183px"
+          },
+          {
+            "name": "label-sep",
+            "left": 401,
+            "top": 117.99999618530273,
+            "expectedLeft": 385,
+            "expectedTop": 37,
+            "position": "static",
+            "width": 24,
+            "token": "385px"
+          },
+          {
+            "name": "ctrl-end",
+            "left": 433,
+            "top": 113.99999618530273,
+            "expectedLeft": 431,
+            "expectedTop": 37,
+            "position": "static",
+            "width": 381,
+            "token": "431px"
+          }
+        ],
+        "controls": [
+          {
+            "selector": ".user-operations-filters select",
+            "width": 395,
+            "height": 25
+          },
+          {
+            "selector": ".user-operations-user-button-edit",
+            "width": 395,
+            "height": 25
+          },
+          {
+            "selector": "input[aria-label='记录日期起']",
+            "width": 381,
+            "height": 25
+          },
+          {
+            "selector": "input[aria-label='记录日期止']",
+            "width": 381,
+            "height": 25
+          }
+        ]
+      },
+      "overflow": false,
+      "headerPass": true,
+      "headerFlowPass": true,
+      "left01Pass": true
+    },
+    {
+      "viewport": 520,
+      "header": {
+        "width": 486,
+        "height": 79,
+        "position": "relative",
+        "tokens": {
+          "leftReturn": "15px",
+          "leftTitle": "110px",
+          "leftSearch": "813px",
+          "leftExport": "909px",
+          "rightSearch": "105px",
+          "rightExport": "9px"
+        },
+        "return": {
+          "left": 216.3125,
+          "top": 44.000000953674316,
+          "right": 203.40625,
+          "width": 66.28125,
+          "height": 30,
+          "position": "static",
+          "offsetParentIsHeader": true
+        },
+        "title": {
+          "left": 52,
+          "top": 9.000000953674316,
+          "right": 12,
+          "width": 422,
+          "height": 18,
+          "position": "static",
+          "offsetParentIsHeader": true
+        },
+        "search": {
+          "left": 290.59375,
+          "top": 44.000000953674316,
+          "right": 107.703125,
+          "width": 87.703125,
+          "height": 30,
+          "position": "static",
+          "offsetParentIsHeader": true
+        },
+        "export": {
+          "left": 386.296875,
+          "top": 44.000000953674316,
+          "right": 12,
+          "width": 87.703125,
+          "height": 30,
+          "position": "static",
+          "offsetParentIsHeader": true
+        }
+      },
+      "filters": {
+        "height": 207.99998474121094,
+        "position": "relative",
+        "tokens": {
+          "filtersHeight": "81px",
+          "controlWidth": "196px",
+          "row1": "6px",
+          "row2": "37px"
+        },
+        "targets": [
+          {
+            "name": "label-module",
+            "left": 12,
+            "top": 26,
+            "expectedLeft": 108,
+            "expectedTop": 6,
+            "position": "static",
+            "width": 60,
+            "token": "108px"
+          },
+          {
+            "name": "ctrl-module",
+            "left": 12,
+            "top": 56,
+            "expectedLeft": 183,
+            "expectedTop": 6,
+            "position": "static",
+            "width": 462,
+            "token": "183px"
+          },
+          {
+            "name": "label-user",
+            "left": 12,
+            "top": 84,
+            "expectedLeft": 385,
+            "expectedTop": 6,
+            "position": "static",
+            "width": 36,
+            "token": "385px"
+          },
+          {
+            "name": "ctrl-user",
+            "left": 12,
+            "top": 114,
+            "expectedLeft": 431,
+            "expectedTop": 6,
+            "position": "static",
+            "width": 462,
+            "token": "431px"
+          },
+          {
+            "name": "label-begin",
+            "left": 12,
+            "top": 142,
+            "expectedLeft": 108,
+            "expectedTop": 37,
+            "position": "static",
+            "width": 60,
+            "token": "108px"
+          },
+          {
+            "name": "ctrl-begin",
+            "left": 12,
+            "top": 172.00001525878906,
+            "expectedLeft": 183,
+            "expectedTop": 37,
+            "position": "static",
+            "width": 211,
+            "token": "183px"
+          },
+          {
+            "name": "label-sep",
+            "left": 231,
+            "top": 176.00001525878906,
+            "expectedLeft": 385,
+            "expectedTop": 37,
+            "position": "static",
+            "width": 24,
+            "token": "385px"
+          },
+          {
+            "name": "ctrl-end",
+            "left": 263,
+            "top": 172.00001525878906,
+            "expectedLeft": 431,
+            "expectedTop": 37,
+            "position": "static",
+            "width": 211,
+            "token": "431px"
+          }
+        ],
+        "controls": [
+          {
+            "selector": ".user-operations-filters select",
+            "width": 462,
+            "height": 25
+          },
+          {
+            "selector": ".user-operations-user-button-edit",
+            "width": 462,
+            "height": 25
+          },
+          {
+            "selector": "input[aria-label='记录日期起']",
+            "width": 211,
+            "height": 24.999969482421875
+          },
+          {
+            "selector": "input[aria-label='记录日期止']",
+            "width": 211,
+            "height": 24.999969482421875
+          }
+        ]
+      },
+      "overflow": false,
+      "headerPass": true,
+      "headerFlowPass": true,
+      "left01Pass": true
+    },
+    {
+      "viewport": 390,
+      "header": {
+        "width": 356,
+        "height": 114,
+        "position": "relative",
+        "tokens": {
+          "leftReturn": "15px",
+          "leftTitle": "110px",
+          "leftSearch": "813px",
+          "leftExport": "909px",
+          "rightSearch": "105px",
+          "rightExport": "9px"
+        },
+        "return": {
+          "left": 12,
+          "top": 79.00000381469727,
+          "right": 277.71875,
+          "width": 66.28125,
+          "height": 30,
+          "position": "static",
+          "offsetParentIsHeader": true
+        },
+        "title": {
+          "left": 52,
+          "top": 9,
+          "right": 12,
+          "width": 292,
+          "height": 18,
+          "position": "static",
+          "offsetParentIsHeader": true
+        },
+        "search": {
+          "left": 86.28125,
+          "top": 79.00000381469727,
+          "right": 182.015625,
+          "width": 87.703125,
+          "height": 30,
+          "position": "static",
+          "offsetParentIsHeader": true
+        },
+        "export": {
+          "left": 181.984375,
+          "top": 79.00000381469727,
+          "right": 86.3125,
+          "width": 87.703125,
+          "height": 30,
+          "position": "static",
+          "offsetParentIsHeader": true
+        }
+      },
+      "filters": {
+        "height": 208,
+        "position": "relative",
+        "tokens": {
+          "filtersHeight": "81px",
+          "controlWidth": "196px",
+          "row1": "6px",
+          "row2": "37px"
+        },
+        "targets": [
+          {
+            "name": "label-module",
+            "left": 12,
+            "top": 25.99999237060547,
+            "expectedLeft": 108,
+            "expectedTop": 6,
+            "position": "static",
+            "width": 60,
+            "token": "108px"
+          },
+          {
+            "name": "ctrl-module",
+            "left": 12,
+            "top": 55.99999237060547,
+            "expectedLeft": 183,
+            "expectedTop": 6,
+            "position": "static",
+            "width": 332,
+            "token": "183px"
+          },
+          {
+            "name": "label-user",
+            "left": 12,
+            "top": 83.99999237060547,
+            "expectedLeft": 385,
+            "expectedTop": 6,
+            "position": "static",
+            "width": 36,
+            "token": "385px"
+          },
+          {
+            "name": "ctrl-user",
+            "left": 12,
+            "top": 113.99999237060547,
+            "expectedLeft": 431,
+            "expectedTop": 6,
+            "position": "static",
+            "width": 332,
+            "token": "431px"
+          },
+          {
+            "name": "label-begin",
+            "left": 12,
+            "top": 141.99999237060547,
+            "expectedLeft": 108,
+            "expectedTop": 37,
+            "position": "static",
+            "width": 60,
+            "token": "108px"
+          },
+          {
+            "name": "ctrl-begin",
+            "left": 12,
+            "top": 171.99999237060547,
+            "expectedLeft": 183,
+            "expectedTop": 37,
+            "position": "static",
+            "width": 146,
+            "token": "183px"
+          },
+          {
+            "name": "label-sep",
+            "left": 166,
+            "top": 175.99999237060547,
+            "expectedLeft": 385,
+            "expectedTop": 37,
+            "position": "static",
+            "width": 24,
+            "token": "385px"
+          },
+          {
+            "name": "ctrl-end",
+            "left": 198,
+            "top": 171.99999237060547,
+            "expectedLeft": 431,
+            "expectedTop": 37,
+            "position": "static",
+            "width": 146,
+            "token": "431px"
+          }
+        ],
+        "controls": [
+          {
+            "selector": ".user-operations-filters select",
+            "width": 332,
+            "height": 25
+          },
+          {
+            "selector": ".user-operations-user-button-edit",
+            "width": 332,
+            "height": 25
+          },
+          {
+            "selector": "input[aria-label='记录日期起']",
+            "width": 146,
+            "height": 25
+          },
+          {
+            "selector": "input[aria-label='记录日期止']",
+            "width": 146,
+            "height": 25
+          }
+        ]
+      },
+      "overflow": false,
+      "headerPass": true,
+      "headerFlowPass": true,
+      "left01Pass": true
+    }
+  ],
+  "desktopPass": true,
+  "responsivePass": true,
+  "errors": []
+}

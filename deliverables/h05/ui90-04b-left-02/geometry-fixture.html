@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>UI90-04B-LEFT-02 isolated component fixture</title></head>
+<body style="margin:0">
+  <main class="shell-main" style="padding:16px"><div class="master-page" id="app"></div></main>
+  <script type="module">
+    import { createApp } from "/web/node_modules/vue/dist/vue.esm-bundler.js"
+    import { createRouter, createMemoryHistory } from "/web/node_modules/vue-router/dist/vue-router.mjs"
+    import Panel from "/web/src/views/access/UserOperationsLogPanel.vue"
+    import "/web/src/styles.css"
+    import "/web/src/design-system.css"
+    import "/web/src/views/master/master-design.css"
+    import "/web/src/views/access/access-control.css"
+    const router = createRouter({ history: createMemoryHistory(), routes: [{ path: "/", name: "access-users", component: Panel }] })
+    createApp(Panel).use(router).mount("#app")
+  </script>
+</body>
+</html>

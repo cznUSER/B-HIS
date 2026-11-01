@@ -143,7 +143,7 @@ onMounted(async () => {
 <template>
   <section class="patient-panel master-data-panel access-data-panel user-operations-panel" aria-labelledby="user-operations-heading">
     <MasterPanelHeader title="用户操作日志查询" title-id="user-operations-heading" icon="overview" description="查询账号与权限相关的操作记录。" :count="ready ? rows.length : null" count-label="已加载记录" :loading="loading">
-      <template #actions><RouterLink class="button button-ghost button-compact" :to="{ name: 'access-users' }">返回</RouterLink><button class="button button-compact" type="submit" form="user-log-search" :disabled="loading">{{ loading ? '正在查询…' : '检索(S)' }}</button><button class="button button-ghost button-compact" type="button" :disabled="!canExport" title="导出已加载" @click="exportCsv">{{ exporting ? '正在导出…' : '导出(E)' }}</button></template>
+      <template #actions><RouterLink class="button button-ghost button-compact uol-hdr-return" :to="{ name: 'access-users' }">返回</RouterLink><button class="button button-compact uol-hdr-search" type="submit" form="user-log-search" :disabled="loading">{{ loading ? '正在查询…' : '检索(S)' }}</button><button class="button button-ghost button-compact uol-hdr-export" type="button" :disabled="!canExport" title="导出已加载" @click="exportCsv">{{ exporting ? '正在导出…' : '导出(E)' }}</button></template>
     </MasterPanelHeader>
 
     <form id="user-log-search" class="master-filters user-operations-filters" @submit.prevent="search">
@@ -214,7 +214,26 @@ onMounted(async () => {
 
 <style scoped>
 .user-operations-panel.access-data-panel.patient-panel.access-data-panel { gap: 0; padding: 0; border: 1px solid #999; border-radius: 0; background: #f0f0f0; color: #202020; font: 16px SimSun, '宋体', serif; }
-.user-operations-panel.access-data-panel.patient-panel :deep(.master-panel-header) { min-height: 45px; height: 45px; padding: 4px 12px; margin: 0; border-bottom: 1px solid #999; border-radius: 0; background: #e8e8e8; box-sizing: border-box; }
+.user-operations-panel.access-data-panel.patient-panel :deep(.master-panel-header) {
+  --uol-hdr-left-return: 15px;
+  --uol-hdr-left-title: 110px;
+  --uol-hdr-left-search: 813px;
+  --uol-hdr-left-export: 909px;
+  --uol-hdr-right-search: 105px;
+  --uol-hdr-right-export: 9px;
+  --uol-hdr-top-return: 9px;
+  --uol-hdr-top-title: 2px;
+  --uol-hdr-top-action: 7px;
+  position: relative;
+  min-height: 45px;
+  height: 45px;
+  padding: 4px 12px;
+  margin: 0;
+  border-bottom: 1px solid #999;
+  border-radius: 0;
+  background: #e8e8e8;
+  box-sizing: border-box;
+}
 .user-operations-panel.access-data-panel.patient-panel :deep(.master-panel-copy p) { display: none; }
 .user-operations-panel.access-data-panel.patient-panel :deep(.master-panel-symbol) { width: 28px; height: 28px; }
 .user-operations-panel.access-data-panel.patient-panel :deep(h2) { font: 16px SimSun, '宋体', serif; }
@@ -293,6 +312,42 @@ onMounted(async () => {
 .user-operations-panel.access-data-panel.patient-panel .mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 10px; overflow-wrap: anywhere; }
 .user-operations-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0 2px; color: #829286; font-size: 11px; }
 @media (min-width: 861px) {
+  .user-operations-panel.access-data-panel.patient-panel :deep(.master-panel-header) { display: block; padding-left: 0; padding-right: 0; }
+  .user-operations-panel.access-data-panel.patient-panel :deep(.master-panel-symbol),
+  .user-operations-panel.access-data-panel.patient-panel :deep(.master-count) { display: none; }
+  .user-operations-panel.access-data-panel.patient-panel :deep(.master-panel-copy) {
+    position: absolute;
+    left: var(--uol-hdr-left-title);
+    top: var(--uol-hdr-top-title);
+    flex: none;
+    width: auto;
+    max-width: none;
+    min-width: 0;
+  }
+  .user-operations-panel.access-data-panel.patient-panel :deep(.master-panel-title) { margin: 0; }
+  .user-operations-panel.access-data-panel.patient-panel :deep(.master-panel-copy h2) { margin: 0; line-height: 25px; white-space: nowrap; }
+  .user-operations-panel.access-data-panel.patient-panel :deep(.master-header-actions) { display: contents; }
+  .user-operations-panel.access-data-panel.patient-panel .uol-hdr-return,
+  .user-operations-panel.access-data-panel.patient-panel .uol-hdr-search,
+  .user-operations-panel.access-data-panel.patient-panel .uol-hdr-export {
+    position: absolute;
+    z-index: 1;
+    box-sizing: border-box;
+  }
+  .user-operations-panel.access-data-panel.patient-panel .uol-hdr-return {
+    left: var(--uol-hdr-left-return);
+    top: var(--uol-hdr-top-return);
+  }
+  .user-operations-panel.access-data-panel.patient-panel .uol-hdr-search {
+    right: var(--uol-hdr-right-search);
+    top: var(--uol-hdr-top-action);
+  }
+  .user-operations-panel.access-data-panel.patient-panel .uol-hdr-export {
+    right: var(--uol-hdr-right-export);
+    top: var(--uol-hdr-top-action);
+  }
+}
+@media (min-width: 861px) {
   .user-operations-panel.access-data-panel.patient-panel .user-operations-filters { display: block; height: var(--uol-filters-h); }
   .user-operations-panel.access-data-panel.patient-panel .user-operations-filters > .field, .user-operations-date-range { display: contents; }
   .user-operations-user-field { position: static; }
@@ -311,6 +366,12 @@ onMounted(async () => {
   .uol-abs-ctrl-end { left: var(--uol-left-ctrl-end); top: var(--uol-top-r2); }
   .uol-abs-legend { left: 3px; top: 13px; }
   .user-operations-user-picker { left: var(--uol-left-ctrl-user); top: calc(var(--uol-top-r1) + 25px); }
+}
+@media (max-width: 860px) {
+  .user-operations-panel.access-data-panel.patient-panel :deep(.master-panel-header) { display: flex; padding: 4px 12px; }
+  .user-operations-panel.access-data-panel.patient-panel .uol-hdr-return,
+  .user-operations-panel.access-data-panel.patient-panel .uol-hdr-search,
+  .user-operations-panel.access-data-panel.patient-panel .uol-hdr-export { position: static; }
 }
 @media (max-width: 860px) {
   .user-operations-panel.access-data-panel.patient-panel .user-operations-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto; padding-top: 6px; padding-bottom: 10px; }
