@@ -700,7 +700,7 @@ watch(() => queryRegisterId(), (id) => {
 </script>
 
 <template>
-  <section class="order-page" aria-labelledby="order-title">
+  <section class="order-page" data-testid="order-page" aria-labelledby="order-title">
     <p class="crumb">
       <RouterLink :to="{ name: 'home' }">首页</RouterLink>
       <span aria-hidden="true"> / </span>
@@ -754,16 +754,18 @@ watch(() => queryRegisterId(), (id) => {
     </BusinessEmptyState>
 
     <div v-else class="order-layout" data-testid="order-form">
-      <form class="patient-panel clinical-order-editor" @submit.prevent>
-        <div class="panel-head">
-          <div><span class="clinical-kicker">处方工作区</span><h2>门诊处方</h2></div>
-          <button class="text-btn" type="button" :disabled="busy" @click="changeRegister">更换挂号</button>
-        </div>
+      <form class="patient-panel clinical-order-editor" data-testid="clinical-order-editor" @submit.prevent>
+        <div class="order-top-chrome" data-testid="order-top-chrome">
+          <div class="panel-head">
+            <div><span class="clinical-kicker">处方工作区</span><h2>门诊处方</h2></div>
+            <button class="text-btn" type="button" :disabled="busy" @click="changeRegister">更换挂号</button>
+          </div>
 
-        <section class="clinical-encounter-card" aria-label="本次就诊资料">
-          <div class="clinical-encounter-name"><span class="clinical-profile-avatar" aria-hidden="true">{{ register.patientName?.slice(0, 1) || '患' }}</span><div><strong>{{ register.patientName || '—' }}</strong><span>{{ register.patientNo || '患者号未提供' }}</span></div><span class="clinical-badge">本次就诊</span></div>
-          <dl class="clinical-encounter-meta"><div><dt>挂号单号</dt><dd>{{ register.registerNo || register.registerId }}</dd></div><div><dt>就诊日</dt><dd>{{ register.visitDate || '—' }}</dd></div><div><dt>挂号科室</dt><dd>{{ departmentLabel(register) }}</dd></div><div><dt>挂号医生</dt><dd>{{ doctorLabel(register) }}</dd></div></dl>
-        </section>
+          <section class="clinical-encounter-card" aria-label="本次就诊资料">
+            <div class="clinical-encounter-name"><span class="clinical-profile-avatar" aria-hidden="true">{{ register.patientName?.slice(0, 1) || '患' }}</span><div><strong>{{ register.patientName || '—' }}</strong><span>{{ register.patientNo || '患者号未提供' }}</span></div><span class="clinical-badge">本次就诊</span></div>
+            <dl class="clinical-encounter-meta"><div><dt>挂号单号</dt><dd>{{ register.registerNo || register.registerId }}</dd></div><div><dt>就诊日</dt><dd>{{ register.visitDate || '—' }}</dd></div><div><dt>挂号科室</dt><dd>{{ departmentLabel(register) }}</dd></div><div><dt>挂号医生</dt><dd>{{ doctorLabel(register) }}</dd></div></dl>
+          </section>
+        </div>
 
         <p v-if="masterLoading" class="shell-status" role="status">正在读取开单数据…</p>
         <div v-else-if="masterError" class="banner clinical-read-error" role="alert" data-testid="order-master-error"><p>{{ masterError }}。读取成功后才能暂存或提交。</p><button class="button button-ghost button-compact" type="button" @click="loadMaster">重新读取开单数据</button></div>

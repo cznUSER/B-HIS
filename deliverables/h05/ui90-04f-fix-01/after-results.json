@@ -1,0 +1,78 @@
+{
+  "tipBaseline": "ec0106b",
+  "slice": "UI90-04F-FIX-01",
+  "note": "isolated chrome fixture; non-live; no save/commit/abate writes; not SCORE; not 90% sign-off; not FIX-02/BTN-WIRE",
+  "allPass": true,
+  "pageerrors": [],
+  "results": [
+    {
+      "viewport": 1440,
+      "pageW": 1036,
+      "pageH": 435,
+      "topH": 105,
+      "editorW": 746,
+      "editorPadTop": 18,
+      "editorPadInline": 20,
+      "fieldsGap": "14px",
+      "tokenShell": "1036px",
+      "tokenTop": "105px",
+      "overflow": false,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "checks": {
+        "pagePass": true,
+        "topPass": true,
+        "tokenPass": true,
+        "overflowPass": true
+      },
+      "pass": true,
+      "screenshot": "E:\\B-HIS\\deliverables\\h05\\ui90-04f-fix-01\\after-1440.png"
+    },
+    {
+      "viewport": 1024,
+      "pageW": 944,
+      "pageH": 607,
+      "topH": 105,
+      "editorW": 944,
+      "editorPadTop": 18,
+      "editorPadInline": 20,
+      "fieldsGap": "14px",
+      "tokenShell": "1036px",
+      "tokenTop": "105px",
+      "overflow": false,
+      "scrollWidth": 1024,
+      "innerWidth": 1024,
+      "checks": {
+        "pagePass": true,
+        "topPass": true,
+        "tokenPass": true,
+        "overflowPass": true
+      },
+      "pass": true,
+      "screenshot": "E:\\B-HIS\\deliverables\\h05\\ui90-04f-fix-01\\after-1024.png"
+    },
+    {
+      "viewport": 390,
+      "pageW": 310,
+      "pageH": 707,
+      "topH": 139,
+      "editorW": 310,
+      "editorPadTop": 18,
+      "editorPadInline": 18,
+      "fieldsGap": "14px",
+      "tokenShell": "1036px",
+      "tokenTop": "105px",
+      "overflow": false,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "checks": {
+        "pagePass": true,
+        "topPass": true,
+        "tokenPass": true,
+        "overflowPass": true
+      },
+      "pass": true,
+      "screenshot": "E:\\B-HIS\\deliverables\\h05\\ui90-04f-fix-01\\after-390.png"
+    }
+  ]
+}
