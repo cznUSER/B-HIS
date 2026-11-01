@@ -1,4 +1,5 @@
 <script setup>
+import { useErrorDialog } from '../../components/feedback/useErrorDialog.js'
 // 2026-10-14 P1-H05-WEB-USABILITY 读取状态独立于写入提示；只有成功读取才可维护。
 // 2026-10-13 P1-H05-MASTER-UI 科室：代码唯一，可启停。种子 dept-1 / dept-2 可改。
 import { computed, onMounted, reactive, ref } from 'vue'
@@ -23,10 +24,44 @@ const noticeError = ref(false)
 const errorCode = ref('')
 const form = reactive({ deptCode: '', deptName: '', status: 'ACTIVE', sortNo: 0 })
 const activeTab = ref('normal') // 'normal' | 'nursing' · UI90-04D-FIX-01 tab shell only
+// UI90-04D-FIX-02: nursing ListBox draft is UI-only / mock; never persists; never expands saveDepartment.
+const nursingMembers = ref([])
+const nursingSelectedIndex = ref(-1)
+
+function resetNursingDraft() {
+  nursingMembers.value = []
+  nursingSelectedIndex.value = -1
+}
+
+function addNursingMember() {
+  const n = nursingMembers.value.length + 1
+  nursingMembers.value.push({
+    id: `ui-only-${Date.now()}-${n}`,
+    label: `UI 仅演示行 ${n}（未持久化 / mock）`,
+  })
+  nursingSelectedIndex.value = nursingMembers.value.length - 1
+}
+
+function delNursingMember() {
+  const idx = nursingSelectedIndex.value
+  if (idx < 0 || idx >= nursingMembers.value.length) return
+  nursingMembers.value.splice(idx, 1)
+  if (!nursingMembers.value.length) {
+    nursingSelectedIndex.value = -1
+  } else if (idx >= nursingMembers.value.length) {
+    nursingSelectedIndex.value = nursingMembers.value.length - 1
+  }
+}
+
+function cancelEdit() {
+  editing.value = false
+  resetNursingDraft()
+}
 
 const canMaintain = computed(() => listReady.value && !loading.value && !saving.value)
 
 function show(message, isError = false, code = '') {
+  noticeError.value = false
   notice.value = message
   noticeError.value = isError
   errorCode.value = code
@@ -54,6 +89,7 @@ function startCreate() {
   if (!canMaintain.value) return
   editing.value = true
   activeTab.value = 'normal'
+  resetNursingDraft()
   editingId.value = ''
   form.deptCode = ''
   form.deptName = ''
@@ -66,6 +102,7 @@ function startEdit(row) {
   if (!canMaintain.value) return
   editing.value = true
   activeTab.value = 'normal'
+  resetNursingDraft()
   editingId.value = row.departmentId
   form.deptCode = row.deptCode
   form.deptName = row.deptName
@@ -86,6 +123,7 @@ async function onSave() {
       sortNo: form.sortNo,
     })
     editing.value = false
+    resetNursingDraft()
     show(id ? '已保存科室' : '已新建科室', false)
     await load()
   } catch (error) {
@@ -111,6 +149,11 @@ async function toggle(row) {
 }
 
 onMounted(load)
+
+useErrorDialog([
+  () => loadError.value,
+  () => noticeError.value ? notice.value : '',
+])
 </script>
 
 <template>
@@ -198,13 +241,53 @@ onMounted(load)
         data-testid="dept-tabpanel-nursing"
         aria-label="护理单元包含科室"
       >
-        <p class="dept-nursing-placeholder" data-testid="dept-nursing-placeholder">本片未实现护理单元子列表（FIX-02 后置；禁 CRUD）</p>
+        <p class="dept-nursing-note" data-testid="dept-nursing-note">护理单元包含科室列表为 UI 仅演示（未持久化 / mock）；取消或关闭编辑丢弃本地草稿；不写入 saveDepartment。</p>
+        <ul
+          class="dept-nursing-list"
+          role="listbox"
+          data-testid="dept-nursing-list"
+          aria-label="护理单元包含科室（UI 仅 / 未持久化）"
+          tabindex="0"
+        >
+          <li
+            v-if="!nursingMembers.length"
+            class="dept-nursing-empty"
+            data-testid="dept-nursing-empty"
+            role="option"
+            aria-disabled="true"
+          >（空表 · 未持久化）</li>
+          <li
+            v-for="(item, idx) in nursingMembers"
+            :key="item.id"
+            class="dept-nursing-item"
+            role="option"
+            :aria-selected="nursingSelectedIndex === idx"
+            :class="{ 'is-selected': nursingSelectedIndex === idx }"
+            :data-testid="`dept-nursing-item-${idx}`"
+            @click="nursingSelectedIndex = idx"
+          >{{ item.label }}</li>
+        </ul>
+        <div class="dept-nursing-actions" data-testid="dept-nursing-actions">
+          <button
+            class="button button-compact dept-nursing-btn"
+            type="button"
+            data-testid="dept-nursing-add"
+            @click="addNursingMember"
+          >增加</button>
+          <button
+            class="button button-ghost button-compact dept-nursing-btn"
+            type="button"
+            data-testid="dept-nursing-del"
+            :disabled="nursingSelectedIndex < 0"
+            @click="delNursingMember"
+          >删除</button>
+        </div>
       </div>
       <div class="panel-actions">
         <button class="button button-compact" type="submit" data-testid="dept-save" :disabled="!canMaintain">
           {{ saving ? '正在保存…' : '保存' }}
         </button>
-        <button class="button button-ghost button-compact" type="button" data-testid="dept-cancel" @click="editing = false">取消</button>
+        <button class="button button-ghost button-compact" type="button" data-testid="dept-cancel" @click="cancelEdit">取消</button>
       </div>
     </form>
 
@@ -309,18 +392,69 @@ onMounted(load)
   box-sizing: border-box;
 }
 .ui2-department-panel.patient-panel.master-data-panel .dept-editor-tabpanel-nursing {
+  /* UI90-04D-FIX-02: DFM lbSubList 404×257 + btnAdd/btnDel 90×30; UI-only draft. */
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 8px;
   min-height: 160px;
-  border: 1px dashed #bbb;
-  background: #f7f7f7;
+  border: 0;
+  background: transparent;
+  --dept-nursing-list-h: 257px;
+  --dept-nursing-btn-w: 90px;
+  --dept-nursing-btn-h: 30px;
 }
-.ui2-department-panel.patient-panel.master-data-panel .dept-nursing-placeholder {
+.ui2-department-panel.patient-panel.master-data-panel .dept-nursing-note {
   margin: 0;
-  padding: 12px;
+  padding: 0 2px;
   color: #666;
+  font: 12px/1.45 'Segoe UI', sans-serif;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-nursing-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  height: var(--dept-nursing-list-h);
+  min-height: 120px;
+  max-height: var(--dept-nursing-list-h);
+  overflow: auto;
+  border: 1px solid #999;
+  background: #fff;
+  box-sizing: border-box;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-nursing-empty,
+.ui2-department-panel.patient-panel.master-data-panel .dept-nursing-item {
+  margin: 0;
+  padding: 2px 6px;
+  min-height: 15px;
+  color: #202020;
+  font: 16px/15px SimSun, '宋体', serif;
+  cursor: default;
+  user-select: none;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-nursing-empty {
+  color: #888;
   font: 12px/1.5 'Segoe UI', sans-serif;
-  text-align: center;
+  padding: 8px 6px;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-nursing-item.is-selected {
+  background: #cce4f7;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-nursing-actions {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+.ui2-department-panel.patient-panel.master-data-panel .dept-nursing-btn {
+  width: var(--dept-nursing-btn-w);
+  height: var(--dept-nursing-btn-h);
+  min-height: var(--dept-nursing-btn-h);
+  padding: 0 5px;
+  border: 1px solid #aaa;
+  border-radius: 3px;
+  background: #e6e6e6;
+  color: #202020;
+  font: 16px SimSun, '宋体', serif;
 }
 </style>

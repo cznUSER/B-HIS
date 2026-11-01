@@ -1,0 +1,258 @@
+{
+  "allPass": true,
+  "pageerrors": [],
+  "results": [
+    {
+      "viewport": 1440,
+      "formW": 408,
+      "formH": 695,
+      "tabBarH": 31,
+      "tabNormalText": "常规",
+      "tabNursingText": "护理单元包含科室",
+      "tabNormalSelected": true,
+      "tabNursingSelected": false,
+      "tabNursingSelectedRaw": "false",
+      "normalVisible": true,
+      "nursingVisible": false,
+      "fields": [
+        "科室代码 *",
+        "科室名称 *",
+        "状态",
+        "排序"
+      ],
+      "fieldCount": 4,
+      "saveW": 90,
+      "saveH": 30,
+      "cancelW": 90,
+      "cancelH": 30,
+      "tokenW": "408px",
+      "overflow": false,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "nursing": {
+        "tabNormalSelected": false,
+        "tabNursingSelected": true,
+        "normalVisible": false,
+        "nursingVisible": true,
+        "listRole": "listbox",
+        "listH": 257,
+        "listW": 382,
+        "addText": "增加",
+        "delText": "删除",
+        "addW": 90,
+        "addH": 30,
+        "delW": 90,
+        "delH": 30,
+        "note": "护理单元包含科室列表为 UI 仅演示（未持久化 / mock）；取消或关闭编辑丢弃本地草稿；不写入 saveDepartment。",
+        "emptyText": "（空表 · 未持久化）",
+        "tokenListH": "257px",
+        "hasTable": false,
+        "placeholderGone": true
+      },
+      "afterAdd": {
+        "count": 2,
+        "labels": [
+          "UI 仅演示行 1（未持久化 / mock）",
+          "UI 仅演示行 2（未持久化 / mock）"
+        ],
+        "emptyGone": true,
+        "state": {
+          "count": 2,
+          "selected": 1,
+          "labels": [
+            "UI 仅演示行 1（未持久化 / mock）",
+            "UI 仅演示行 2（未持久化 / mock）"
+          ]
+        }
+      },
+      "afterDel": {
+        "count": 1,
+        "state": {
+          "count": 1,
+          "selected": 0,
+          "labels": [
+            "UI 仅演示行 1（未持久化 / mock）"
+          ]
+        }
+      },
+      "checks": {
+        "widthPass": true,
+        "btnPass": true,
+        "tabPass": true,
+        "nursingPass": true,
+        "localPass": true,
+        "overflowPass": true,
+        "pass": true
+      },
+      "shot": "E:\\B-HIS\\deliverables\\h05\\ui90-04d-fix-02\\after-1440.png"
+    },
+    {
+      "viewport": 1024,
+      "formW": 408,
+      "formH": 695,
+      "tabBarH": 31,
+      "tabNormalText": "常规",
+      "tabNursingText": "护理单元包含科室",
+      "tabNormalSelected": true,
+      "tabNursingSelected": false,
+      "tabNursingSelectedRaw": "false",
+      "normalVisible": true,
+      "nursingVisible": false,
+      "fields": [
+        "科室代码 *",
+        "科室名称 *",
+        "状态",
+        "排序"
+      ],
+      "fieldCount": 4,
+      "saveW": 90,
+      "saveH": 30,
+      "cancelW": 90,
+      "cancelH": 30,
+      "tokenW": "408px",
+      "overflow": false,
+      "scrollWidth": 1024,
+      "innerWidth": 1024,
+      "nursing": {
+        "tabNormalSelected": false,
+        "tabNursingSelected": true,
+        "normalVisible": false,
+        "nursingVisible": true,
+        "listRole": "listbox",
+        "listH": 257,
+        "listW": 382,
+        "addText": "增加",
+        "delText": "删除",
+        "addW": 90,
+        "addH": 30,
+        "delW": 90,
+        "delH": 30,
+        "note": "护理单元包含科室列表为 UI 仅演示（未持久化 / mock）；取消或关闭编辑丢弃本地草稿；不写入 saveDepartment。",
+        "emptyText": "（空表 · 未持久化）",
+        "tokenListH": "257px",
+        "hasTable": false,
+        "placeholderGone": true
+      },
+      "afterAdd": {
+        "count": 2,
+        "labels": [
+          "UI 仅演示行 1（未持久化 / mock）",
+          "UI 仅演示行 2（未持久化 / mock）"
+        ],
+        "emptyGone": true,
+        "state": {
+          "count": 2,
+          "selected": 1,
+          "labels": [
+            "UI 仅演示行 1（未持久化 / mock）",
+            "UI 仅演示行 2（未持久化 / mock）"
+          ]
+        }
+      },
+      "afterDel": {
+        "count": 1,
+        "state": {
+          "count": 1,
+          "selected": 0,
+          "labels": [
+            "UI 仅演示行 1（未持久化 / mock）"
+          ]
+        }
+      },
+      "checks": {
+        "widthPass": true,
+        "btnPass": true,
+        "tabPass": true,
+        "nursingPass": true,
+        "localPass": true,
+        "overflowPass": true,
+        "pass": true
+      },
+      "shot": "E:\\B-HIS\\deliverables\\h05\\ui90-04d-fix-02\\after-1024.png"
+    },
+    {
+      "viewport": 390,
+      "formW": 342,
+      "formH": 713,
+      "tabBarH": 31,
+      "tabNormalText": "常规",
+      "tabNursingText": "护理单元包含科室",
+      "tabNormalSelected": true,
+      "tabNursingSelected": false,
+      "tabNursingSelectedRaw": "false",
+      "normalVisible": true,
+      "nursingVisible": false,
+      "fields": [
+        "科室代码 *",
+        "科室名称 *",
+        "状态",
+        "排序"
+      ],
+      "fieldCount": 4,
+      "saveW": 90,
+      "saveH": 30,
+      "cancelW": 90,
+      "cancelH": 30,
+      "tokenW": "408px",
+      "overflow": false,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "nursing": {
+        "tabNormalSelected": false,
+        "tabNursingSelected": true,
+        "normalVisible": false,
+        "nursingVisible": true,
+        "listRole": "listbox",
+        "listH": 257,
+        "listW": 316,
+        "addText": "增加",
+        "delText": "删除",
+        "addW": 90,
+        "addH": 30,
+        "delW": 90,
+        "delH": 30,
+        "note": "护理单元包含科室列表为 UI 仅演示（未持久化 / mock）；取消或关闭编辑丢弃本地草稿；不写入 saveDepartment。",
+        "emptyText": "（空表 · 未持久化）",
+        "tokenListH": "257px",
+        "hasTable": false,
+        "placeholderGone": true
+      },
+      "afterAdd": {
+        "count": 2,
+        "labels": [
+          "UI 仅演示行 1（未持久化 / mock）",
+          "UI 仅演示行 2（未持久化 / mock）"
+        ],
+        "emptyGone": true,
+        "state": {
+          "count": 2,
+          "selected": 1,
+          "labels": [
+            "UI 仅演示行 1（未持久化 / mock）",
+            "UI 仅演示行 2（未持久化 / mock）"
+          ]
+        }
+      },
+      "afterDel": {
+        "count": 1,
+        "state": {
+          "count": 1,
+          "selected": 0,
+          "labels": [
+            "UI 仅演示行 1（未持久化 / mock）"
+          ]
+        }
+      },
+      "checks": {
+        "widthPass": true,
+        "btnPass": true,
+        "tabPass": true,
+        "nursingPass": true,
+        "localPass": true,
+        "overflowPass": true,
+        "pass": true
+      },
+      "shot": "E:\\B-HIS\\deliverables\\h05\\ui90-04d-fix-02\\after-390.png"
+    }
+  ]
+}
