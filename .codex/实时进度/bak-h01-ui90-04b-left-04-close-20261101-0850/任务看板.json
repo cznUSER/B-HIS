@@ -1,0 +1,562 @@
+{
+  "updatedAt": "2026-11-01 08:40 Asia/Shanghai",
+  "sourceUpdated": "2026-11-01 08:40 Asia/Shanghai",
+  "current": {
+    "task": "UI90-04B-LEFT-04 · UserOperationsLogPanel 表列 Width（H05）",
+    "status": "in_progress",
+    "startedAt": "2026-11-01 08:40 Asia/Shanghai",
+    "duration": "2.7～3.9h",
+    "eta": "—",
+    "blocker": "tipBaseline 3954ad3；origin ahead/behind 0/0；DFM 九列命名 Width 对齐 102/76/123/67/67/324/87/85/75±2（--uol-col-w-*）；ColumnAutoWidth=True 仍以声明 Width 验收；禁发明列 Left；Vue 扩展列（结果/请求编号/错误代码）保留 auto、不删；LEFT-01 filters 108/183/385/431+196/81、LEFT-02 header 15/110/105/9+45/30、LEFT-03 壳1008 守恒；禁全局改 AppShell/register-table；禁新 search API；明确不签 90%；不做 SCORE；禁 DIAG-AUTOSAVE/ICD/Dict/强制编码/022；03b AppShell/SCORE 后置；满 3.9h 无 md/列宽测表→停；≥4h 软拆 LEFT-04/04b；origin 推债并行普通重试（禁 force）"
+  },
+  "counts": {
+    "total": 96,
+    "done": 79,
+    "pending": 17,
+    "percent": 82
+  },
+  "tasks": [
+    {
+      "status": "done",
+      "summary": "REG-PATIENT-SELECT-01 挂号页患者选择弹窗与全量模糊检索",
+      "timing": "有条件完成：2026-10-31；H06 R5 有条件通过；范围限 192.168.1.138:53151/BHIS；R1=d12b761；REG-UI-FOLD-01=a87328e 已关；REG-DOC-01=4cf1d5e 已关；仍缺 INACTIVE 样本 / gitlab 推送；全量 UI check 已绿"
+    },
+    {
+      "summary": "OUT-REG-ERR-01 确认挂号内部错误（缺 code_rule/023）修复",
+      "status": "done",
+      "timing": "完成：2026-10-21 09:34；证据=deliverables/h01/register-error-20261021/acceptance.md；Host 0.3.11-draft；未改业务源码仅迁移目标库"
+    },
+    {
+      "summary": "DOCTOR-QUEUE-01 医生站待诊队列状态被档案覆盖修复",
+      "status": "done",
+      "timing": "完成：2026-10-21 09:52；证据=deliverables/h01/doctor-queue-20261021/acceptance.md；H06 通过；待诊 3 条"
+    },
+    {
+      "summary": "DOCTOR-UI-FOUR-01 医生站全屏/实时/按钮对齐/单据类型四处调整",
+      "status": "done",
+      "timing": "完成：2026-10-21 10:28；证据=deliverables/h01/doctor-ui-four-adjustments-20261021/acceptance.md"
+    },
+    {
+      "summary": "ERR-DIALOG-01 医生身份取值与全站错误弹框统一",
+      "status": "done",
+      "timing": "完成：2026-10-21；证据=deliverables/h01/error-dialog-20261021/acceptance.md；H06 12/12"
+    },
+    {
+      "summary": "DOCTOR-SAVED-RX-01 已保存处方展示与列宽调整",
+      "status": "done",
+      "timing": "完成：2026-10-21 11:58；证据=deliverables/h01/doctor-saved-prescriptions-20261021/acceptance.md"
+    },
+    {
+      "summary": "GLOBAL-CTXMENU-01 全站拦截浏览器原生右键菜单",
+      "status": "done",
+      "timing": "完成：2026-10-22；证据=deliverables/h01/global-context-menu-20261022/acceptance.md；文档影响评估=无"
+    },
+    {
+      "summary": "REG-SLOT-CARD-01 挂号号源卡片（科室→医生→时段/防超卖/026-027）",
+      "status": "done",
+      "timing": "完成：2026-10-28 16:40；证据=deliverables/h01/register-slot-card-20261028/acceptance.md；分支 codex/register-slot-card-20261028；未 GitLab 推送"
+    },
+    {
+      "summary": "REG-SLOT-CTRL-01 挂号页移除日期/接待与步骤摘要控件收口",
+      "status": "done",
+      "timing": "完成：2026-10-29 10:45；证据=deliverables/h01/register-slot-card-controls-20261029/acceptance.md；Host PID101852 当时验收"
+    },
+    {
+      "summary": "M0 真相对齐（看板同步 10-19 后交付 / dirty 盘点 / 本机可演示）",
+      "status": "done",
+      "timing": "完成：2026-10-31 12:05；证据=deliverables/h01/m0-truth-align-2026-10-31.md；演示 http://127.0.0.1:8888/login health=ok 0.3.11-draft"
+    },
+    {
+      "status": "done",
+      "summary": "读取协作规程、恢复资料访问、学习代码A AI技能",
+      "timing": "完成：2026-10-16 08:27"
+    },
+    {
+      "status": "done",
+      "summary": "恢复二期路线图、确认范围及旧报告索引",
+      "timing": "完成：2026-10-16 08:28；本期门诊和系统设置，最终归并本机BHIS"
+    },
+    {
+      "status": "done",
+      "summary": "核验本机三库与隔离API目标守卫",
+      "timing": "完成：2026-10-16 08:30；HospDataV9/BHIS/隔离库ONLINE"
+    },
+    {
+      "status": "done",
+      "summary": "100位本机HospDataV9患者逐人完整门诊链、退药、现金退费",
+      "timing": "完成：2026-10-16 08:32；100/100、父链错误0、库存净量0、业务快照恢复"
+    },
+    {
+      "status": "done",
+      "summary": "全量Go测试含真实隔离SQL及vet",
+      "timing": "完成：2026-10-16 08:33；本轮日志resume-go-test.log、resume-go-vet.log"
+    },
+    {
+      "status": "done",
+      "summary": "进度改为MD和原生XLS并建立同步校验",
+      "timing": "完成：2026-10-16 08:33；同步脚本逐行核验"
+    },
+    {
+      "status": "done",
+      "summary": "华易通参数定义及当前实例聚合只读核查",
+      "timing": "完成：2026-10-16 08:45；1745条、空值0、空字符串360，11候选均存在且非空"
+    },
+    {
+      "status": "done",
+      "summary": "取回华易通权限和科室加载过程体",
+      "timing": "完成：2026-10-16 08:45；来源HospDataV9，只读留证"
+    },
+    {
+      "status": "done",
+      "summary": "首轮19路由×3视口真实API读取验收",
+      "timing": "完成：2026-10-16 08:47；57项、77次读取，无失败及页面错误"
+    },
+    {
+      "status": "done",
+      "summary": "修复工作台换行和诊断选择框宽度",
+      "timing": "完成：2026-10-16 08:57；H06独立9视口/63标题及5长选项复核通过"
+    },
+    {
+      "status": "done",
+      "summary": "历史例外导出及导入干跑回滚验证",
+      "timing": "完成：2026-10-16 08:54；修复导出参数冲突，406条分类例外，干跑已回滚"
+    },
+    {
+      "status": "done",
+      "summary": "代码A电脑AI执行权限静态对照并回传",
+      "timing": "完成：2026-10-16 09:05；修复远程输入UTF8后产出分析，H01继续核证"
+    },
+    {
+      "status": "done",
+      "summary": "补齐本机BHIS批次只读快照结构",
+      "timing": "完成：2026-10-16 09:04；500修为200空列表，up/up/down/up通过，库存及业务计数不变"
+    },
+    {
+      "status": "done",
+      "summary": "本轮100患者报告及参数聚合证据追加",
+      "timing": "完成：2026-10-16 08:47；已归并 phase2-final-acceptance-2026-10-16.md"
+    },
+    {
+      "status": "done",
+      "summary": "最终CSS版前端检查与构建",
+      "timing": "完成：2026-10-16 09:07；Master47/47、构建通过，保留chunk体积提示"
+    },
+    {
+      "status": "done",
+      "summary": "编译包含最新页面的真实API网站包",
+      "timing": "完成：2026-10-16 09:12；bin/b-his-host.exe，待连接本机BHIS首屏验收"
+    },
+    {
+      "status": "done",
+      "summary": "最终网站包连接本机BHIS，检查19路由与批次按钮",
+      "timing": "完成：2026-10-16 09:14；19路由、57视口、69次真实GET，批次空列表200"
+    },
+    {
+      "status": "done",
+      "summary": "补验挂号费和设置页面关键浏览器写入",
+      "timing": "完成：2026-10-16 09:50；挂号费现金收费/退费/退号，用户两科室范围/DENY/停用回读，清理0"
+    },
+    {
+      "status": "done",
+      "summary": "权限过程逐条对照及明确差异决策",
+      "timing": "完成：2026-10-16 09:55；个人DENY一致，角色拒绝/分院/功能位/默认放行差异已登记"
+    },
+    {
+      "status": "done",
+      "summary": "新迁移和例外导出器独立审查",
+      "timing": "完成：2026-10-16 10:06；H06报告 PASS、无P1，记录1个非阻断P2-015-OWNERSHIP"
+    },
+    {
+      "status": "done",
+      "summary": "更新整站/华易通对照、100患者与参数筛选当前报告",
+      "timing": "完成：2026-10-16 09:58；phase2-final-acceptance-2026-10-16.md"
+    },
+    {
+      "status": "done",
+      "summary": "按既有二期逐项验收并检查本机BHIS归并完整性",
+      "timing": "完成：2026-10-16 10:00；门诊/系统设置范围证据闭合，范围外模块明确未纳入"
+    },
+    {
+      "status": "done",
+      "summary": "整理代码交审包、修改记录和部门日志",
+      "timing": "完成：2026-10-16 09:56；独立包已放S盘，不覆盖PUMAIDE全局队列"
+    },
+    {
+      "status": "done",
+      "summary": "最终报告与文件交付通知",
+      "timing": "完成：2026-10-16 10:09；QQ_MAIL_OK，收件人2903611996@qq.com，附bin/b-his-host.exe"
+    },
+    {
+      "status": "done",
+      "summary": "将本项目BHIS数据库还原到代码A电脑",
+      "timing": "完成：2026-10-16 10:31；源备份校验、代码A原库保护备份、还原、CHECKDB及行数核对全部通过，详见codea-bhis-restore-2026-10-16.md"
+    },
+    {
+      "status": "done",
+      "summary": "删除本机BHIS数据库并将运行配置切换到代码ASQLServer",
+      "timing": "完成：2026-10-16 10:36；本机BHIS及隔离库已删除，代码A53151固定端口连通，网站health/login及SQL DMV验证通过，详见codea-bhis-local-delete-remote-config-2026-10-16.md"
+    },
+    {
+      "status": "done",
+      "summary": "门诊八环节 UI 重构与实时任务看板（主任务）",
+      "timing": "完成：2026-10-16 12:29；规格、共享外框、八环节页面、宿主包、三视口验收、报告和完成邮件均已闭合"
+    },
+    {
+      "status": "done",
+      "summary": "任务看板 HTML、JSON 与 MD/XLS 同步",
+      "timing": "完成：2026-10-16 11:22；35条任务、26条已完成，原生BIFF8校验通过，看板每5秒刷新"
+    },
+    {
+      "status": "done",
+      "summary": "共享门诊工作台外框与患者上下文",
+      "timing": "完成：2026-10-16 12:28；七个模块挂载统一上下文、状态带、下一步入口，三栏主区接入患者/挂号/诊断/处方/收费/发药共享数据"
+    },
+    {
+      "status": "done",
+      "summary": "建档与挂号视觉收口",
+      "timing": "完成：2026-10-16 11:42；宿主包登录后1440/1024/390视口通过，保留建档/挂号接口和既有测试锚点"
+    },
+    {
+      "status": "done",
+      "summary": "诊断与开单视觉收口",
+      "timing": "完成：2026-10-16 11:43；共享上下文、前置状态和三段式信息层级通过，诊断/开单检查通过"
+    },
+    {
+      "status": "done",
+      "summary": "收费、发药、退药、退费视觉收口",
+      "timing": "完成：2026-10-16 11:44；收费、发药、退药/退费入口通过，先退药后退费规则未改变"
+    },
+    {
+      "status": "done",
+      "summary": "八模块三视口浏览器回归与宿主网站包",
+      "timing": "完成：2026-10-16 12:27；build-windows、代码A SQL health、七入口、1440/1024/390、控制台/API错误0"
+    },
+    {
+      "status": "done",
+      "summary": "三栏主区与数据驱动患者/历史/费用/库存信息",
+      "timing": "完成：2026-10-16 12:28；左患者摘要/七步状态链，右最近记录/费用/库存/可退数量，静态检查和宿主浏览器复验通过"
+    },
+    {
+      "status": "done",
+      "summary": "UI 重构报告、风险记录与完成通知",
+      "timing": "完成：2026-10-16 12:29；补充报告、部门日志已写入，前一阶段完成邮件已发送，本阶段证据已闭合"
+    },
+    {
+      "status": "pending",
+      "summary": "价格、号源、医保及非现金支付合同与验收",
+      "timing": "预计完成时间：待业务合同确认后估算"
+    },
+    {
+      "status": "pending",
+      "summary": "药品耗材采购、调拨、盘点、批次追溯与完整扣账",
+      "timing": "预计完成时间：待药材业务合同确认后估算"
+    },
+    {
+      "status": "pending",
+      "summary": "住院入院、转科、医嘱执行、出院和床位流程",
+      "timing": "预计完成时间：待住院业务合同确认后估算"
+    },
+    {
+      "status": "pending",
+      "summary": "电子病历模板、签名、版本、归档和打印",
+      "timing": "预计完成时间：待病历业务合同确认后估算"
+    },
+    {
+      "status": "pending",
+      "summary": "报表、运营指标、费用与药房分析口径",
+      "timing": "预计完成时间：待报表口径确认后估算"
+    },
+    {
+      "status": "pending",
+      "summary": "LIS、PACS、设备和第三方接口映射、重试与对账",
+      "timing": "预计完成时间：待接口清单确认后估算"
+    },
+    {
+      "status": "pending",
+      "summary": "华易通全系统等价差异收口与跨模块UAT",
+      "timing": "预计完成时间：待各模块验收完成后估算"
+    },
+    {
+      "status": "pending",
+      "summary": "正式发布审批、迁移演练、回滚和上线运维交接",
+      "timing": "预计完成时间：待部门队列释放后估算"
+    },
+    {
+      "status": "done",
+      "summary": "UI90-01 本地菜单与参考文件矩阵",
+      "timing": "负责人=H02临时协作者；状态=本地盘点已完成/运行截图待补；证据=deliverables/h02/ui90-menu-reference-matrix-2026-10-16.md；不代表90%验收"
+    },
+    {
+      "status": "done",
+      "summary": "UI90-02 工程估时与独立拆分门禁",
+      "timing": "状态=已回交/报告已核实；证据=deliverables/h14/ui90-estimate-2026-10-16.md；H14本轮条件估时=47～79人时；完成日期=待参考矩阵齐全后复估；H05b不启用；首批普通H05修改密码页1.5～3小时"
+    },
+    {
+      "status": "pending",
+      "summary": "UI90-03 代码A华易通运行参考取证",
+      "timing": "状态=已派达后600秒超时/无交付；证据=run-20261016-124458.err模型刷新超时；主窗体HERPCore代码A亦不存在；不记接单完成"
+    },
+    {
+      "status": "pending",
+      "summary": "UI90-04A 修改密码页",
+      "timing": "状态=实现及独立行为/尺寸复验通过/待原版视觉截图验收；证据=PasswordChangeView.vue、npm check/build exit0；H06三视口326×302含边框/输入250×25且y59/123/187/按钮90×30且y241/溢出0，8行为检查通过；修复真实shell全局CSS覆盖；缺华易通运行截图不签90%"
+    },
+    {
+      "status": "pending",
+      "summary": "UI90-05 全菜单独立视觉与功能复验",
+      "timing": "负责人=H06待接手；状态=待接手；验收=逐菜单参考/实现同尺寸截图、视觉对照得分与业务回归证据；依赖=实现交付；预计剩余=待H14复估"
+    },
+    {
+      "status": "pending",
+      "summary": "UI90-04B 代码A诊断页独立副本实施",
+      "timing": "状态=已派达/执行未交付；文件边界=C:/Users/sa/codex-runs/UI90-04B/DiagnosisView.vue；prompt-20261016-125817.txt；模型刷新超时，进程19084仍在，不重派同文件；待远程恢复或结束后接手"
+    },
+    {
+      "status": "pending",
+      "summary": "UI90-04C 用户操作日志页",
+      "timing": "状态=局部实现和全检查构建通过/待独立复验及原版截图；唯一文件=UserOperationsLogPanel.vue；H01实际路由三视口日志浏览0错误/0溢出，证据=deliverables/h01/ui90/logs-browser.json；H06筛选行为复验进行中"
+    },
+    {
+      "status": "pending",
+      "summary": "UI90-04D 科室编辑子区域",
+      "timing": "状态=实际修改/检查构建和H06独立几何行为通过/整页待还原；文件=DepartmentsPanel.vue；桌面408×414/input25/button90×30；窄屏无溢出；原版额外字段页签计结构缺口，编辑区不能代整页"
+    },
+    {
+      "status": "pending",
+      "summary": "UI90-04E 门诊收费页",
+      "timing": "状态=实际修改/全检查构建通过/待独立视觉验收；文件=ChargeView.vue；原worker工具不可用未改，H01接手；局部UI2.0检索47/明细网格/底部收银；未新增假功能，不签90%"
+    },
+    {
+      "status": "pending",
+      "summary": "OUT-REG-GENTRON 经创贺联 HIS 门诊挂号界面改造",
+      "timing": "状态=前端实现、文档同步、H06复审和本机Host验收通过；GitLab提交/推送待独立授权与混合工作区安全隔离；最终完成=待；证据=deliverables/h01/outpatient-gentron-registration-20261019/；M0备注：仍 pending 因推送门禁未满足"
+    },
+    {
+      "status": "done",
+      "summary": "REG-UI-FOLD-01 挂号今日表默认折叠导致全量 picker check 失败",
+      "timing": "完成：2026-10-31 12:50；H05；git a87328e / a87328e7a132b14fd551488fe334dc7f1017c5e5；origin tip 含本提交；证据=deliverables/h05/reg-ui-fold-2026-10-31.md；check-register-patient-picker(+race) exit 0；未并 P0-A"
+    },
+    {
+      "status": "done",
+      "summary": "P0-A-CONTEXT-01 门诊共享上下文条字段/切患确认/Id 持久化",
+      "timing": "完成：2026-10-31 12:46；H05；git d3c24cf / d3c24cf8784452d91af4b6dfe7ab7c0f428252f3；origin tip=本提交；证据=deliverables/h05/p0-a-context-2026-10-31.md；check-outpatient-context-p0 exit 0；形态 A 零新 API；未并 REG-UI-FOLD"
+    },
+    {
+      "status": "done",
+      "summary": "REG-DOC-01 手册澄清 registration-search 200/503",
+      "timing": "完成：2026-10-31；H18；git 4cf1d5e / 4cf1d5ebc321c6e42d4a5b9d142c887053212667；origin 含本提交；证据=deliverables/h18/reg-doc-registration-search-2026-10-31.md；文件=实施部署手册.md、网站操作手册.md（未混交网站数据结构文档）"
+    },
+    {
+      "status": "done",
+      "summary": "P0-B-QUEUE-01 门诊共享队列（形态 A 拼装 listRegisters/Orders/Charges/Dispenses）",
+      "timing": "完成：2026-10-31 13:08；H05；git ddab6df / ddab6df1800bc7c02ad9c37b9d0703d80996ef40；origin tip 含本提交；证据=deliverables/h05/p0-b-queue-2026-10-31.md；check-outpatient-queue-p0.mjs → P0_B_QUEUE_CHECK_OK exit 0；未改 Frame/outpatientContext 写入语义；gitlab 推送仍记债"
+    },
+    {
+      "status": "done",
+      "summary": "P0-C-STATUS-01 门诊状态链（与 P0-B 并行；H14 边界避让）",
+      "timing": "完成：2026-10-31 13:25；功能=421c86f / tip=192faf6；证据=deliverables/h05/p0-c-status-2026-10-31.md；本机 P0_C+P0_A check exit 0；origin 已含（tip 后推至 6e28083）"
+    },
+    {
+      "status": "done",
+      "summary": "P0-D1-REGISTER-FEEDBACK-01 挂号页高风险动作统一反馈（P0 包 D 首片；H05）",
+      "timing": "完成：2026-10-31 14:15；H05；feat=0036456 / 003645684e7035e5745bd42d14f462f138e8ffc3；tip=32718ed / 32718edae87998e1cf3d654b73ddd480e66b668d；证据=deliverables/h05/p0-d1-register-feedback-2026-10-31.md；check-register-submit-feedback.mjs → P0_D1_REGISTER_FEEDBACK_OK exit 0；未改 Frame/Queue/StatusChain/Go·OpenAPI；origin 已含（tip 后推至 6e28083）"
+    },
+    {
+      "status": "done",
+      "summary": "P0-D2-DIAGNOSIS-FEEDBACK-01 诊断页高风险动作统一反馈（P0 包 D 次片；H05）",
+      "timing": "完成：2026-10-31 14:35；H05；feat=4c8ceb1 / 4c8ceb135b3c91958b8ea15e080d8d3728dd7599；tip=6e28083 / 6e2808393d164439b0890873163292ece4526b1b；证据=deliverables/h05/p0-d2-diagnosis-feedback-2026-10-31.md；check-diagnosis-submit-feedback.mjs → P0_D2_DIAGNOSIS_FEEDBACK_OK exit 0；check-register-submit-feedback.mjs → P0_D1_REGISTER_FEEDBACK_OK exit 0（不回归）；未改 Frame/Queue/StatusChain/Order/Go/OpenAPI；origin tip=6e28083 ahead 0"
+    },
+    {
+      "status": "done",
+      "summary": "P0-D3-ORDER-FEEDBACK-01 开单页高风险动作统一反馈（P0 包 D 次片；H05）",
+      "timing": "完成：2026-10-31 14:55；H05；feat=d5240c1 / d5240c1c016243e33c8ed1d5117f9c978db5d86b；tip=d5240c1；本机 harness 三绿（order+register+diagnosis）；origin 未上（ahead 1，github 443）；证据=deliverables/h05/p0-d3-order-feedback-2026-10-31.md；核验=deliverables/h01/p0-d3-verify-2026-10-31.md"
+    },
+    {
+      "status": "done",
+      "summary": "P0-D4-CHARGE-FEEDBACK-01 收费页高风险动作统一反馈（P0 包 D 次片；H05）",
+      "timing": "完成：2026-10-31 15:16；H05；feat/tip=7473271 / 747327135141b0115de9c610a198b6a2db1eb12c；origin tip=7473271 ahead 0（含 D3 d5240c1）；四 harness 绿（charge+register+diagnosis+order）；证据=deliverables/h05/p0-d4-charge-feedback-2026-10-31.md；核验=deliverables/h01/p0-d4-verify-2026-10-31.md"
+    },
+    {
+      "status": "done",
+      "summary": "P0-D5-DISPENSE-FEEDBACK-01 发药页高风险动作统一反馈（含退药；P0 包 D 次片；H05）",
+      "timing": "完成：2026-10-31 15:24；H05；feat/tip=4e4b856 / 4e4b85643c122f14d28eb007be8510b9a864bdeb；origin tip=4e4b856 ahead 0；五 harness 绿（dispense+register+diagnosis+order+charge）；证据=deliverables/h05/p0-d5-dispense-feedback-2026-10-31.md；核验=deliverables/h01/p0-d5-verify-2026-10-31.md；包 D 串行结束（D1–D5；无独立 P0-D6-REFUND）→进 E 集成复验"
+    },
+    {
+      "status": "done",
+      "summary": "P0-E-INTEGRATION-01/Ea 门诊共享基础集成复验（A～D 关键路径 + M1 退出证据；H05 主跑）",
+      "timing": "完成于 2026-10-31 15:40；H05；feat=edd10e1 / edd10e178977e2350c0567ba27b848c23aa4e502；tip=9786182 / 9786182a8d6e86a11e955b70006ec9a3795cdabe；证据=deliverables/h05/p0-e-integration-2026-10-31.md；A1/A2/B1/C1/D1–D5/SMOKE 全 exit 0；origin tip=9786182 ahead 0；最小胶水仅 browser harness stub + 新建 write-chain smoke；未改 Frame/Queue/StatusChain/Go/OpenAPI；核验=deliverables/h01/p0-e-ea-verify-2026-10-31.md；后续 Eb=H06 独立复核 + H18 文档门禁"
+    },
+    {
+      "status": "done",
+      "summary": "P0-E-INTEGRATION-01/Eb-H06 门诊共享基础集成复验（H06 独立复核）",
+      "timing": "完成于 2026-10-31 15:42；H06；结论=建议通过；证据=deliverables/h06/p0-e-integration-review-2026-10-31.md；基线 tip=9786182（= origin ahead 0）；独立重跑 A1/A2/B1/C1/D1–D5/SMOKE 全 exit 0；与 H05 harness-results-final.json 一致；M1 四条可复现；旧 check-usability-mock-chain vs D5 冲突不阻塞（另立清理债）；不定口径、不改业务码、不关整片；后续仍待 H18 文档门禁 + H01 收口"
+    },
+    {
+      "status": "done",
+      "summary": "P0-E-INTEGRATION-01/Eb-H18 门诊共享基础集成复验（H18 文档门禁）",
+      "timing": "完成于 2026-10-31 17:33 Asia/Shanghai；H18；结论=通过（缺口已关闭）；tip=**649cb13** / 649cb13；文件=deliverables/h18/p0-e-doc-gate-2026-10-31.md、docs/manuals/实施部署手册.md、docs/manuals/网站操作手册.md；整片 P0-E-INTEGRATION-01=done；P0/M1 门诊共享基础 A～D 收口；origin ahead 1（649cb13 push 债 github.com:443，不阻塞收口）；其后待 H14 估 P1 首片；禁未经估时回改共享壳"
+    },
+    {
+      "status": "done",
+      "summary": "P1-PRINT-STATUS-01 开单页处方输出可追踪状态（预览 + 状态占位 + 失败重试/重打 UI；P1-3 首片；H05）",
+      "timing": "完成于 2026-10-31 18:00 Asia/Shanghai；H05；feat/tip=**c2589d7** / c2589d7f2421d8bcedb05c5da5355e52cdbdcda4；commit=`feat(h05): P1-PRINT-STATUS-01 order print status track`；文件=orderPrintStatus.js、OrderPrintPanel.vue、OrderView.vue、check-order-print-status.mjs、deliverables/h05/p1-print-status-2026-10-31.md；harness：check-order-print-status + check-order-submit-feedback 均 exit 0；origin ahead 2（443 push 债，不阻塞收口）；其后待 H14 估 P1-ORDER-FIND-01；禁未经估时回改共享壳"
+    },
+    {
+      "status": "done",
+      "summary": "P1-ORDER-FIND-01 开单页找项 · 分类+关键词（仅 DRUG/TREAT Tab + 关键词过滤；P1-1 次刀；H05）",
+      "timing": "完成于 2026-10-31 18:06 Asia/Shanghai；H05；feat/tip=**8865146** / 8865146f0d47d1eccbb475c74362767bebbac98d；commit=feat(h05): P1-ORDER-FIND-01 catalog tab and keyword find；文件=orderItemFind.js、OrderItemFinder.vue、OrderView.vue、check-order-item-find.mjs、deliverables/h05/p1-order-find-2026-10-31.md；harness：check-order-item-find + check-order-submit-feedback + check-order-print-status 均 exit 0；origin ahead 3（443 push 债，不阻塞收口）；其后待 H14 估 P1-DIAG-RESUME-01；禁未经估时回改共享壳"
+    },
+    {
+      "status": "done",
+      "summary": "P1-DIAG-RESUME-01 诊断页可恢复工作区（离页未保存提醒 + 最后暂存提示 + 失败不覆盖；P1-2 第三刀；H05）",
+      "timing": "完成于 2026-10-31 18:14 Asia/Shanghai；H05；feat/tip=**5fa6b06** / 5fa6b06528b7e88cb897ca0d4c12684df4eda16a；commit=feat(h05): P1-DIAG-RESUME-01 dirty guard and leave confirm；文件=diagnosisDirtyGuard.js、DiagnosisView.vue、check-diagnosis-resume.mjs、deliverables/h05/p1-diag-resume-2026-10-31.md；harness：check-diagnosis-resume + check-diagnosis-submit-feedback 均 exit 0；H01 薄冒烟 print/find/D3 亦 exit 0；**P1 三刀薄包 done**（PRINT→FIND→DIAG-RESUME tip 5fa6b06）；origin ahead 4（443 push 债，不阻塞收口）；其后待 H14/用户定下一刀（ICD·常用 vs 暂停）；禁未经估时回改共享壳；禁 PHI/token 进 storage"
+    },
+    {
+      "status": "done",
+      "summary": "P1-DIAG-COMMON-01 诊断页常用诊断芯片（P1-2 续刀；H05）",
+      "timing": "完成于 2026-10-31 19:41 Asia/Shanghai；H05；feat/tip=**929deaf** / 929deafa17bdc80acdc733712c926c1a207b2d53；commit=feat(h05): P1-DIAG-COMMON-01 common diagnosis chips；文件=commonDiagnoses.js / DiagnosisView.vue / check-diagnosis-common.mjs / deliverables/h05/p1-diag-common-2026-10-31.md；harness=check-diagnosis-common + resume + feedback 全绿（P1_DIAG_COMMON_OK / P1_DIAG_RESUME_OK / P0_D2_DIAGNOSIS_FEEDBACK_OK）；origin tip=929deaf ahead 5（push 债 github.com:443，不阻塞收口）；禁混 dirty / 未扩 ICD·Order 常用·022 / 无 storage 临床 key；次刀待 H14 ICD 卡"
+    },
+    {
+      "status": "done",
+      "summary": "P1-DIAG-ICD-FIND-01 诊断页 · Mock ICD 关键词检索填入（H05）",
+      "timing": "完成于 2026-10-31 19:49 Asia/Shanghai；H05；feat/tip=**4243b19** / 4243b195b6a2a0e985c98f4f4efdd3a5011d0c29；commit=feat(h05): P1-DIAG-ICD-FIND-01 mock ICD keyword find；文件=mockIcdCodes.js / DiagnosisView.vue / check-diagnosis-icd-find.mjs / deliverables/h05/p1-diag-icd-find-2026-10-31.md；harness=check-diagnosis-icd-find + common + resume + feedback 全绿（P1_DIAG_ICD_FIND_OK / P1_DIAG_COMMON_OK / P1_DIAG_RESUME_OK / P0_D2_DIAGNOSIS_FEEDBACK_OK）；origin tip=4243b19 ahead/behind 0/0（fetch 后平，此前 ahead 5 债已清）；禁混 dirty / 未扩完整官方 ICD·新 API·022 / UI 明示演示码表；完整官方 ICD / 主数据 Dict / 强制编码另立项"
+    },
+    {
+      "status": "done",
+      "summary": "P1-ORDER-COMMON-01 开单页常用项目芯片（H05）",
+      "timing": "完成于 2026-10-31 20:20 Asia/Shanghai；H05；feat/tip=**120a409** / 120a409a5b8748fecd8a27e89178fa6455272939；commit=feat(h05): P1-ORDER-COMMON-01 common order item chips；文件=commonOrderItems.js / OrderView.vue / check-order-common.mjs / check-order-item-find.mjs / deliverables/h05/p1-order-common-2026-10-31.md；harness=check-order-common + item-find + print-status + submit-feedback 全绿（P1_ORDER_COMMON_OK / P1_ORDER_ITEM_FIND_OK / P1_PRINT_STATUS_OK / P0_D3_ORDER_FEEDBACK_OK）；origin tip=120a409 ahead/behind 1/0（fetch 443 失败，不 push，不阻塞收口）；禁混 dirty / 未扩最近·模板·密度·ICD·022；禁未经估时回改共享壳；次刀待用户/H14"
+    },
+    {
+      "status": "done",
+      "summary": "P1-DIAG-VERSION-DIFF-01 诊断页 · 历史版本只读对比（H05）",
+      "timing": "完成于 2026-10-31 21:48 Asia/Shanghai；H05；feat/tip=**e8073b7** / e8073b79462823d33de14c4b84b16c9e18a0d339；commit=feat(h05): P1-DIAG-VERSION-DIFF-01 diagnosis version diff；文件=diagnosisVersionDiff.js / DiagnosisView.vue / check-diagnosis-version-diff.mjs / deliverables/h05/p1-diag-version-diff-2026-10-31.md；harness=version-diff + resume + common + icd-find + submit-feedback 全绿（P1_DIAG_VERSION_DIFF_OK / P1_DIAG_RESUME_OK / P1_DIAG_COMMON_OK / P1_DIAG_ICD_FIND_OK / P0_D2_DIAGNOSIS_FEEDBACK_OK）；origin tip=e8073b7 ahead/behind 0/0（fetch 后平）；禁混 dirty / 未扩 Go·新 API·022·Dict·全量 ICD·强制编码；禁回改 RESUME·COMMON·ICD·Order；次刀待用户/H14"
+    },
+    {
+      "status": "done",
+      "summary": "P1-ORDER-RECENT-01 开单页会话内存「最近使用」itemNo 芯片一键入行（H05）",
+      "timing": "完成于 2026-11-01 00:05 Asia/Shanghai；H05；feat/tip=**42f2d09** / 42f2d094efe85dc4c017b6e7b7d1533a55c0d570；commit=feat(h05): P1-ORDER-RECENT-01 recent order item chips；文件=recentOrderItems.js / OrderView.vue / check-order-recent.mjs / check-order-item-find.mjs / deliverables/h05/p1-order-recent-2026-10-31.md；harness=check-order-recent + common + item-find + print-status + submit-feedback 全绿（P1_ORDER_RECENT_OK / P1_ORDER_COMMON_OK / P1_ORDER_ITEM_FIND_OK / P1_PRINT_STATUS_OK / P0_D3_ORDER_FEEDBACK_OK）；origin ahead/behind 1/0（fetch 443 Connection was reset；普通 push 失败，记 push 债，未 force）；禁混 dirty / 零 storage·零新 API；COMMON 与 RECENT 并列；本轮未做 DIAG-AUTOSAVE / 薄冒烟；禁官方 ICD/Dict/强制编码/022；次刀待 Jarvis/H14"
+    },
+    {
+      "status": "done",
+      "summary": "P1-THIN-SMOKE-01 薄集成冒烟 diagnosis×4+order×4（只跑 harness、不写业务；H06）",
+      "timing": "完成：2026-11-01 00:16 Asia/Shanghai；H06 建议通过冒烟；tip **42f2d09**（冒烟不写码 HEAD 未变）；证据=deliverables/h06/p1-thin-smoke-2026-11-01.md；八脚本均 exit 0：diagnosis-resume/common/icd-find/version-diff + order-print-status/item-find/common/recent；H01 抽查 recent+version-diff 双绿；ahead 1 push 债继续挂；禁 force/reset；未改业务/harness；未 push"
+    },
+    {
+      "status": "done",
+      "summary": "DEBT-MOCK-CHAIN-ALIGN-01 对齐/废弃 check-usability-mock-chain（Morph-A-external 薄债；H06）",
+      "timing": "完成：2026-11-01 00:27 Asia/Shanghai；H06 对齐路径；tip **8a71ee4**（全 8a71ee488a45175e62d16c15308489cc61194503）；证据=deliverables/h06/debt-mock-chain-align-2026-11-01.md；H01 复跑 mock-chain + D5 dispense-submit-feedback 均 exit 0；show 仅 mock-chain.mjs + 交付 md；suite 未引用；未改 Vue/Go；origin ahead **2**/behind 0（push 债继续挂，本轮勿 push）；禁 force/reset"
+    },
+    {
+      "status": "done",
+      "summary": "UI90-04A-EVID-01 修改密码页证据打包首片（零业务码；不签 90%；H06）",
+      "timing": "完成：2026-11-01 00:36 Asia/Shanghai；H06 证据包；tip **593e7ef**（全 593e7ef833fadd91725cab2127c7c333203636df）；证据=deliverables/h06/ui90-04a-evid-pack-2026-11-01.md；H01 核验 show 仅该 md；**明确不签 90%**；未改 PasswordChangeView/CSS/Go/harness；未改看板 UI90-04A 父条目（仍 pending）；后续只列名 UI90-04A-FIX / UI90-04A-SCORE；origin ahead **3**/behind 0（push 债继续挂，本轮勿 push）；禁 force/reset"
+    },
+    {
+      "status": "done",
+      "summary": "UI90-04A-FIX-01 修改密码页 scoped CSS 薄首片（边框 1→2px + 禁本页按钮 hover/active 动画；H05；不签 90%）",
+      "timing": "完成：2026-11-01 00:48 Asia/Shanghai；H05 实现 tip **be229e4**（全 be229e452532b8e1121420ab05d6be6d1c9de4e2）；交付=deliverables/h05/ui90-04a-fix-01-2026-11-01.md + deliverables/h05/ui90-04a-fix-01/；H06 抽验 tip **2b69533**（全 2b69533bcb0c2d80a949e59c1117c2d202f00e06）建议通过；spotcheck=deliverables/h06/ui90-04a-fix-01-spotcheck-2026-11-01.md；probe：dialog/button borderWidth=2px；form 左右/底 2px、顶 0；hover/active transform=none；三视口 1440/1024/390 overflow=false；**明确不签 90%**；仅 PasswordChangeView.vue scoped CSS + 交付；零 Go/迁移/全局 design-system；H01 关片前普通 push be229e4..2b69533 成功；origin **ahead/behind 0/0**；禁 force/reset；未改看板 UI90-04A 父条目为 90%"
+    },
+    {
+      "status": "done",
+      "summary": "UI90-04C-REVERIFY-01 用户操作日志页独立复验薄片（只读复验；H06；不签 90%）",
+      "timing": "完成：2026-11-01 01:00 Asia/Shanghai；H06 只读复验；tip **5c829e8**（全 5c829e868015b54b8f87496959cca14a02bcd791）；证据=deliverables/h06/ui90-04c-reverify-01-2026-11-01.md + deliverables/h06/ui90-04c-reverify-01/；复验通过（证据完整）；**明确不签 90%**；缺口：量表约 30～50/100；真宿主三视口+真 GET 本片因服务/脏树未重放（SCORE 前宜补活体）；后续只列名 FIX-02/03/04 与 04C-SCORE；未改业务；origin **ahead/behind 0/0**（已 push 5c829e8）"
+    },
+    {
+      "status": "done",
+      "summary": "UI90-04C-FIX-02 用户操作日志页文案/标签薄首片（标题→用户操作日志查询 + 检索条件 + 条件标签记录日期口径；H05；不签 90%）",
+      "timing": "完成：2026-11-01 01:15 Asia/Shanghai；H05 实现 tip **45a5a54**（全 45a5a54d7c27190f81bfe9a4180357b68457e891）；交付=deliverables/h05/ui90-04c-fix-02-2026-11-01.md；H06 抽验 tip **482049a**（全 482049a35a09c55a2fb9881b0282525a463d4745）建议通过；spotcheck=deliverables/h06/ui90-04c-fix-02-spotcheck-2026-11-01.md；文案到位（标题「用户操作日志查询」/检索条件/记录日期+——）；script 相对 5c829e8 未改；仅 Vue template(+微量 scoped)+H05 md；零 Go/022/ICD/Dict/新 search API；无 button-edit；**明确不签 90%**；未并 FIX-03/04；未 SCORE；关闭 tip=HEAD **f0aa482**（含实现/抽验/关片说明）；关片主体 push 成功 5c829e8..753289c；随后 docs 记 0/0 的 tip **f0aa482** 两次 443 失败，origin **ahead 1**/behind 0（债挂）；禁 force/reset"
+    },
+    {
+      "status": "done",
+      "summary": "UI90-04C-FIX-03 用户操作日志页 button-edit 薄首片（用户字段只读+省略号；薄选人层复用既有 fetchUsers；写回 filters.userId；H05；不签 90%）",
+      "timing": "完成：2026-11-01 01:44 Asia/Shanghai；H05 实现 tip **39a62e0**（全 39a62e0f49076ae03d4ea2efacadf3b4ce740be2）；交付=deliverables/h05/ui90-04c-fix-03-2026-11-01.md；H06 抽验 tip **afad64d**（全 afad64d29f31d14384c2008d437754d2ce7d373b）建议通过；spotcheck=deliverables/h06/ui90-04c-fix-03-spotcheck-2026-11-01.md；只读+省略号可点选；同页薄 dialog；复用既有 fetchUsers；写回 filters.userId；清除可达；未并 FIX-04；无新 search API；零 Go/022/ICD/Dict；**明确不签 90%**；未 SCORE；关闭 tip=HEAD **9443941**（含实现/抽验/关片 docs）；push f0aa482..52966a3 成功；origin **0/0**；禁 force/reset"
+    },
+    {
+      "status": "done",
+      "summary": "UI90-04C-FIX-04 用户操作日志页条件区两行网格 + 命名列宽 token 薄首片（ctrl≈196；filters 高≈81；保留 FIX-03 button-edit；H05；不签 90%）",
+      "timing": "完成：2026-11-01 02:14 Asia/Shanghai；H05 实现 tip **4b2e605**（全 4b2e605dacd81854330f9520b10cb516c2a941a3）；交付=deliverables/h05/ui90-04c-fix-04-2026-11-01.md + deliverables/h05/ui90-04c-fix-04/；H06 抽验 tip **64ec746**（全 64ec7468e94f5bb178939d4ae7319552bc6b420a）建议通过；spotcheck=deliverables/h06/ui90-04c-fix-04-spotcheck-2026-11-01.md；仅 scoped 两行网格 + token（--uol-filters-h:81 / --uol-ctrl-w:196）；script/template 相对基线不变；FIX-03 保留；测宽 1440/1024 filters高81、四主控件宽196、twoRows/desktopPass=true；无全页 absolute；无表列 Width 矩阵；未泄漏 04b 必做；零 Go/022/ICD/Dict/新 search API；**明确不签 90%**；未 SCORE；关闭 tip=HEAD **64ec746**（关片 docs 将叠加）；关片前 origin ahead 1（H06 未推）；禁 force/reset"
+    },
+    {
+      "status": "done",
+      "summary": "UI90-04B-LEFT-01 用户操作日志页条件区命名绝对 Left 薄首片（模块/用户/日期起止+标签相对 filters；H05；不签 90%）",
+      "timing": "完成：2026-11-01 07:59 Asia/Shanghai；H05 实现 tip **de00f3e**（全 de00f3e0a7a5de084ef49318eb3bb87b09ab5cca）；交付=deliverables/h05/ui90-04b-left-01-2026-11-01.md + deliverables/h05/ui90-04b-left-01/；H06 抽验 tip **61b28b4**（全 61b28b480437546d6db6583e8751796e94642d2f）建议通过；spotcheck=deliverables/h06/ui90-04b-left-01-spotcheck-2026-11-01.md；相对 .user-operations-filters Left/Top 与 DFM 108/183/385/431、Top 6/37 精确一致；主控宽 196、filters 高 81 守恒（1440/1024/861）；FIX-03 未回归；仅条件区内命名 absolute；无全页/header absolute、无表列 Width、无 Go/022/ICD/Dict/新 search API；**明确不签 90%**；未 SCORE；tipBaseline 159a309；开工 tip 2fb9c4a；关片前已普通 push 抽验 tip；origin 关片前 0/0；禁 force/reset"
+    },
+    {
+      "status": "done",
+      "summary": "UI90-04B-LEFT-02 用户操作日志页 header 返回/检索/导出相对 Left 薄首片（pnlHeader；H05；不签 90%）",
+      "timing": "完成：2026-11-01 08:17 Asia/Shanghai；H05 实现 tip **ef46286**（全 ef4628631225c1ff37ed606ebb9b29e04524c832）；交付=deliverables/h05/ui90-04b-left-02-2026-11-01.md + deliverables/h05/ui90-04b-left-02/；H06 抽验 tip **44d330d**（全 44d330d576c97b3e175370fcdac4672ea11ddb95）建议通过；spotcheck=deliverables/h06/ui90-04b-left-02-spotcheck-2026-11-01.md；相对 header：returnL=15、titleL=110、searchR=105、exportR=9、headerH=45、btnH=30（1440/1024/861）；LEFT-01 filters 108/183/385/431 + Top 6/37、196/81 回归过；未改 MasterPanelHeader；无整页壳 absolute、无表列 Width、无新 search API；**明确不签 90%**；未 SCORE；tipBaseline e673055；开工 tip 87ef44f；关片前 ahead≈3（实现+开工+抽验未 push）；禁 force/reset"
+    },
+    {
+      "status": "done",
+      "summary": "UI90-04B-LEFT-03 用户操作日志页壳宽 1008 薄首片（本页壳；H05；不签 90%）",
+      "timing": "完成：2026-11-01 08:31 Asia/Shanghai；H05 实现 tip **f3558a8**（全 f3558a8c9fe3cf82f8bfbd7238967c6510fc0463）；交付=deliverables/h05/ui90-04b-left-03-2026-11-01.md + deliverables/h05/ui90-04b-left-03/；H06 抽验 tip **d6b711f**（全 d6b711fa01a59af446831408941b217d08eba14f）建议通过；spotcheck=deliverables/h06/ui90-04b-left-03-spotcheck-2026-11-01.md；壳宽：桌面 panelW=1008、resultsW=clientW=1006、resultsLeft=1、stackH=126；shellPass/desktopPass/responsivePass=true；LEFT-02 守恒 returnL15/titleL110/searchR105/exportR9、headerH45、btnH30；LEFT-01 守恒 108/183/385/431 + Top 6/37、ctrlW196、filtersH81；仅本页 Vue scoped 壳宽 CSS；未改 AppShell/MasterPanelHeader；script/template 未动；无表列 Width、无新 search API；零 Go/022/ICD/Dict；**明确不签 90%**；未 SCORE；tipBaseline 8695f2a；开工 tip 2304058；关片前 ahead≈3（开工+实现+抽验未 push）；禁 force/reset"
+    },
+    {
+      "status": "in_progress",
+      "summary": "UI90-04B-LEFT-04 用户操作日志页表列 Width 薄首片（DFM 九列命名宽；H05；不签 90%）",
+      "timing": "开工：2026-11-01 08:40 Asia/Shanghai；H05；H14卡 deliverables/h14/ui90-04b-left-04-start-card-2026-11-01.md；tipBaseline **3954ad3**（全 3954ad3fa4a934122651876374d4652925a778c4）；估时 2.7～3.9h；边界=DFM 九列命名 Width 对齐 102/76/123/67/67/324/87/85/75±2（--uol-col-w-*）；ColumnAutoWidth=True 仍以声明 Width 验收；禁发明列 Left；扩展列保留 auto、不删；LEFT-01 filters 108/183/385/431+196/81、LEFT-02 header 15/110/105/9+45/30、LEFT-03 壳1008 守恒；禁全局 AppShell/register-table；禁新 search API；禁签 90%；禁 SCORE；禁 DIAG-AUTOSAVE；禁官方 ICD/Dict/强制编码/022；03b AppShell/SCORE 后置；origin **ahead/behind 0/0**（推债并行普通重试，禁 force）；clone 否；满 3.9h 无 md/列宽测表→停；≥4h 软拆 LEFT-04/04b"
+    }
+  ],
+  "notes": [
+    "后续任务清单（本轮二期收口24/24不计入以下待办，预计时间待业务立项后核定）：",
+    "说明：100患者为API/SQL逐人完整链，非100次人工浏览器录入；来源库只读。有效样本预筛选导致样本排除数0，不证明全源数据无问题。",
+    "说明：现已确认与华易通存在角色拒绝、分院、功能位及默认授权等差异；按已批准二期合同核对，不宣称完整华易通全系统等价。",
+    "说明：2026-10-16 09:09续转时，原本机API/Vite进程已不存在；仅部分最终路由日志写出，不沿用旧PASS。将验证新网站包后记录当前服务状态。",
+    "说明：代码A前两次工具接口超时未交付；UTF8输入修复后的只读AI分析已回传，属于静态意见，非运行验收。",
+    "说明：本轮交付邮件已成功发送；本机网站服务保留在 http://127.0.0.1:8080/login，隔离回归服务收尾后关闭。",
+    "说明：数据库还原任务已完成；代码A目标为 DESKTOP-J31D7MA\\\\SQL2022 的 BHIS，原目标备份保留在 E:\\\\SQLData\\\\BHIS-before-restore-20261016.bak。",
+    "本轮 UI90（用户2026-10-16授权：全部现有菜单UI还原90%以上；历史UI完成项不代表本轮90%验收）：",
+    "说明：指定桌面H01-H14职责汇总、H01当前任务状态、phase1任务看板和STATUS四文件本轮均不存在，待核实；真实执行看板沿用本文件。当前仍无菜单经本轮90%验收，不把历史门诊重构通过冒充90%完成。",
+    "说明：看板HTML每5秒读取JSON；每次进度变化运行sync_progress.py，没有新增周期自动任务。",
+    "说明：UI90本轮五个工作包中，仅估时/拆分报告已交回；实施与90%视觉验收均未完成。47～79人时为H14条件工作量，含实现/联调/合并/复验，不是日历倒计时。H05b门禁未满足，不启用。",
+    "说明：UI90统一队列=deliverables/h01/ui90/execution-queue.md；21唯一页面分类A11/B5/C5，共享主菜单外围作为第22独立验收对象。UI90已验收>=90%页面数仍为0；历史完成数不作为本轮进度。",
+    "说明：H06日志独立GET用户/日期筛选与空态通过，发现标题56/筛选87/控件40高的P2；已增强组件局部CSS优先级并隐藏标题重复说明，H01重跑真实路由三视口0错误/0溢出，待H06最终尺寸复验。A模型网络阻塞未解除，未记成功交付。",
+    "说明：密码正在按完整窗体差异继续收口，已用真实HTML模态框与原版标题/标签/系统色alpha资源补足；保留安全提示可访问描述，原脚本校验重登不变；H06复验重算中，旧评分不可当最新达标结论。",
+    "说明：最新4文件版npm check exit0；npm build exit0，dist index-5zcqrPvu.css/index-DBtLsHeZ.js，既有chunk提示保留；密码及日志Playwright三视口exit0/无错误无横溢出。H06初版评分均未90%，原权重和分母固定，不倒推凑分。",
+    "看板展示改版：已修改真实生成源 sync_progress.py 并运行SYNC_OK；任务看板.html现为主表格+全部/已完成/未完成（含进行中）/进行中筛选，localStorage保留选择，5秒刷新不重置，窄屏表格横向滚动；不改任务数据含义。子进程board_table工具阻塞，由H01按授权接手落地，待其可用性记录为阻塞。",
+    "看板筛选改版验证状态：生成源已改并SYNC_OK；H06独占模板验证待回。H01不再直接改任务看板.html，避免与H06冲突。",
+    "收费页实质修改证据：ChargeView.vue 已增加 UI2.0 ClinicChargeFrm 局部视觉层（47px检索条、原生灰色/宋体、表格列边框与金额右对齐、结算区/按钮尺寸），npm check与build均通过；H06收费整页复验已派达，待评分报告。",
+    "H06收费复验：已再次派达并要求真实三视口只读证据，当前报告文件尚未落盘，不能记完成；工具忙碌状态待回报。",
+    "H01收费真实路由首证据：verify-charge.cjs 登录system/1后只读访问 /app/outpatient/charge，1440 viewport pageerror0/overflow=false；UI2局部charge-search高48（目标47，+1px），现有按钮待收结算/已收查询/检索/查询，截图 charge-1440.png、JSON charge-browser.json。H06完整量表复验待回，未签90。",
+    "H06收费复验已交付 deliverables/h06/ui90-charge-review-2026-10-16.md：真实AppShell三视口无错误/溢出，search桌面48（目标47）/390为86响应式；空态未证实明细列/金额汇总/支付按钮，固定100分整页19.125～80.833，未签90。截图 ui90-charge-{1440,1024,390}.png。",
+    "收费下一步明确：H06报告要求只读fixture/隔离数据渲染候选、明细、结算区，禁止真实支付/退费；H01将先用现有mock API/隔离数据建立取证，不伪造业务结果，再按固定100分矩阵复验。当前收费整页19.125～80.833，未验收。",
+    "UI90-04E fixture取证进行中：临时Vite mock服务 127.0.0.1:5174（session=44690）已启动；verify-charge-mock.cjs 已落盘但system/1演示角色无收费权限，改写sessionStorage后路由守卫仍拒绝，未取得数据态截图；未触发收费/退费写请求。阻塞=需隔离fixture注入有效CASHIER演示会话或由H06提供现有fixture入口；生产源码/权限未改。",
+    "M0（2026-10-31）：已把 10-19 后本机闭合 acceptance 同步进看板 done：挂号错误023、医生队列/四处UI/错误弹框/已存处方、全站右键、号源卡+控件收口、以及本 M0 盘点。REG-PATIENT / UI90-* / OUT-REG-GENTRON（待推送）/ 合同外延域仍 pending。",
+    "10-19后已交付清单（acceptance）：register-error-20261021；doctor-queue-20261021；doctor-ui-four-adjustments-20261021；error-dialog-20261021；doctor-saved-prescriptions-20261021；global-context-menu-20261022；register-slot-card-20261028；register-slot-card-controls-20261029。另有规划类：phase2-plan / h02|h03 plan-input / 改造建议报告。",
+    "Git 盘点（禁 reset）：分支=codex/register-slot-card-20261028；HEAD=7f86086；local main/remotes origin+syncproxy main=1ad01de（HEAD 祖先）；porcelain≈449（M≈154 U≈315 D≈2）；建议=按任务分批提交、暂不整仓提交、推送须用户授权。",
+    "演示：http://127.0.0.1:8888/login HTTP200；GET /health status=ok driver=sqlserver version/contract/implemented=0.3.11-draft；Host PID 101852 E:\\B-HIS\\bin\\b-his-host.exe。已知债：docs/contracts/README 仍写 0.3.10-draft（与 tip/openapi/health 漂移）。",
+    "H01 核验（2026-10-31 12:51）：REG-UI-FOLD-01=a87328e done；P0-A-CONTEXT-01=d3c24cf done；REG-DOC-01=4cf1d5e 补记；REG 线保持有条件完成；origin/codex/register-slot-card-20261028 tip=d3c24cf；gitlab 仍不通；下一步可派 P0-B∥C（H14 估时 B 5–8h≥4h 须再过 H14 确认拆法；C 4–7h≥4h 同）。证据=deliverables/h01/h05-p0a-fold-verify-2026-10-31.md",
+    "H01 核验（2026-10-31 13:15）：P0-B-QUEUE-01=ddab6df done；origin/codex tip=ddab6df；本机 node check-outpatient-queue-p0.mjs → P0_B_QUEUE_CHECK_OK exit 0；关键文件齐全；current=等 P0-C-STATUS-01；证据=deliverables/h01/p0-b-verify-2026-10-31.md；未跑 sync_progress.py",
+    "2026-10-31 13:25 H01：P0-C-STATUS-01 核验 pass（421c86f/192faf6）；check-outpatient-status-chain + context-p0 exit 0；未改 Queue/OpenAPI/Go；git push origin 失败 Unable to access github.com:443；看板→准备 P0-D；未跑 sync_progress.py",
+    "H01（2026-10-31 13:26）：P0-D 拆为首片 P0-D1-REGISTER-FEEDBACK-01 in_progress 派 H05；H14卡 deliverables/h14/p0-d1-register-feedback-start-card-2026-10-31.md；估时 2～3.5h；基线 tip 192faf6；origin 债照旧；counts 仍 52/17/69（in_progress 计入 pending）；未跑 sync_progress.py",
+    "H01 核验（2026-10-31 14:15）：P0-D1-REGISTER-FEEDBACK-01=pass；feat=0036456 tip=32718ed；check-register-submit-feedback.mjs → P0_D1_REGISTER_FEEDBACK_OK exit 0；git push origin 失败 Recv failure Connection was reset（exit 128）；看板→等 H14·P0-D2；counts 53/16/69（77%）；共享反馈原语可视为稳定（挂号线已接线+专项 harness）；证据=deliverables/h01/p0-d1-verify-2026-10-31.md；未跑 sync_progress.py",
+    "H01（2026-10-31 14:18）：P0-D2-DIAGNOSIS-FEEDBACK-01 in_progress 派 H05；H14卡 deliverables/h14/p0-d2-diagnosis-feedback-start-card-2026-10-31.md；估时 2～3.5h；基线 tip 32718ed；origin 债照旧（ahead 6）；counts 53/17/70（76%；in_progress 计入 pending）；未跑 sync_progress.py；未改业务源码",
+    "H01 核验（2026-10-31 14:35）：P0-D2-DIAGNOSIS-FEEDBACK-01=pass；feat=4c8ceb1 tip=6e28083；D2+D1 harness exit 0；ls-remote origin tip=6e28083 ahead 0；看板→等 H14·P0-D3 Order；counts 54/16/70（77%）；证据=deliverables/h01/p0-d2-verify-2026-10-31.md；未跑 sync_progress.py",
+    "H01（2026-10-31 14:39）：P0-D3-ORDER-FEEDBACK-01 in_progress 派 H05；H14卡 deliverables/h14/p0-d3-order-feedback-start-card-2026-10-31.md；估时 2～3.5h；基线 tip 6e28083；origin tip=6e28083 ahead 0；counts 54/17/71（76%；in_progress 计入 pending）；未跑 sync_progress.py；未改业务源码",
+    "H01（2026-10-31 14:54）：P0-D4-CHARGE-FEEDBACK-01 in_progress 派 H05；H14卡 deliverables/h14/p0-d4-charge-feedback-start-card-2026-10-31.md；估时 2～3.5h；基线 tip d5240c1；origin tip=6e28083 ahead 1；counts 55/17/72（76%；in_progress 计入 pending）；未跑 sync_progress.py；未改业务源码",
+    "H01 核验（2026-10-31 15:16）：P0-D4-CHARGE-FEEDBACK-01=pass；feat/tip=7473271；ls-remote origin tip=7473271 ahead 0；charge+register+diagnosis+order harness 四绿；禁区未触；看板→等 H14·P0-D5 Dispense；counts 56/16/72（78%）；证据=deliverables/h01/p0-d4-verify-2026-10-31.md；未跑 sync_progress.py",
+    "H01 核验（2026-10-31 15:24）：P0-D5-DISPENSE-FEEDBACK-01=pass；feat/tip=4e4b856；ls-remote origin tip=4e4b856 ahead 0；dispense+register+diagnosis+order+charge 五 harness 全绿；禁区未触（仅 DispenseView/dispenseApi/mockDispenses/feedback 薄扩/harness/交付）；**包 D 串行结束**；看板→等 H14·P0-E 集成复验；counts 57/16/73（78%）；证据=deliverables/h01/p0-d5-verify-2026-10-31.md；未跑 sync_progress.py",
+    "H01（2026-10-31 15:27）：P0-E-INTEGRATION-01/Ea（H05）in_progress；H14卡 deliverables/h14/p0-e-integration-start-card-2026-10-31.md；估时 2.5～3.5h；基线 tip 4e4b856；后续 Eb=H06+H18；counts 57/17/74（77%；in_progress 计入 pending）；未跑 sync_progress.py；未改业务源码",
+    "H01 核验（2026-10-31 15:40）：P0-E-INTEGRATION-01/Ea=pass；feat=edd10e1 tip=9786182；ls-remote origin tip=9786182 ahead 0；抽跑 C1+D5+SMOKE 三绿；交付 md 含 A1/A2/B1/C1/D1–D5/SMOKE 与 M1 四条；看板→P0-E/Eb（H06+H18）in_progress；counts 58/17/75（77%）；证据=deliverables/h01/p0-e-ea-verify-2026-10-31.md；未跑 sync_progress.py；未改业务源码",
+    "H01（2026-10-31 15:42）：P0-E/Eb-H06→done（H06 建议通过；证据 deliverables/h06/p0-e-integration-review-2026-10-31.md）；current=等 H18 文档门禁；债记：旧 check-usability-mock-chain vs D5 非阻塞清理；counts 59/17/76（78%；in_progress 计入 pending）；未跑 sync_progress.py；未改业务源码",
+    "H01 收口（2026-10-31 17:33 Asia/Shanghai）：P0-E-INTEGRATION-01/Eb-H18=通过 tip **649cb13**；整片 P0-E-INTEGRATION-01=done；P0/M1 门诊共享基础 A～D 收口（看板无独立 P0/M1 汇总项，以 Ea+Eb-H06+Eb-H18 全 done 计）；current=idle 下一刀待 H14 估 P1；origin ahead 1 push 债（443）；counts 60/16/76（79%；in_progress 计入 pending）；未跑 sync_progress.py；未改业务源码；未 git commit/push/reset",
+    "H01（2026-10-31 17:36）：P1-PRINT-STATUS-01 → in_progress（H05；H14卡 deliverables/h14/p1-first-slice-start-card-2026-10-31.md；基线 tip 649cb13；估时 2.5～3.5h；H05b=否）；counts 60/17/77（78%；in_progress 计入 pending）；P0/M1 已收口；origin ahead 1 债保留；mock-chain 债保留；未跑 sync_progress.py；未改业务源码；未 git commit/push/reset",
+    "H01 收口（2026-10-31 18:00 Asia/Shanghai）：P1-PRINT-STATUS-01=done tip **c2589d7**；feat=`feat(h05): P1-PRINT-STATUS-01 order print status track`；5 文件；print+order-feedback harness 双绿；current=idle 待 H14 估 P1-ORDER-FIND-01；origin ahead 2 push 债（443）；mock-chain 债保留；P0/M1 仍 done；counts 61/16/77（79%；in_progress 计入 pending）；未跑 sync_progress.py；未改业务源码；未 git commit/push/reset",
+    "H01（2026-10-31 18:01）：P1-ORDER-FIND-01 → in_progress（H05；H14卡 deliverables/h14/p1-order-find-01-start-card-2026-10-31.md；基线 tip c2589d7；估时 2.5～3.5h；H05b=否）；P1-PRINT-STATUS-01 保持 done tip c2589d7；counts 61/17/78（78%；in_progress 计入 pending）；origin ahead 2 债保留；mock-chain 债保留；未跑 sync_progress.py；未改业务源码；未 git commit/push/reset",
+    "H01 收口（2026-10-31 18:06 Asia/Shanghai）：P1-ORDER-FIND-01=done tip **8865146**；feat=feat(h05): P1-ORDER-FIND-01 catalog tab and keyword find；5 文件；item+submit-feedback+print harness 三绿；current=idle 待 H14 估 P1-DIAG-RESUME-01；origin ahead 3 push 债（443）；mock-chain 债保留；P0/M1 仍 done；counts 62/16/78（79%；in_progress 计入 pending）；未跑 sync_progress.py；未改业务源码；未 git commit/push/reset",
+    "H01（2026-10-31 18:10 Asia/Shanghai）：P1-DIAG-RESUME-01 → in_progress（H05；H14卡 deliverables/h14/p1-diag-resume-01-start-card-2026-10-31.md；基线 tip 8865146；估时 2.5～3.5h；H05b=否；草稿=服务端 SAVE）；P1-ORDER-FIND-01 保持 done tip 8865146；counts 62/17/79（78%；in_progress 计入 pending）；origin ahead 3 债保留；mock-chain 债保留；未跑 sync_progress.py；未改业务源码；未 git commit/push/reset",
+    "H01 收口（2026-10-31 18:14 Asia/Shanghai）：P1-DIAG-RESUME-01=done tip **5fa6b06**；feat=feat(h05): P1-DIAG-RESUME-01 dirty guard and leave confirm；4 文件；resume+D2 harness 双绿；H01 薄冒烟 print/find/D3 亦绿；**P1 三刀薄包 done**（PRINT→FIND→DIAG-RESUME tip 5fa6b06；看板无独立「P1 三刀薄包」项，不新建）；current=idle 待 H14/用户定下一刀（ICD·常用 vs 暂停）；origin ahead 4 push 债（443）；mock-chain 债保留；P0/M1 仍 done；counts 63/16/79（80%；in_progress 计入 pending）；未跑 sync_progress.py；未改业务源码；未 git commit/push/reset",
+    "H01（2026-10-31 19:36 Asia/Shanghai）：用户选定续 ICD/常用 → H14 首片 P1-DIAG-COMMON-01 → in_progress 派 H05；H14卡 deliverables/h14/p1-diag-common-01-start-card-2026-10-31.md；基线 tip 5fa6b06；估时 2～3.5h；H05b=否；禁扩 ICD/Order 常用/022；次刀 ICD 待合入本片后；origin ahead 4 债保留；mock-chain 债保留；counts 63/17/80（79%；in_progress 计入 pending）；未跑 sync_progress.py；未改业务源码；未 git commit/push/reset",
+    "H01（2026-10-31 20:04 Asia/Shanghai）：用户请 H14 估 P1 下一刀 → 首推 P1-ORDER-COMMON-01 → in_progress 派 H05；H14卡 deliverables/h14/p1-order-common-01-start-card-2026-10-31.md；基线 tip 4243b19；估时 2.5～3.5h；对标 DIAG-COMMON；零新 API；禁 ICD/Dict/022/回改 FIND·PRINT·诊断；H05b=否；origin tip 4243b19 ahead/behind 0/0；mock-chain 债保留；counts 65/17/82（79%；in_progress 计入 pending）；未跑 sync_progress.py；未改业务源码；未 git commit/push/reset",
+    "H01（2026-10-31 20:55 Asia/Shanghai）：origin 已推平 tip **120a409**（4243b19..120a409 → codex/register-slot-card-20261028）；ahead/behind **0/0**；fetch+push 均成功；未 force；dirty 未混入；待命",
+    "H01 收口（2026-11-01 00:05 Asia/Shanghai）：P1-ORDER-RECENT-01=done tip **42f2d09**；feat=feat(h05): P1-ORDER-RECENT-01 recent order item chips；5 文件；recent+common+item-find+print+order-feedback harness 五绿；current=idle 待 Jarvis/H14 定下一刀；origin ahead 1（fetch/push 443 失败）；counts 68/16/84（81%；in_progress 计入 pending）；未跑 sync_progress.py；未改业务源码；未 git commit/reset/force；普通 push 失败记债",
+    "H01 收口（2026-11-01 00:16 Asia/Shanghai）：P1-THIN-SMOKE-01=done tip **42f2d09**；H06 八脚本全绿（diagnosis×4+order×4）；交付 deliverables/h06/p1-thin-smoke-2026-11-01.md；H01 抽查 check-order-recent + check-diagnosis-version-diff 双绿；HEAD 仍 42f2d09；current=idle 待 Jarvis/H14 定下一刀；origin ahead 1 债继续挂（禁 force/reset/push）；counts 69/16/85（81%；in_progress 计入 pending）；未跑 sync_progress.py；未改业务源码；未 git commit/reset/force",
+    "H01（2026-11-01 00:34 Asia/Shanghai）：UI90-04A-EVID-01 → in_progress 派 H06；H14卡 deliverables/h14/ui90-04a-evid-01-start-card-2026-11-01.md；基线 tip 8a71ee4；估时 1.5～2.5h；零业务码、不签 90%；origin ahead 2 push 债继续挂（禁 force/reset/本轮勿 push）；counts 70/17/87（80%；in_progress 计入 pending）；未跑 sync_progress.py；未改业务源码；未 git commit/push/reset",
+    "H01 收口（2026-11-01 00:48 Asia/Shanghai）：UI90-04A-FIX-01=done tip **be229e4**；H05 scoped CSS（2px 边框 + 禁本页 hover/active 动画）；H06 tip **2b69533** 抽验建议通过（probe exit 0）；**明确不签 90%**；current=idle 待 Jarvis/H14 定下一刀；origin 普通 push 后 **0/0**；counts 72/16/88（82%）；未跑 sync_progress.py；未改业务源码；未 git commit/reset/force；关片前普通 push spotcheck tip 成功",
+    "H01（2026-11-01 00:56 Asia/Shanghai）：UI90-04C-REVERIFY-01 → in_progress 派 H06；H14卡 deliverables/h14/ui90-04c-reverify-01-start-card-2026-11-01.md；基线 tip 2b69533；估时 1.5～3.0h；只读复验、不签 90%；origin 0/0；counts 72/17/89（81%；in_progress 计入 pending）；未跑 sync_progress.py；未改业务源码；未 git commit/push/reset",
+    "H01（2026-11-01 01:24 Asia/Shanghai）：UI90-04C-FIX-03 → in_progress 派 H05；H14卡 deliverables/h14/ui90-04c-fix-03-start-card-2026-11-01.md；基线 tip f0aa482；估时 2.0～3.5h；button-edit 薄首片（只读+省略号；复用 fetchUsers；写回 filters.userId）；**明确不签 90%**；不并 FIX-04；不做 SCORE；origin 0/0；counts 74/17/91（81%；in_progress 计入 pending）；未跑 sync_progress.py；未改业务源码；未 git commit/push/reset",
+    "H01 收口（2026-11-01 02:14 Asia/Shanghai）：UI90-04C-FIX-04=done tip **64ec746**；H05 实现 **4b2e605**（两行网格+列宽 token；测宽达标）；H06 tip **64ec746** 抽验建议通过；**明确不签 90%**；未 SCORE；未 absolute Left/04b；current=idle 待 Jarvis/H14 定下一刀；origin 关片前 ahead 1（H06）；counts 76/16/92（83%）；未跑 sync_progress.py；未改业务源码；关片仅看板+STATUS；禁 force/reset",
+    "H01 关片（2026-11-01 07:59 Asia/Shanghai）：UI90-04B-LEFT-01=done tip **61b28b4**（H05 实现 **de00f3e**；H06 抽验 **61b28b4** 建议通过；**明确不签 90%**；未 SCORE）；current=idle 等 Jarvis/H14 代决下一刀；origin 关片前已推平抽验 tip **0/0**；counts 77/16/93（83%）；未跑 sync_progress.py；未改业务源码；关片仅看板+STATUS+bak；禁 force/reset",
+    "H01 关片（2026-11-01 08:17 Asia/Shanghai）：UI90-04B-LEFT-02=done tip **44d330d**（H05 实现 **ef46286**；H06 抽验 **44d330d** 建议通过；**明确不签 90%**；未 SCORE）；current=idle 等 Jarvis/H14 代决下一刀；origin 关片前 ahead≈3（实现 ef46286 + 开工 87ef44f + 抽验 44d330d）；counts 78/16/94（83%）；未跑 sync_progress.py；未改业务源码；关片仅看板+STATUS+bak；禁 force/reset"
+  ]
+}

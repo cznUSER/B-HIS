@@ -1,19 +1,19 @@
 {
-  "updatedAt": "2026-11-01 08:40 Asia/Shanghai",
-  "sourceUpdated": "2026-11-01 08:40 Asia/Shanghai",
+  "updatedAt": "2026-11-01 08:50 Asia/Shanghai",
+  "sourceUpdated": "2026-11-01 08:50 Asia/Shanghai",
   "current": {
-    "task": "UI90-04B-LEFT-04 · UserOperationsLogPanel 表列 Width（H05）",
-    "status": "in_progress",
-    "startedAt": "2026-11-01 08:40 Asia/Shanghai",
-    "duration": "2.7～3.9h",
+    "task": "idle",
+    "status": "idle",
+    "startedAt": "—",
+    "duration": "—",
     "eta": "—",
-    "blocker": "tipBaseline 3954ad3；origin ahead/behind 0/0；DFM 九列命名 Width 对齐 102/76/123/67/67/324/87/85/75±2（--uol-col-w-*）；ColumnAutoWidth=True 仍以声明 Width 验收；禁发明列 Left；Vue 扩展列（结果/请求编号/错误代码）保留 auto、不删；LEFT-01 filters 108/183/385/431+196/81、LEFT-02 header 15/110/105/9+45/30、LEFT-03 壳1008 守恒；禁全局改 AppShell/register-table；禁新 search API；明确不签 90%；不做 SCORE；禁 DIAG-AUTOSAVE/ICD/Dict/强制编码/022；03b AppShell/SCORE 后置；满 3.9h 无 md/列宽测表→停；≥4h 软拆 LEFT-04/04b；origin 推债并行普通重试（禁 force）"
+    "blocker": "等 Jarvis/H14 代决下一刀；UI90-04B-LEFT-04 已关（H05 9e6dcc1；H06 077e3ce 建议通过；残留不挡；不签 90%；未 SCORE）；03b AppShell / SCORE 后置"
   },
   "counts": {
     "total": 96,
-    "done": 79,
-    "pending": 17,
-    "percent": 82
+    "done": 80,
+    "pending": 16,
+    "percent": 83
   },
   "tasks": [
     {
@@ -492,9 +492,9 @@
       "timing": "完成：2026-11-01 08:31 Asia/Shanghai；H05 实现 tip **f3558a8**（全 f3558a8c9fe3cf82f8bfbd7238967c6510fc0463）；交付=deliverables/h05/ui90-04b-left-03-2026-11-01.md + deliverables/h05/ui90-04b-left-03/；H06 抽验 tip **d6b711f**（全 d6b711fa01a59af446831408941b217d08eba14f）建议通过；spotcheck=deliverables/h06/ui90-04b-left-03-spotcheck-2026-11-01.md；壳宽：桌面 panelW=1008、resultsW=clientW=1006、resultsLeft=1、stackH=126；shellPass/desktopPass/responsivePass=true；LEFT-02 守恒 returnL15/titleL110/searchR105/exportR9、headerH45、btnH30；LEFT-01 守恒 108/183/385/431 + Top 6/37、ctrlW196、filtersH81；仅本页 Vue scoped 壳宽 CSS；未改 AppShell/MasterPanelHeader；script/template 未动；无表列 Width、无新 search API；零 Go/022/ICD/Dict；**明确不签 90%**；未 SCORE；tipBaseline 8695f2a；开工 tip 2304058；关片前 ahead≈3（开工+实现+抽验未 push）；禁 force/reset"
     },
     {
-      "status": "in_progress",
+      "status": "done",
       "summary": "UI90-04B-LEFT-04 用户操作日志页表列 Width 薄首片（DFM 九列命名宽；H05；不签 90%）",
-      "timing": "开工：2026-11-01 08:40 Asia/Shanghai；H05；H14卡 deliverables/h14/ui90-04b-left-04-start-card-2026-11-01.md；tipBaseline **3954ad3**（全 3954ad3fa4a934122651876374d4652925a778c4）；估时 2.7～3.9h；边界=DFM 九列命名 Width 对齐 102/76/123/67/67/324/87/85/75±2（--uol-col-w-*）；ColumnAutoWidth=True 仍以声明 Width 验收；禁发明列 Left；扩展列保留 auto、不删；LEFT-01 filters 108/183/385/431+196/81、LEFT-02 header 15/110/105/9+45/30、LEFT-03 壳1008 守恒；禁全局 AppShell/register-table；禁新 search API；禁签 90%；禁 SCORE；禁 DIAG-AUTOSAVE；禁官方 ICD/Dict/强制编码/022；03b AppShell/SCORE 后置；origin **ahead/behind 0/0**（推债并行普通重试，禁 force）；clone 否；满 3.9h 无 md/列宽测表→停；≥4h 软拆 LEFT-04/04b"
+      "timing": "完成：2026-11-01 08:50 Asia/Shanghai；H05 实现 tip **9e6dcc1**（全 9e6dcc1198ad85441bddf8d7ab99a4db4237228b）；交付=deliverables/h05/ui90-04b-left-04-2026-11-01.md + deliverables/h05/ui90-04b-left-04/；H06 抽验 tip **077e3ce**（全 077e3ce8af476df0a40b54e2a000a29411d6e37c）建议通过；spotcheck=deliverables/h06/ui90-04b-left-04-spotcheck-2026-11-01.md；九列：桌面≥861 th border-box 精确 102/76/123/67/67/324/87/85/75；colsPass/desktopPass/shellPass/responsivePass=true；扩展列（结果/请求编号/错误代码）仍在 auto；无发明 Left；未删列；LEFT-01：108/183/385/431 + 196/81；LEFT-02：15/110/105/9 h45/btn30；LEFT-03：panelW=1008、resultsLeft=1、stackH=126；仅本页 Vue + H05 交付；script 相对父 tip 逐字节相等；未改 AppShell/全局 register-table；无新 search API；零 Go/022/ICD/Dict；**明确不签 90%**；未 SCORE；残留不挡（H05 md §7 tip 写 5edd5f6 与实际 9e6dcc1 漂移；JSON sourceSha256 ≠ tip Vue SHA-256）；tipBaseline 3954ad3；开工 tip fd358ea；关片前 ahead 1（H06 抽验未 push）；禁 force/reset"
     }
   ],
   "notes": [
