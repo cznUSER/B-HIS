@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>UI90-04E-FIX-01 charge search/shell chrome probe</title>
+<style>
+html,body{margin:0;padding:12px;background:#f3f6f4;font-family:system-ui,sans-serif;color:#203528}
+.shell-main{max-width:1200px;margin:0 auto;padding:16px;background:#eef2ef}
+.button{display:inline-flex;align-items:center;justify-content:center;border:1px solid #8fb9a2;background:#3c8f6c;color:#fff;border-radius:10px;padding:0 18px;height:36px;cursor:pointer;font:inherit}
+.button-compact{}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field > span{font-size:12px;font-weight:600;color:#516860}
+.field input{height:36px;padding:0 10px;border:1px solid #c9d9cf;border-radius:8px;font:inherit}
+.patient-panel{border:1px solid #d8e6dc;border-radius:12px;background:#fff;overflow:hidden}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.panel-head h2{margin:0;font-size:16px}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.demo-chips{display:flex;flex-wrap:wrap;gap:8px}
+.demo-chip{border:1px solid #d5e4da;border-radius:10px;background:#fff;padding:10px 13px}
+</style>
+<link rel="stylesheet" href="./_scoped.css" />
+</head>
+<body>
+<div class="shell-main">
+  <section class="charge-page" data-testid="charge-page" aria-labelledby="charge-title">
+    <h1 id="charge-title" class="sr-only">门诊收费</h1>
+    <div class="charge-workbar" data-testid="charge-workbar">
+      <div class="charge-view-switch" role="group" aria-label="收费工作区">
+        <button type="button" class="is-active" aria-pressed="true">待收结算</button>
+        <button type="button" aria-pressed="false">已收查询 <span>0</span></button>
+      </div>
+      <p class="charge-workbar-note">先核对患者与处方，再确认金额</p>
+    </div>
+    <div class="charge-layout">
+      <section class="patient-panel charge-pending-panel" aria-labelledby="pending-title">
+        <div class="charge-candidate-zone" data-testid="charge-candidate-zone">
+          <div class="panel-head">
+            <div><p class="charge-section-kicker">01 · IDENTIFY</p><h2 id="pending-title">检索待收</h2></div>
+            <span class="charge-counter">0 个候选</span>
+          </div>
+          <form class="charge-search" data-testid="charge-search" onsubmit="return false">
+            <label class="field">
+              <span>患者 / 挂号 / 处方</span>
+              <input name="charge-keyword" autocomplete="off" placeholder="姓名、患者号、挂号号或处方号" />
+            </label>
+            <button class="button button-compact" type="submit">检索</button>
+          </form>
+          <div class="demo-chips" aria-label="患者候选"></div>
+          <p class="charge-candidate-hint">暂无匹配候选，可调整姓名或单号后重新检索。</p>
+        </div>
+      </section>
+    </div>
+  </section>
+</div>
+</body>
+</html>

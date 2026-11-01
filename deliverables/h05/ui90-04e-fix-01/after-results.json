@@ -1,0 +1,93 @@
+{
+  "tipBaseline": "d53c3d3",
+  "slice": "UI90-04E-FIX-01",
+  "note": "isolated chrome fixture; non-live; no pay/refund writes; not SCORE; not 90% sign-off",
+  "allPass": true,
+  "pageerrors": [],
+  "results": [
+    {
+      "viewport": 1440,
+      "pageW": 1008,
+      "pageH": 252,
+      "workbarH": 47,
+      "searchH": 47,
+      "searchW": 962,
+      "zonePadTop": 14,
+      "tokenShell": "1008px",
+      "tokenTop": "47px",
+      "overflow": false,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "buttons": [
+        "待收结算",
+        "已收查询 0",
+        "检索"
+      ],
+      "checks": {
+        "pagePass": true,
+        "workbarPass": true,
+        "searchPass": true,
+        "tokenPass": true,
+        "overflowPass": true
+      },
+      "pass": true,
+      "screenshot": "E:\\B-HIS\\deliverables\\h05\\ui90-04e-fix-01\\after-1440.png"
+    },
+    {
+      "viewport": 1024,
+      "pageW": 944,
+      "pageH": 252,
+      "workbarH": 47,
+      "searchH": 47,
+      "searchW": 898,
+      "zonePadTop": 14,
+      "tokenShell": "1008px",
+      "tokenTop": "47px",
+      "overflow": false,
+      "scrollWidth": 1024,
+      "innerWidth": 1024,
+      "buttons": [
+        "待收结算",
+        "已收查询 0",
+        "检索"
+      ],
+      "checks": {
+        "pagePass": true,
+        "workbarPass": true,
+        "searchPass": true,
+        "tokenPass": true,
+        "overflowPass": true
+      },
+      "pass": true,
+      "screenshot": "E:\\B-HIS\\deliverables\\h05\\ui90-04e-fix-01\\after-1024.png"
+    },
+    {
+      "viewport": 390,
+      "pageW": 310,
+      "pageH": 295,
+      "workbarH": 47,
+      "searchH": 84,
+      "searchW": 272,
+      "zonePadTop": 18,
+      "tokenShell": "1008px",
+      "tokenTop": "47px",
+      "overflow": false,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "buttons": [
+        "待收结算",
+        "已收查询 0",
+        "检索"
+      ],
+      "checks": {
+        "pagePass": true,
+        "workbarPass": true,
+        "searchPass": true,
+        "tokenPass": true,
+        "overflowPass": true
+      },
+      "pass": true,
+      "screenshot": "E:\\B-HIS\\deliverables\\h05\\ui90-04e-fix-01\\after-390.png"
+    }
+  ]
+}

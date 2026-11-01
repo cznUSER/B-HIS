@@ -378,7 +378,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="charge-page" aria-labelledby="charge-title">
+  <section class="charge-page" data-testid="charge-page" aria-labelledby="charge-title">
     <p v-if="!refundOnly" class="crumb">
       <RouterLink :to="{ name: 'home' }">首页</RouterLink>
       <span aria-hidden="true"> / </span>
@@ -391,7 +391,7 @@ onMounted(async () => {
       <template #actions><span class="charge-header-note"><span></span>现金结算</span></template>
     </BusinessPageHeader>
 
-    <div v-if="!refundOnly" class="charge-workbar">
+    <div v-if="!refundOnly" class="charge-workbar" data-testid="charge-workbar">
       <div class="charge-view-switch" role="group" aria-label="收费工作区">
         <button type="button" :class="{ 'is-active': viewMode === 'pending' }" :aria-pressed="viewMode === 'pending'" @click="viewMode = 'pending'">待收结算</button>
         <button type="button" :class="{ 'is-active': viewMode === 'records' }" :aria-pressed="viewMode === 'records'" @click="viewMode = 'records'">已收查询 <span>{{ charges.length }}</span></button>
