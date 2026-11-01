@@ -1,5 +1,4 @@
 <script setup>
-import { useErrorDialog } from '../components/feedback/useErrorDialog.js'
 import { createSubmitFeedback } from '../components/feedback/useSubmitFeedback.js'
 import SubmitStatusBanner from '../components/feedback/SubmitStatusBanner.vue'
 // 2026-10-12 P1-H05-DISPENSE-UI 门诊发药：待发、部分发、退药。
@@ -496,12 +495,6 @@ onMounted(async () => {
   await loadIssued()
 })
 
-useErrorDialog([
-  () => errorMessage.value,
-  () => issuedError.value,
-  () => returnError.value,
-  () => refreshWarning.value,
-])
 </script>
 
 <template>

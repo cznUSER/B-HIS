@@ -1,5 +1,4 @@
 <script setup>
-import { useErrorDialog } from '../components/feedback/useErrorDialog.js'
 import { createSubmitFeedback } from '../components/feedback/useSubmitFeedback.js'
 import SubmitStatusBanner from '../components/feedback/SubmitStatusBanner.vue'
 // 2026-10-15 P2-DIAGNOSIS-UI 诊断工作区：挂号选择、内容保存、提交和作废。
@@ -536,11 +535,6 @@ onBeforeRouteLeave(() => {
   return false
 })
 
-useErrorDialog([
-  () => errorMessage.value,
-  () => registersError.value,
-  () => diagnosesError.value,
-])
 </script>
 
 <template>

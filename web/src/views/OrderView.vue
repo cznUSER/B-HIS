@@ -1,5 +1,4 @@
 <script setup>
-import { useErrorDialog } from '../components/feedback/useErrorDialog.js'
 import { createSubmitFeedback } from '../components/feedback/useSubmitFeedback.js'
 import SubmitStatusBanner from '../components/feedback/SubmitStatusBanner.vue'
 import OrderPrintPanel from '../components/outpatient/OrderPrintPanel.vue'
@@ -698,14 +697,6 @@ watch(() => queryRegisterId(), (id) => {
   loadRegister(id)
 }, { immediate: true })
 
-useErrorDialog([
-  () => errorMessage.value,
-  () => masterError.value,
-  () => registersError.value,
-  () => registerError.value,
-  () => ordersError.value,
-  () => invalidMessage.value,
-])
 </script>
 
 <template>
